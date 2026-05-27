@@ -11,3 +11,4 @@ dist/
 
 backend/.venv/
 secrets/
+secrets.env

@@ -1,15 +1,11 @@
-secrets:
-  kaggle_api_key:
-    file: ./secrets/kaggle_api_key.txt
-
 services:
   backend:
     build: ./backend
     ports: ["8000:8000"]
+    env_file: secrets.env
     environment:
       - MONGO_URI=mongodb://mongodb:27017/football_analytics
       - ALL_PROXY=socks5://tor:9050
-    secrets: [kaggle_api_key]
     depends_on:
       mongodb:
         condition: service_healthy
@@ -39,7 +35,7 @@ services:
     volumes: [mongo_data:/data/db]
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
+      interval: 60s
       timeout: 5s
       retries: 5
       start_period: 10s
