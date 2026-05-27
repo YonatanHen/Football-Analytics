@@ -99,3 +99,21 @@ def test_scatter_data_with_player(client_with_player: TestClient) -> None:
     assert len(data) == 1
     assert data[0]["xg_xa"] == pytest.approx(6.5)
     assert data[0]["g_a"] == pytest.approx(8.0)
+
+
+def test_list_players_filter_by_name_partial(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?name=Test")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_list_players_filter_by_name_case_insensitive(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?name=test+player")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_list_players_filter_by_name_no_match(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?name=Nonexistent")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 0

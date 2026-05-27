@@ -4,6 +4,7 @@ from typing import Optional
 
 @dataclass
 class Stats:
+    """Raw performance statistics for one competition or aggregated across competitions."""
     goals: int = 0
     assists: int = 0
     xg: float = 0.0
@@ -24,6 +25,7 @@ class Stats:
 
 @dataclass
 class Score:
+    """Fantasy score for one competition, broken into offensive/defensive/tactical dimensions."""
     offensive: float
     defensive: float
     tactical: float
@@ -32,6 +34,7 @@ class Score:
 
 @dataclass
 class CompetitionEntry:
+    """Stats and scores for a player in a single competition."""
     competition: str
     stats: Stats
     scores: Score
@@ -39,6 +42,7 @@ class CompetitionEntry:
 
 @dataclass
 class AggregatedScores:
+    """Season-level fantasy scores summed across all competitions, plus sleeper classification."""
     offensive: float
     defensive: float
     tactical: float
@@ -49,6 +53,7 @@ class AggregatedScores:
 
 @dataclass
 class PlayerDTO:
+    """Complete player record stored in MongoDB and passed between all application layers."""
     sofascore_player_id: Optional[str]  # Sofascore numeric ID; None for FBref/Kaggle players
     name: str
     season: str             # "2025-2026"

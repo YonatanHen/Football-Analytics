@@ -1,7 +1,5 @@
 import pandas as pd
 
-# Maps FBref misc stat column names → our internal names.
-# Verify against actual ScraperFC output by inspecting df.columns at runtime.
 _FBREF_COLUMN_MAP = {
     "Player": "player_name",
     "Squad": "team",
@@ -10,10 +8,13 @@ _FBREF_COLUMN_MAP = {
 
 
 class FBrefClient:
-    def fetch_misc(self, competition: str, year: int) -> pd.DataFrame:
+    """Fetches misc stats (penalties won) from FBref via ScraperFC to supplement Sofascore data."""
+
+    def fetch_misc(self, competition: str, season: str) -> pd.DataFrame:
         """Scrape FBref misc stats via ScraperFC and return DataFrame with player_name, team, pk_won."""
         from ScraperFC import FBref  # type: ignore[import]  # lazy: triggers network on import
-        raw: pd.DataFrame = FBref().scrape_stats(competition, year, "misc")
+        result = FBref().scrape_stats(year=season, league=competition, stat_category="misc")
+        raw: pd.DataFrame = result.get("player", pd.DataFrame())
         return self._normalize(raw)
 
     def _normalize(self, raw: pd.DataFrame) -> pd.DataFrame:

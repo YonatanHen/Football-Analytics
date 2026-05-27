@@ -114,3 +114,39 @@ def test_get_scatter_data(repo: MongoRepository) -> None:
     data = repo.get_scatter_data("2025-2026")
     assert len(data) == 1
     assert "name" in data[0]
+
+
+def test_get_players_filter_by_name_exact(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("1"))
+    players, total = repo.get_players(season="2025-2026", name="Test Player")
+    assert total == 1
+    assert players[0].name == "Test Player"
+
+
+def test_get_players_filter_by_name_partial(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("1"))
+    players, total = repo.get_players(season="2025-2026", name="Test")
+    assert total == 1
+
+
+def test_get_players_filter_by_name_case_insensitive(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("1"))
+    _, total = repo.get_players(season="2025-2026", name="test player")
+    assert total == 1
+
+
+def test_get_players_filter_by_name_no_match(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("1"))
+    _, total = repo.get_players(season="2025-2026", name="Nonexistent")
+    assert total == 0
+
+
+def test_get_players_filter_by_name_matches_substring(repo: MongoRepository) -> None:
+    p1 = _make_player("1")
+    p1.name = "Mohamed Salah"
+    p2 = _make_player("2")
+    p2.name = "Salah Mejri"
+    repo.upsert_player(p1)
+    repo.upsert_player(p2)
+    _, total = repo.get_players(season="2025-2026", name="Salah")
+    assert total == 2

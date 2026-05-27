@@ -6,8 +6,9 @@ import PlayerDetail from './pages/PlayerDetail'
 import Compare from './pages/Compare'
 import Sleepers from './pages/Sleepers'
 import ScatterPage from './pages/ScatterPage'
+import LoadData from './pages/LoadData'
 
-type Tab = 'rankings' | 'detail' | 'compare' | 'sleepers' | 'scatter'
+type Tab = 'rankings' | 'detail' | 'compare' | 'sleepers' | 'scatter' | 'load'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'rankings', label: 'Rankings' },
@@ -15,6 +16,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'sleepers', label: 'Sleepers' },
   { id: 'scatter', label: 'Scatter Plot' },
+  { id: 'load', label: 'Load Data' },
 ]
 
 export default function App() {
@@ -71,6 +73,7 @@ export default function App() {
             {tab === 'compare' && <Compare />}
             {tab === 'sleepers' && <Sleepers />}
             {tab === 'scatter' && <ScatterPage />}
+            {tab === 'load' && <LoadData />}
           </>
         )}
       </main>

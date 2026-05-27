@@ -42,6 +42,8 @@ def _aggregate_stats(entries: list[CompetitionEntry]) -> Stats:
 
 
 class FantasyMode(AnalysisMode):
+    """Live scrape mode: fetches Sofascore + FBref per competition, scores players, and upserts to MongoDB."""
+
     def __init__(self, mongo_client: MongoClient) -> None:
         """Wire up all infrastructure clients and domain services."""
         self._repo = MongoRepository(mongo_client)
@@ -57,19 +59,20 @@ class FantasyMode(AnalysisMode):
 
     def fetch_data(self, season: str, competitions: list[str]) -> dict:
         """Scrape Sofascore+FBref for each competition, score all players, upsert, and return scrape log."""
-        year = int(season.split("-")[0])
         player_entries: dict[str, list[CompetitionEntry]] = {}
         player_meta: dict[str, dict] = {}
+        comp_errors: dict[str, str] = {}
 
         for comp in competitions:
             try:
-                ss_df = self._sofascore.fetch(comp, year)
+                ss_df = self._sofascore.fetch(comp, season)
             except Exception as exc:
                 logger.warning("Sofascore fetch failed for %s: %s", comp, exc)
+                comp_errors[comp] = str(exc)
                 continue
 
             try:
-                fb_df = self._fbref.fetch_misc(comp, year)
+                fb_df = self._fbref.fetch_misc(comp, season)
             except Exception as exc:
                 logger.warning("FBref fetch failed for %s: %s", comp, exc)
                 fb_df = pd.DataFrame(columns=["player_name", "team", "pk_won"])
@@ -150,12 +153,15 @@ class FantasyMode(AnalysisMode):
             self._repo.upsert_player(player)
             upserted += 1
 
-        return self._repo.log_scrape(
+        log = self._repo.log_scrape(
             season=season,
             competitions=competitions,
             players_upserted=upserted,
-            status="success",
+            status="success" if not comp_errors else "partial",
         )
+        if comp_errors:
+            log["competition_errors"] = comp_errors
+        return log
 
     def process(self, season: str) -> list[PlayerDTO]:
         """Return all scored players for the given season from MongoDB."""

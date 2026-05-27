@@ -52,6 +52,24 @@ def test_merge_result_has_all_sofascore_columns(merger: PlayerDataMerger) -> Non
         assert col in result.columns
 
 
+def test_merge_normalizes_accents(merger: PlayerDataMerger) -> None:
+    # Sofascore: "Mbappé", FBref: "Mbappe"
+    result = merger.merge(_ss(name="Mbappé"), _fb("Mbappe", pk_won=1))
+    assert result.iloc[0]["pk_won"] == 1
+
+
+def test_merge_normalizes_umlaut(merger: PlayerDataMerger) -> None:
+    # Sofascore: "Müller", FBref: "Muller"
+    result = merger.merge(_ss(name="Müller", team="Bayern Munich"), _fb("Muller", "Bayern Munich", pk_won=2))
+    assert result.iloc[0]["pk_won"] == 2
+
+
+def test_merge_normalizes_sharp_s(merger: PlayerDataMerger) -> None:
+    # Sofascore: "Pascal Groß", FBref: "Pascal Gross"
+    result = merger.merge(_ss(name="Pascal Groß"), _fb("Pascal Gross", pk_won=3))
+    assert result.iloc[0]["pk_won"] == 3
+
+
 def test_merge_multiple_players(merger: PlayerDataMerger) -> None:
     base = _ss().iloc[0].to_dict()
     ss = pd.DataFrame([

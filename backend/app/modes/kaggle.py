@@ -8,6 +8,8 @@ from app.config import settings
 
 
 class KaggleMode(AnalysisMode):
+    """Loads player data from the Kaggle FBref dataset CSV. Fast offline seed — no live scraping."""
+
     def __init__(self, mongo_client: MongoClient) -> None:
         self._repo = MongoRepository(mongo_client)
         self._client = KaggleDatasetClient()

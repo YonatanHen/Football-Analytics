@@ -112,6 +112,8 @@ def _player_from_doc(doc: dict) -> PlayerDTO:
 
 
 class MongoRepository:
+    """All MongoDB I/O for the application: player upserts, queries, and scrape audit logging."""
+
     def __init__(self, client: MongoClient) -> None:
         """Connect to the football_analytics database and ensure indexes exist."""
         self._db = client["football_analytics"]
@@ -120,11 +122,11 @@ class MongoRepository:
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
-        """Create sparse unique index on (sofascore_player_id, season) plus sort indexes."""
-        self._players.create_index(
-            [("sofascore_player_id", ASCENDING), ("season", ASCENDING)],
-            unique=True, sparse=True,
-        )
+        existing = {idx["name"] for idx in self._players.list_indexes()}
+        if "sofascore_player_id_1_season_1" in existing:
+            self._players.drop_index("sofascore_player_id_1_season_1")
+        self._players.create_index([("sofascore_player_id", ASCENDING), ("season", ASCENDING)])
+        self._players.create_index([("name", ASCENDING), ("team", ASCENDING), ("season", ASCENDING)])
         self._players.create_index([("season", ASCENDING)])
         self._players.create_index([("aggregated_scores.s_final", DESCENDING)])
 
@@ -144,6 +146,7 @@ class MongoRepository:
         team: Optional[str] = None,
         nationality: Optional[str] = None,
         sleeper_flag: Optional[str] = None,
+        name: Optional[str] = None,
         sort_by: str = "s_final",
         order: str = "desc",
         page: int = 1,
@@ -159,6 +162,8 @@ class MongoRepository:
             query["nationality"] = nationality
         if sleeper_flag:
             query["aggregated_scores.sleeper_flag"] = sleeper_flag
+        if name:
+            query["name"] = {"$regex": name, "$options": "i"}
 
         sort_field = f"aggregated_scores.{sort_by}" if sort_by == "s_final" else sort_by
         sort_dir = DESCENDING if order == "desc" else ASCENDING

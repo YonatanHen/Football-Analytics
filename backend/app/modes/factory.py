@@ -5,6 +5,8 @@ from app.modes.kaggle import KaggleMode
 
 
 class ModeFactory:
+    """Creates AnalysisMode instances by name. Add new modes here and in the create() method."""
+
     def __init__(self, mongo_client: MongoClient) -> None:
         self._mongo_client = mongo_client
 

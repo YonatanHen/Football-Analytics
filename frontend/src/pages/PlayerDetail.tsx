@@ -1,24 +1,38 @@
 import { useState } from 'react'
-import { getPlayer, type Player } from '../api/players'
+import { getPlayers, getPlayer, type Player } from '../api/players'
 import PlayerCard from '../components/PlayerCard'
 
+type SearchState = 'idle' | 'loading' | 'done' | 'error'
+
 export default function PlayerDetail() {
-  const [playerId, setPlayerId] = useState('')
-  const [player, setPlayer] = useState<Player | null>(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<Player[]>([])
+  const [selected, setSelected] = useState<Player | null>(null)
+  const [state, setState] = useState<SearchState>('idle')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
   const search = async () => {
-    if (!playerId.trim()) return
-    setLoading(true)
+    const q = query.trim()
+    if (!q) return
+    setState('loading')
     setError('')
+    setSelected(null)
     try {
-      setPlayer(await getPlayer(playerId.trim()))
+      const r = await getPlayers({ name: q, page_size: 20 })
+      setResults(r.data)
+      setState('done')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Not found')
-      setPlayer(null)
-    } finally {
-      setLoading(false)
+      setError(e instanceof Error ? e.message : 'Search failed')
+      setState('error')
+    }
+  }
+
+  const selectPlayer = async (p: Player) => {
+    if (!p.sofascore_player_id) { setSelected(p); return }
+    try {
+      setSelected(await getPlayer(p.sofascore_player_id))
+    } catch {
+      setSelected(p)
     }
   }
 
@@ -27,11 +41,11 @@ export default function PlayerDetail() {
       <h1 className="text-xl font-bold mb-4">Player Detail</h1>
       <div className="flex gap-2 mb-6">
         <input
-          value={playerId}
-          onChange={(e) => setPlayerId(e.target.value)}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && search()}
-          placeholder="Player ID…"
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-60"
+          placeholder="Search player name…"
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-64"
         />
         <button
           onClick={search}
@@ -40,9 +54,48 @@ export default function PlayerDetail() {
           Search
         </button>
       </div>
-      {loading && <div className="text-gray-400">Loading…</div>}
-      {error && <div className="text-red-400">{error}</div>}
-      {player && <PlayerCard player={player} />}
+
+      {state === 'loading' && <div className="text-gray-400 text-sm">Searching…</div>}
+      {state === 'error' && <div className="text-red-400 text-sm">{error}</div>}
+
+      {state === 'done' && results.length === 0 && (
+        <div className="text-gray-400 text-sm">No players found for "{query}".</div>
+      )}
+
+      {state === 'done' && results.length > 0 && !selected && (
+        <div className="bg-gray-900 rounded-lg overflow-hidden">
+          {results.map((p) => (
+            <button
+              key={p.sofascore_player_id ?? p.name}
+              onClick={() => selectPlayer(p)}
+              className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-800 border-b border-gray-800 last:border-0 text-left"
+            >
+              {p.photo_url && (
+                <img src={p.photo_url} alt={p.name} className="w-8 h-8 rounded-full object-cover bg-gray-700 flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm">{p.name}</div>
+                <div className="text-xs text-gray-400">{p.position_exact} · {p.team} · {p.nationality}</div>
+              </div>
+              <div className="text-indigo-300 font-mono text-sm flex-shrink-0">
+                {p.aggregated_scores.s_final.toFixed(2)}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selected && (
+        <div>
+          <button
+            onClick={() => setSelected(null)}
+            className="text-sm text-gray-400 hover:text-gray-200 mb-4"
+          >
+            ← Back to results
+          </button>
+          <PlayerCard player={selected} />
+        </div>
+      )}
     </div>
   )
 }

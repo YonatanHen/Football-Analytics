@@ -1,11 +1,19 @@
+import unicodedata
 import pandas as pd
 
 
 def _normalize(s: object) -> str:
-    return str(s).lower().strip()
+    text = str(s).lower().strip()
+    text = text.replace('ß', 'ss')
+    return ''.join(
+        c for c in unicodedata.normalize('NFKD', text)
+        if unicodedata.category(c) != 'Mn'
+    )
 
 
 class PlayerDataMerger:
+    """Joins FBref penalty data onto a Sofascore DataFrame, matching players by normalised name and team."""
+
     def merge(self, sofascore_df: pd.DataFrame, fbref_df: pd.DataFrame) -> pd.DataFrame:
         """Join FBref pk_won onto the Sofascore DataFrame by normalized name+team."""
         ss = sofascore_df.copy()

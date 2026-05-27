@@ -1,29 +1,26 @@
 import pandas as pd
 
-# Maps ScraperFC Sofascore column names → our internal names.
-# Verify/adjust against actual ScraperFC output by inspecting df.columns at runtime.
+# Maps ScraperFC Sofascore output column names → our internal names.
 _COLUMN_MAP = {
-    "id": "sofascore_player_id",
-    "name": "name",
+    "player id": "sofascore_player_id",
+    "player": "name",
     "team": "team",
     "goals": "goals",
-    "goalAssist": "assists",
+    "assists": "assists",
     "expectedGoals": "xg",
     "expectedAssists": "xa",
     "minutesPlayed": "minutes",
     "cleanSheet": "clean_sheets",
-    "savedPenalty": "pk_saved",
-    "scoredPenalty": "pk_scored",
-    "penaltyTaken": "pk_taken",
+    "penaltySave": "pk_saved",
+    "penaltyWon": "pk_won",
+    "penaltyGoals": "pk_scored",
+    "penaltiesTaken": "pk_taken",
     "yellowCards": "yellow_cards",
     "redCards": "red_cards",
-    "foulCommitted": "fouls_committed",
+    "fouls": "fouls_committed",
     "rating": "rating",
-    "bigChanceCreated": "big_chances_created",
-    "keyPass": "key_passes",
-    "playerNationalityName": "nationality",
-    "playerPosition": "position_exact",
-    "playerPhotoUrl": "photo_url",
+    "bigChancesCreated": "big_chances_created",
+    "keyPasses": "key_passes",
 }
 
 _POSITION_MAP: dict[str, str] = {
@@ -35,16 +32,19 @@ _POSITION_MAP: dict[str, str] = {
 
 _NUMERIC_COLS = [
     "goals", "assists", "xg", "xa", "minutes", "clean_sheets",
-    "pk_saved", "pk_scored", "pk_taken", "yellow_cards", "red_cards",
+    "pk_saved", "pk_won", "pk_scored", "pk_taken", "yellow_cards", "red_cards",
     "fouls_committed", "rating", "big_chances_created", "key_passes",
 ]
 
 
 class SofascoreClient:
-    def fetch(self, competition: str, year: int) -> pd.DataFrame:
+    """Fetches player league stats from Sofascore via ScraperFC and normalises them to internal column names."""
+
+    def fetch(self, competition: str, season: str) -> pd.DataFrame:
         """Scrape player league stats from Sofascore via ScraperFC and return normalized DataFrame."""
         from ScraperFC import Sofascore  # type: ignore[import]  # lazy: triggers network on import
-        raw: pd.DataFrame = Sofascore().scrape_player_league_stats(competition, year)
+        year = _season_to_sofascore_year(season)
+        raw: pd.DataFrame = Sofascore().scrape_player_league_stats(year=year, league=competition)
         return self._normalize(raw)
 
     def _normalize(self, raw: pd.DataFrame) -> pd.DataFrame:
@@ -71,3 +71,9 @@ class SofascoreClient:
                 df[col] = ""
 
         return df
+
+
+def _season_to_sofascore_year(season: str) -> str:
+    """Convert "2025-2026" → "25/26" for ScraperFC Sofascore year format."""
+    parts = season.split("-")
+    return f"{parts[0][2:]}/{parts[1][2:]}"

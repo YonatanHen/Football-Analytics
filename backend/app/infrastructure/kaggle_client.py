@@ -68,8 +68,13 @@ def _aggregate_stats(entries: list[CompetitionEntry]) -> Stats:
 
 class KaggleDatasetClient:
     def download(self, api_key: str) -> Path:
-        """Download the Kaggle dataset using the provided API token and return path to CSV."""
-        os.environ["KAGGLE_TOKEN"] = api_key
+        """Download the Kaggle dataset. Auth via KAGGLE_API_TOKEN env var per kagglehub docs."""
+        import kagglesdk.kaggle_env as _kenv
+        if not hasattr(_kenv, "get_web_endpoint"):
+            _kenv.get_web_endpoint = _kenv.get_endpoint
+
+        os.environ["KAGGLE_API_TOKEN"] = api_key
+
         import kagglehub
         dataset_path = kagglehub.dataset_download(_DATASET)
         csv_files = list(Path(dataset_path).rglob("*.csv"))
