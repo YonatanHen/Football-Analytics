@@ -1,4 +1,10 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+
+def _read_secret(name: str) -> str:
+    path = Path(f"/run/secrets/{name}")
+    return path.read_text().strip() if path.exists() else ""
 
 
 class Settings(BaseSettings):
@@ -16,6 +22,10 @@ class Settings(BaseSettings):
     kaggle_api_key: str = ""
 
     model_config = {"env_file": ".env"}
+
+    def model_post_init(self, __context: object) -> None:
+        if not self.kaggle_api_key:
+            self.kaggle_api_key = _read_secret("kaggle_api_key")
 
 
 settings = Settings()

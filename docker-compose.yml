@@ -1,16 +1,18 @@
+secrets:
+  kaggle_api_key:
+    file: ./secrets/kaggle_api_key.txt
+
 services:
   backend:
     build: ./backend
     ports: ["8000:8000"]
     environment:
       - MONGO_URI=mongodb://mongodb:27017/football_analytics
-      - SEASON=2025-2026
       - ALL_PROXY=socks5://tor:9050
-      - COMPETITIONS_FILE=/app/competitions.yaml
+    secrets: [kaggle_api_key]
     depends_on: [mongodb, tor]
     volumes:
       - ./backend:/app
-      - ./competitions.yaml:/app/competitions.yaml
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
