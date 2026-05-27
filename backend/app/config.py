@@ -13,6 +13,8 @@ class Settings(BaseSettings):
         "France Ligue 1",
     ]
 
+    kaggle_api_key: str = ""
+
     model_config = {"env_file": ".env"}
 
 

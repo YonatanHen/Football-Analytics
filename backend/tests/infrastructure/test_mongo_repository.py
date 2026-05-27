@@ -10,7 +10,7 @@ def _make_player(player_id: str = "123", season: str = "2025-2026") -> PlayerDTO
     stats = Stats(goals=5, assists=3, xg=4.0, xa=2.5, minutes=900)
     score = Score(offensive=35.5, defensive=0.0, tactical=1.0, s_final=4.06)
     return PlayerDTO(
-        player_id=player_id,
+        sofascore_player_id=player_id,
         name="Test Player",
         season=season,
         position="FW",
@@ -33,7 +33,7 @@ def test_upsert_and_get_player(repo: MongoRepository) -> None:
     repo.upsert_player(_make_player("123", "2025-2026"))
     result = repo.get_player("123", "2025-2026")
     assert result is not None
-    assert result.player_id == "123"
+    assert result.sofascore_player_id == "123"
     assert result.name == "Test Player"
     assert result.aggregated_stats.goals == 5
     assert result.aggregated_scores.sleeper_flag == "HIGH_VALUE"
@@ -61,7 +61,7 @@ def test_get_players_filter_by_position(repo: MongoRepository) -> None:
     repo.upsert_player(gk)
     players, total = repo.get_players(season="2025-2026", position="GK")
     assert total == 1
-    assert players[0].player_id == "2"
+    assert players[0].sofascore_player_id == "2"
 
 
 def test_get_players_filter_by_team(repo: MongoRepository) -> None:

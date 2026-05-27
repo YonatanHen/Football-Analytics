@@ -9,7 +9,7 @@ router = APIRouter()
 
 
 class ScatterPoint(BaseModel):
-    player_id: str; name: str; position: str
+    sofascore_player_id: Optional[str]; name: str; position: str
     xg_xa: float; g_a: float
 
 
@@ -28,7 +28,7 @@ def scatter_data(
     for doc in raw:
         agg = doc.get("aggregated_stats", {})
         points.append(ScatterPoint(
-            player_id=doc.get("player_id", ""),
+            sofascore_player_id=doc.get("sofascore_player_id"),
             name=doc.get("name", ""),
             position=doc.get("position", ""),
             xg_xa=float(agg.get("xg", 0)) + float(agg.get("xa", 0)),

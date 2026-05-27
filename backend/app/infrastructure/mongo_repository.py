@@ -38,10 +38,9 @@ def _stats_from_dict(d: dict) -> Stats:
 
 
 def _player_to_doc(player: PlayerDTO) -> dict:
-    """Convert a PlayerDTO to a MongoDB document dict; _id is player_id-season."""
+    """Convert a PlayerDTO to a MongoDB document dict (no _id — let MongoDB generate it)."""
     return {
-        "_id": f"{player.player_id}-{player.season}",
-        "player_id": player.player_id,
+        "sofascore_player_id": player.sofascore_player_id,
         "name": player.name,
         "season": player.season,
         "position": player.position,
@@ -91,7 +90,7 @@ def _player_from_doc(doc: dict) -> PlayerDTO:
         ))
     ag = doc["aggregated_scores"]
     return PlayerDTO(
-        player_id=doc["player_id"],
+        sofascore_player_id=doc.get("sofascore_player_id"),
         name=doc["name"],
         season=doc["season"],
         position=doc["position"],
@@ -121,17 +120,22 @@ class MongoRepository:
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
-        """Create compound (player_id, season) unique index plus sort indexes."""
+        """Create sparse unique index on (sofascore_player_id, season) plus sort indexes."""
         self._players.create_index(
-            [("player_id", ASCENDING), ("season", ASCENDING)], unique=True
+            [("sofascore_player_id", ASCENDING), ("season", ASCENDING)],
+            unique=True, sparse=True,
         )
         self._players.create_index([("season", ASCENDING)])
         self._players.create_index([("aggregated_scores.s_final", DESCENDING)])
 
     def upsert_player(self, player: PlayerDTO) -> None:
-        """Insert or replace a player document keyed by player_id + season."""
+        """Insert or update a player document; keyed by sofascore_player_id+season or name+team+season."""
         doc = _player_to_doc(player)
-        self._players.update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
+        if player.sofascore_player_id:
+            filter_ = {"sofascore_player_id": player.sofascore_player_id, "season": player.season}
+        else:
+            filter_ = {"name": player.name, "team": player.team, "season": player.season}
+        self._players.update_one(filter_, {"$set": doc}, upsert=True)
 
     def get_players(
         self,
@@ -169,14 +173,14 @@ class MongoRepository:
         return [_player_from_doc(d) for d in docs], total
 
     def get_player(self, player_id: str, season: str) -> Optional[PlayerDTO]:
-        """Return a single player by ID and season, or None if not found."""
-        doc = self._players.find_one({"player_id": player_id, "season": season})
+        """Return a single player by Sofascore ID and season, or None if not found."""
+        doc = self._players.find_one({"sofascore_player_id": player_id, "season": season})
         return _player_from_doc(doc) if doc else None
 
     def get_scatter_data(self, season: str) -> list[dict]:
         """Return minimal player docs (id, name, position, xg/xa/goals/assists) for scatter chart."""
         projection = {
-            "name": 1, "position": 1, "player_id": 1,
+            "name": 1, "position": 1, "sofascore_player_id": 1,
             "aggregated_stats.xg": 1, "aggregated_stats.xa": 1,
             "aggregated_stats.goals": 1, "aggregated_stats.assists": 1,
             "_id": 0,

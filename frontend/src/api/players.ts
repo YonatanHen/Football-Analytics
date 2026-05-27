@@ -20,7 +20,7 @@ export interface AggregatedScores extends Score {
 }
 
 export interface Player {
-  player_id: string; name: string; season: string
+  sofascore_player_id: string | null; name: string; season: string
   position: string; position_exact: string; team: string; nationality: string
   photo_url: string; competitions: CompetitionEntry[]
   aggregated_stats: Stats; aggregated_scores: AggregatedScores
@@ -32,7 +32,7 @@ export interface PlayerList {
 }
 
 export interface ScatterPoint {
-  player_id: string; name: string; position: string; xg_xa: number; g_a: number
+  sofascore_player_id: string | null; name: string; position: string; xg_xa: number; g_a: number
 }
 
 export interface ScatterData { data: ScatterPoint[] }

@@ -29,7 +29,7 @@ class AggregatedScoresOut(BaseModel):
 
 
 class PlayerOut(BaseModel):
-    player_id: str; name: str; season: str
+    sofascore_player_id: Optional[str]; name: str; season: str
     position: str; position_exact: str; team: str; nationality: str
     photo_url: str; competitions: list[CompetitionOut]
     aggregated_stats: StatsOut; aggregated_scores: AggregatedScoresOut
@@ -45,7 +45,7 @@ def _to_out(p: object) -> PlayerOut:
     from app.domain.models import PlayerDTO
     assert isinstance(p, PlayerDTO)
     return PlayerOut(
-        player_id=p.player_id, name=p.name, season=p.season,
+        sofascore_player_id=p.sofascore_player_id, name=p.name, season=p.season,
         position=p.position, position_exact=p.position_exact,
         team=p.team, nationality=p.nationality, photo_url=p.photo_url,
         competitions=[

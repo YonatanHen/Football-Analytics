@@ -10,7 +10,7 @@ def merger() -> PlayerDataMerger:
 
 def _ss(**kwargs: object) -> pd.DataFrame:
     row: dict = {
-        "player_id": "123", "name": "Bukayo Saka", "team": "Arsenal",
+        "sofascore_player_id": "123", "name": "Bukayo Saka", "team": "Arsenal",
         "nationality": "England", "position": "FW", "position_exact": "RW",
         "photo_url": "https://example.com/p.jpg",
         "goals": 5, "assists": 3, "xg": 4.0, "xa": 2.5, "minutes": 900,
@@ -48,15 +48,15 @@ def test_merge_handles_extra_whitespace(merger: PlayerDataMerger) -> None:
 
 def test_merge_result_has_all_sofascore_columns(merger: PlayerDataMerger) -> None:
     result = merger.merge(_ss(), _fb())
-    for col in ["player_id", "name", "team", "goals", "assists", "xg", "xa", "minutes"]:
+    for col in ["sofascore_player_id", "name", "team", "goals", "assists", "xg", "xa", "minutes"]:
         assert col in result.columns
 
 
 def test_merge_multiple_players(merger: PlayerDataMerger) -> None:
     base = _ss().iloc[0].to_dict()
     ss = pd.DataFrame([
-        {**base, "player_id": "1", "name": "Player A", "team": "Arsenal"},
-        {**base, "player_id": "2", "name": "Player B", "team": "Chelsea"},
+        {**base, "sofascore_player_id": "1", "name": "Player A", "team": "Arsenal"},
+        {**base, "sofascore_player_id": "2", "name": "Player B", "team": "Chelsea"},
     ])
     fb = pd.DataFrame([
         {"player_name": "Player A", "team": "Arsenal", "pk_won": 1},
@@ -64,5 +64,5 @@ def test_merge_multiple_players(merger: PlayerDataMerger) -> None:
     ])
     result = merger.merge(ss, fb)
     assert len(result) == 2
-    assert result[result["player_id"] == "1"].iloc[0]["pk_won"] == 1
-    assert result[result["player_id"] == "2"].iloc[0]["pk_won"] == 3
+    assert result[result["sofascore_player_id"] == "1"].iloc[0]["pk_won"] == 1
+    assert result[result["sofascore_player_id"] == "2"].iloc[0]["pk_won"] == 3

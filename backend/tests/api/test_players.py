@@ -17,7 +17,7 @@ def _make_player(player_id: str = "1", season: str = "2025-2026") -> PlayerDTO:
     stats = Stats(goals=5, assists=3, xg=4.0, xa=2.5, minutes=900)
     score = Score(offensive=35.5, defensive=0.0, tactical=1.0, s_final=4.06)
     return PlayerDTO(
-        player_id=player_id, name="Test Player", season=season,
+        sofascore_player_id=player_id, name="Test Player", season=season,
         position="FW", position_exact="ST", team="Arsenal",
         nationality="England", photo_url="https://example.com/p.jpg",
         competitions=[CompetitionEntry("England Premier League", stats, score)],
@@ -77,7 +77,7 @@ def test_list_players_filter_position(client_with_player: TestClient) -> None:
 def test_get_player_found(client_with_player: TestClient) -> None:
     resp = client_with_player.get("/v1/players/1")
     assert resp.status_code == 200
-    assert resp.json()["player_id"] == "1"
+    assert resp.json()["sofascore_player_id"] == "1"
     assert resp.json()["aggregated_scores"]["sleeper_flag"] == "HIGH_VALUE"
 
 

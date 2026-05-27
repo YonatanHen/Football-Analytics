@@ -42,8 +42,8 @@ export default function PlayerTable({
           <tbody>
             {players.map((p, i) => (
               <tr
-                key={p.player_id}
-                onClick={() => onPlayerClick(p.player_id)}
+                key={p.sofascore_player_id ?? p.name}
+                onClick={() => p.sofascore_player_id && onPlayerClick(p.sofascore_player_id)}
                 className="border-b border-gray-800 hover:bg-gray-800 cursor-pointer"
               >
                 <td className="py-2 pr-4 text-gray-500">{(page - 1) * pageSize + i + 1}</td>

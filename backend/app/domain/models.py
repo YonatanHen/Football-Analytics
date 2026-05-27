@@ -49,7 +49,7 @@ class AggregatedScores:
 
 @dataclass
 class PlayerDTO:
-    player_id: str          # Sofascore numeric ID as string — unique, collision-safe
+    sofascore_player_id: Optional[str]  # Sofascore numeric ID; None for FBref/Kaggle players
     name: str
     season: str             # "2025-2026"
     position: str           # GK | DF | MF | FW

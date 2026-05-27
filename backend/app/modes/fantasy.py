@@ -77,7 +77,7 @@ class FantasyMode(AnalysisMode):
             merged = self._merger.merge(ss_df, fb_df)
 
             for _, row in merged.iterrows():
-                pid = str(row.get("player_id", "")).strip()
+                pid = str(row.get("sofascore_player_id", "")).strip()
                 if not pid:
                     continue
 
@@ -121,7 +121,7 @@ class FantasyMode(AnalysisMode):
             agg_stats = _aggregate_stats(entries)
             agg_score = self._scoring.calculate(agg_stats, meta["position"])
             player = PlayerDTO(
-                player_id=pid,
+                sofascore_player_id=pid,
                 name=meta["name"],
                 season=season,
                 position=meta["position"],

@@ -3,7 +3,7 @@ import pandas as pd
 # Maps ScraperFC Sofascore column names → our internal names.
 # Verify/adjust against actual ScraperFC output by inspecting df.columns at runtime.
 _COLUMN_MAP = {
-    "id": "player_id",
+    "id": "sofascore_player_id",
     "name": "name",
     "team": "team",
     "goals": "goals",
@@ -59,8 +59,8 @@ class SofascoreClient:
         else:
             df["position"] = "MF"
 
-        if "player_id" in df.columns:
-            df["player_id"] = df["player_id"].astype(str)
+        if "sofascore_player_id" in df.columns:
+            df["sofascore_player_id"] = df["sofascore_player_id"].astype(str)
 
         for col in _NUMERIC_COLS:
             if col in df.columns:
