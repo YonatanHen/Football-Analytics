@@ -1,0 +1,24 @@
+competitions:
+  - name: "England Premier League"
+    sofascore_name: "England Premier League"
+    fbref_name: "England Premier League"
+
+  - name: "UEFA Champions League"
+    sofascore_name: "UEFA Champions League"
+    fbref_name: "UEFA Champions League"
+
+  - name: "Spain La Liga"
+    sofascore_name: "Spain La Liga"
+    fbref_name: "Spain La Liga"
+
+  - name: "Germany Bundesliga"
+    sofascore_name: "Germany Bundesliga"
+    fbref_name: "Germany Bundesliga"
+
+  - name: "Italy Serie A"
+    sofascore_name: "Italy Serie A"
+    fbref_name: "Italy Serie A"
+
+  - name: "France Ligue 1"
+    sofascore_name: "France Ligue 1"
+    fbref_name: "France Ligue 1"
