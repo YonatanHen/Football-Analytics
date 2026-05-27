@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getPlayers } from './api/players'
+import SeedPrompt from './components/SeedPrompt'
 import Rankings from './pages/Rankings'
 import PlayerDetail from './pages/PlayerDetail'
 import Compare from './pages/Compare'
@@ -17,6 +19,18 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('rankings')
+  const [isEmpty, setIsEmpty] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    getPlayers({ page_size: 1 })
+      .then(r => setIsEmpty(r.total === 0))
+      .catch(() => setIsEmpty(false))
+  }, [])
+
+  const handleSeeded = () => {
+    setTab('rankings')
+    setIsEmpty(false)
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -38,11 +52,21 @@ export default function App() {
         </div>
       </nav>
       <main className="max-w-7xl mx-auto p-4">
-        {tab === 'rankings' && <Rankings />}
-        {tab === 'detail' && <PlayerDetail />}
-        {tab === 'compare' && <Compare />}
-        {tab === 'sleepers' && <Sleepers />}
-        {tab === 'scatter' && <ScatterPage />}
+        {isEmpty === null && (
+          <div className="flex items-center justify-center min-h-[60vh] text-gray-500 text-sm">
+            Checking database…
+          </div>
+        )}
+        {isEmpty === true && <SeedPrompt onSeeded={handleSeeded} />}
+        {isEmpty === false && (
+          <>
+            {tab === 'rankings' && <Rankings />}
+            {tab === 'detail' && <PlayerDetail />}
+            {tab === 'compare' && <Compare />}
+            {tab === 'sleepers' && <Sleepers />}
+            {tab === 'scatter' && <ScatterPage />}
+          </>
+        )}
       </main>
     </div>
   )
