@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     ]
 
     kaggle_api_key: str = ""
+    cors_origins: list[str] = ["http://localhost:5173"]
 
     model_config = {"env_file": ".env"}
 
