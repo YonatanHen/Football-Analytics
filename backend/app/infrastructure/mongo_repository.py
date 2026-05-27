@@ -8,6 +8,7 @@ from app.domain.models import (
 
 
 def _stats_to_dict(stats: Stats) -> dict:
+    """Serialize a Stats dataclass to a plain dict for MongoDB storage."""
     return {
         "goals": stats.goals, "assists": stats.assists,
         "xg": stats.xg, "xa": stats.xa,
@@ -22,6 +23,7 @@ def _stats_to_dict(stats: Stats) -> dict:
 
 
 def _stats_from_dict(d: dict) -> Stats:
+    """Deserialize a MongoDB document dict back to a Stats dataclass."""
     return Stats(
         goals=d.get("goals", 0), assists=d.get("assists", 0),
         xg=d.get("xg", 0.0), xa=d.get("xa", 0.0),
@@ -36,6 +38,7 @@ def _stats_from_dict(d: dict) -> Stats:
 
 
 def _player_to_doc(player: PlayerDTO) -> dict:
+    """Convert a PlayerDTO to a MongoDB document dict; _id is player_id-season."""
     return {
         "_id": f"{player.player_id}-{player.season}",
         "player_id": player.player_id,
@@ -74,6 +77,7 @@ def _player_to_doc(player: PlayerDTO) -> dict:
 
 
 def _player_from_doc(doc: dict) -> PlayerDTO:
+    """Reconstruct a PlayerDTO from a MongoDB document dict."""
     comps = []
     for c in doc.get("competitions", []):
         s = c["scores"]
@@ -110,12 +114,14 @@ def _player_from_doc(doc: dict) -> PlayerDTO:
 
 class MongoRepository:
     def __init__(self, client: MongoClient) -> None:
+        """Connect to the football_analytics database and ensure indexes exist."""
         self._db = client["football_analytics"]
         self._players: Collection = self._db["players"]
         self._scrape_log: Collection = self._db["scrape_log"]
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
+        """Create compound (player_id, season) unique index plus sort indexes."""
         self._players.create_index(
             [("player_id", ASCENDING), ("season", ASCENDING)], unique=True
         )
@@ -123,6 +129,7 @@ class MongoRepository:
         self._players.create_index([("aggregated_scores.s_final", DESCENDING)])
 
     def upsert_player(self, player: PlayerDTO) -> None:
+        """Insert or replace a player document keyed by player_id + season."""
         doc = _player_to_doc(player)
         self._players.update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
 
@@ -138,6 +145,7 @@ class MongoRepository:
         page: int = 1,
         page_size: int = 50,
     ) -> tuple[list[PlayerDTO], int]:
+        """Return a paginated, filtered, sorted list of players and the total match count."""
         query: dict = {"season": season}
         if position:
             query["position"] = position
@@ -161,10 +169,12 @@ class MongoRepository:
         return [_player_from_doc(d) for d in docs], total
 
     def get_player(self, player_id: str, season: str) -> Optional[PlayerDTO]:
+        """Return a single player by ID and season, or None if not found."""
         doc = self._players.find_one({"player_id": player_id, "season": season})
         return _player_from_doc(doc) if doc else None
 
     def get_scatter_data(self, season: str) -> list[dict]:
+        """Return minimal player docs (id, name, position, xg/xa/goals/assists) for scatter chart."""
         projection = {
             "name": 1, "position": 1, "player_id": 1,
             "aggregated_stats.xg": 1, "aggregated_stats.xa": 1,
@@ -176,6 +186,7 @@ class MongoRepository:
     def log_scrape(
         self, season: str, competitions: list[str], players_upserted: int, status: str
     ) -> dict:
+        """Write a scrape audit record and return it with the inserted MongoDB _id."""
         entry: dict = {
             "scraped_at": datetime.now(timezone.utc).isoformat(),
             "season": season,

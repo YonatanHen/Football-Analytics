@@ -42,11 +42,13 @@ _NUMERIC_COLS = [
 
 class SofascoreClient:
     def fetch(self, competition: str, year: int) -> pd.DataFrame:
+        """Scrape player league stats from Sofascore via ScraperFC and return normalized DataFrame."""
         from ScraperFC import Sofascore  # type: ignore[import]  # lazy: triggers network on import
         raw: pd.DataFrame = Sofascore().scrape_player_league_stats(competition, year)
         return self._normalize(raw)
 
     def _normalize(self, raw: pd.DataFrame) -> pd.DataFrame:
+        """Rename ScraperFC columns to internal names, map positions, and fill nulls."""
         present = {k: v for k, v in _COLUMN_MAP.items() if k in raw.columns}
         df = raw.rename(columns=present)
 

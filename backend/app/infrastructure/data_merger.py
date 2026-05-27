@@ -7,6 +7,7 @@ def _normalize(s: object) -> str:
 
 class PlayerDataMerger:
     def merge(self, sofascore_df: pd.DataFrame, fbref_df: pd.DataFrame) -> pd.DataFrame:
+        """Join FBref pk_won onto the Sofascore DataFrame by normalized name+team."""
         ss = sofascore_df.copy()
         fb = fbref_df.copy()
 

@@ -10,6 +10,7 @@ _POSITION_WEIGHTS: dict[str, dict[str, int]] = {
 
 class ScoringEngine:
     def calculate(self, stats: Stats, position: str) -> Score:
+        """Return offensive/defensive/tactical scores and S_final for a player."""
         weights = _POSITION_WEIGHTS[position]
         offensive = (
             stats.goals * weights["goals"]

@@ -5,6 +5,7 @@ class SleeperDetector:
     def classify(
         self, xg: float, xa: float, goals: int, assists: int, minutes: int
     ) -> Optional[str]:
+        """Return 'HIGH_VALUE', 'OVERPERFORMING', or None based on xG+xA vs G+A ratio."""
         total_output = goals + assists
         if total_output == 0:
             if (xg + xa) > 0 and minutes > 450:
@@ -20,6 +21,7 @@ class SleeperDetector:
     def get_ratio(
         self, xg: float, xa: float, goals: int, assists: int
     ) -> Optional[float]:
+        """Return (xG+xA)/(G+A) rounded to 4 decimal places, or None if G+A is zero."""
         total = goals + assists
         if total == 0:
             return None

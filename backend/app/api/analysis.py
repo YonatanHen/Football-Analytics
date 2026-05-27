@@ -22,6 +22,7 @@ def scatter_data(
     season: Optional[str] = None,
     repo: MongoRepository = Depends(get_repo),
 ) -> ScatterDataOut:
+    """Return xG+xA vs G+A scatter data points for all players in a season."""
     raw = repo.get_scatter_data(season or settings.season)
     points = []
     for doc in raw:

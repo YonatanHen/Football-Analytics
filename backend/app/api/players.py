@@ -41,6 +41,7 @@ class PlayerListOut(BaseModel):
 
 
 def _to_out(p: object) -> PlayerOut:
+    """Map a PlayerDTO domain object to the API response model."""
     from app.domain.models import PlayerDTO
     assert isinstance(p, PlayerDTO)
     return PlayerOut(
@@ -75,6 +76,7 @@ def list_players(
     page_size: int = Query(50, ge=1, le=200),
     repo: MongoRepository = Depends(get_repo),
 ) -> PlayerListOut:
+    """Return a paginated player list with optional filters for position, team, nationality, and sleeper flag."""
     players, total = repo.get_players(
         season=season or settings.season,
         position=position, team=team, nationality=nationality,
@@ -90,6 +92,7 @@ def get_player(
     season: Optional[str] = None,
     repo: MongoRepository = Depends(get_repo),
 ) -> PlayerOut:
+    """Return a single player by ID; 404 if not found in the given season."""
     player = repo.get_player(player_id, season or settings.season)
     if not player:
         raise HTTPException(

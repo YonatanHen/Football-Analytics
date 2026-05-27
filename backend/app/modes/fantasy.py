@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _aggregate_stats(entries: list[CompetitionEntry]) -> Stats:
+    """Sum per-competition Stats across all entries; uses max rating instead of sum."""
     total = Stats()
     for e in entries:
         s = e.stats
@@ -42,6 +43,7 @@ def _aggregate_stats(entries: list[CompetitionEntry]) -> Stats:
 
 class FantasyMode(AnalysisMode):
     def __init__(self, mongo_client: MongoClient) -> None:
+        """Wire up all infrastructure clients and domain services."""
         self._repo = MongoRepository(mongo_client)
         self._scoring = ScoringEngine()
         self._sleeper = SleeperDetector()
@@ -50,9 +52,11 @@ class FantasyMode(AnalysisMode):
         self._merger = PlayerDataMerger()
 
     def get_mode_name(self) -> str:
+        """Return the string identifier for this mode."""
         return "fantasy"
 
     def fetch_data(self, season: str, competitions: list[str]) -> dict:
+        """Scrape Sofascore+FBref for each competition, score all players, upsert, and return scrape log."""
         year = int(season.split("-")[0])
         player_entries: dict[str, list[CompetitionEntry]] = {}
         player_meta: dict[str, dict] = {}
@@ -154,5 +158,6 @@ class FantasyMode(AnalysisMode):
         )
 
     def process(self, season: str) -> list[PlayerDTO]:
+        """Return all scored players for the given season from MongoDB."""
         players, _ = self._repo.get_players(season=season)
         return players

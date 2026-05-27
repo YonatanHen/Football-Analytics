@@ -18,6 +18,7 @@ def trigger_fetch(
     body: FetchRequest,
     mode_factory: ModeFactory = Depends(get_mode_factory),
 ) -> dict:
+    """Trigger a data scrape for the given season and competitions."""
     season = body.season or settings.season
     competitions = body.competitions or settings.default_competitions
     mode = mode_factory.create(body.mode)

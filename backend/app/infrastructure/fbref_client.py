@@ -11,11 +11,13 @@ _FBREF_COLUMN_MAP = {
 
 class FBrefClient:
     def fetch_misc(self, competition: str, year: int) -> pd.DataFrame:
+        """Scrape FBref misc stats via ScraperFC and return DataFrame with player_name, team, pk_won."""
         from ScraperFC import FBref  # type: ignore[import]  # lazy: triggers network on import
         raw: pd.DataFrame = FBref().scrape_stats(competition, year, "misc")
         return self._normalize(raw)
 
     def _normalize(self, raw: pd.DataFrame) -> pd.DataFrame:
+        """Rename FBref columns to internal names and keep only player_name, team, pk_won."""
         present = {k: v for k, v in _FBREF_COLUMN_MAP.items() if k in raw.columns}
         df = raw.rename(columns=present)
 
