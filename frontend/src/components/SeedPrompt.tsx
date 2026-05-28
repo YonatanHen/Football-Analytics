@@ -1,19 +1,42 @@
-import { useState, type ReactNode } from 'react'
-import { triggerFetch } from '../api/fetch'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { triggerFetch, getFetchStatus } from '../api/fetch'
 
+const POLL_MS = 3000
 type Status = 'idle' | 'loading' | 'done' | 'error'
 
 export default function SeedPrompt({ onSeeded }: { onSeeded: () => void }) {
   const [status, setStatus] = useState<Status>('idle')
   const [count, setCount] = useState(0)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
 
   const handleLoad = async () => {
     setStatus('loading')
     try {
-      const r = await triggerFetch({ mode: 'kaggle' })
-      setCount(r.players_upserted ?? 0)
-      setStatus('done')
-      setTimeout(onSeeded, 1500)
+      const { job_id } = await triggerFetch({ mode: 'kaggle' })
+      pollRef.current = setInterval(async () => {
+        try {
+          const s = await getFetchStatus(job_id)
+          if (s.status !== 'running') {
+            clearInterval(pollRef.current!)
+            pollRef.current = null
+            if (s.status === 'error') {
+              setStatus('error')
+            } else {
+              setCount(s.players_upserted)
+              setStatus('done')
+              setTimeout(onSeeded, 1500)
+            }
+          }
+        } catch {
+          clearInterval(pollRef.current!)
+          pollRef.current = null
+          setStatus('error')
+        }
+      }, POLL_MS)
     } catch {
       setStatus('error')
     }
@@ -52,8 +75,8 @@ export default function SeedPrompt({ onSeeded }: { onSeeded: () => void }) {
       <div className="text-5xl mb-4">⚽</div>
       <h2 className="text-xl font-bold text-gray-100 mb-3">No player data loaded</h2>
       <p className="text-gray-400 text-sm max-w-md text-center mb-2 leading-relaxed">
-        Load the 2025/26 season to get started. You'll get 2,800+ players across the top 5 European
-        leagues — ranked, scored, and ready to explore.
+        Load the 2025/26 season to get started. You'll get 2,800+ players across the top European
+        competitions — ranked, scored, and ready to explore.
       </p>
       <p className="text-gray-600 text-xs mb-6">This takes about 10–30 seconds and only needs to be done once.</p>
       <button onClick={handleLoad} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-semibold">

@@ -159,8 +159,7 @@ class FantasyMode(AnalysisMode):
             players_upserted=upserted,
             status="success" if not comp_errors else "partial",
         )
-        if comp_errors:
-            log["competition_errors"] = comp_errors
+        log["competitions_failed"] = len(comp_errors)
         return log
 
     def process(self, season: str) -> list[PlayerDTO]:

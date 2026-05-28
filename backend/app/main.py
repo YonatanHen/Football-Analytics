@@ -6,8 +6,11 @@ from pymongo import MongoClient
 from app.config import settings
 from app.modes.factory import ModeFactory
 from app.infrastructure.mongo_repository import MongoRepository
+from app.logging_config import configure_logging
 from app import dependencies
 from app.api import fetch, players, analysis
+
+configure_logging()
 
 
 @asynccontextmanager
