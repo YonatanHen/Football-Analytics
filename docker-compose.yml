@@ -5,14 +5,12 @@ services:
     env_file: secrets.env
     environment:
       - MONGO_URI=mongodb://mongodb:27017/football_analytics
-      - ALL_PROXY=socks5://tor:9050
     depends_on:
       mongodb:
         condition: service_healthy
-      tor:
-        condition: service_started
     volumes:
       - ./backend:/app
+      - ./logs:/app/logs
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 
@@ -39,11 +37,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: unless-stopped
-
-  tor:
-    image: dperson/torproxy
-    ports: ["9050:9050"]
     restart: unless-stopped
 
 volumes:

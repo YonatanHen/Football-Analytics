@@ -108,6 +108,5 @@ On first load (`isEmpty === true`), `SeedPrompt` is shown — it calls `POST /v1
 ## Constraints
 
 - Never pick a technology or design without consulting the user first
-- All external scraping goes through rotating proxies (Tor); never hit sources from local IP
 - No auto-fetch in the UI; all data loads are explicit user actions
 - Compare page must always show exactly 2 players side-by-side
