@@ -12,3 +12,6 @@ dist/
 backend/.venv/
 secrets/
 secrets.env
+logs/
+docs/superpowers/plans/
+CLAUDE.local.md
