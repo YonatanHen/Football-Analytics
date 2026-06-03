@@ -182,11 +182,21 @@ class MongoRepository:
                 {"_id": 1},
             )
             if existing_raw is None:
-                # Check for a Kaggle-seeded doc (no sofascore_id) for the same player
+                # Check for a Kaggle-seeded doc for the same player.
+                # Legacy docs may lack norm_name/norm_team (written before those
+                # fields existed), so fall back to raw name+team match.
                 existing_raw = self._players.find_one(
                     {
-                        "norm_name": normalize_text(player.name),
-                        "norm_team": normalize_text(player.team),
+                        "$or": [
+                            {
+                                "norm_name": normalize_text(player.name),
+                                "norm_team": normalize_text(player.team),
+                            },
+                            {
+                                "name": player.name,
+                                "team": player.team,
+                            },
+                        ],
                         "season": player.season,
                         "sofascore_player_id": None,
                     },

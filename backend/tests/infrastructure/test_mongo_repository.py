@@ -150,3 +150,28 @@ def test_get_players_filter_by_name_matches_substring(repo: MongoRepository) -> 
     repo.upsert_player(p2)
     _, total = repo.get_players(season="2025-2026", name="Salah")
     assert total == 2
+
+
+def test_sofascore_upsert_overwrites_legacy_kaggle_doc_without_norm_fields(repo: MongoRepository) -> None:
+    """Sofascore upsert must merge with legacy Kaggle docs that lack norm_name/norm_team."""
+    # Insert a Kaggle-origin doc the old way: no norm_name or norm_team
+    repo._players.insert_one({
+        "sofascore_player_id": None,
+        "name": "Kenan Yıldız",
+        "team": "Juventus",
+        "season": "2025-2026",
+        # deliberately omit norm_name / norm_team
+    })
+    assert repo._players.count_documents({"name": "Kenan Yıldız"}) == 1
+
+    # Upsert the Sofascore version
+    p = _make_player("1149011")
+    p.name = "Kenan Yıldız"
+    p.team = "Juventus"
+    repo.upsert_player(p)
+
+    # Must still be exactly one document (no duplicate)
+    count = repo._players.count_documents({"name": "Kenan Yıldız", "season": "2025-2026"})
+    assert count == 1
+    doc = repo._players.find_one({"sofascore_player_id": "1149011"})
+    assert doc is not None
