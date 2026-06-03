@@ -22,7 +22,7 @@ def _make_player(player_id: str = "123", season: str = "2025-2026") -> PlayerDTO
         aggregated_stats=stats,
         aggregated_scores=AggregatedScores(
             offensive=35.5, defensive=0.0, tactical=1.0, s_final=4.06,
-            sleeper_ratio=1.3, sleeper_flag="HIGH_VALUE",
+            underpredicted_ratio=1.3, underpredicted_flag="HIGH_VALUE",
         ),
         low_sample_size=False,
         last_updated=datetime.now(timezone.utc).isoformat(),
@@ -36,7 +36,7 @@ def test_upsert_and_get_player(repo: MongoRepository) -> None:
     assert result.sofascore_player_id == "123"
     assert result.name == "Test Player"
     assert result.aggregated_stats.goals == 5
-    assert result.aggregated_scores.sleeper_flag == "HIGH_VALUE"
+    assert result.aggregated_scores.underpredicted_flag == "HIGH_VALUE"
 
 
 def test_upsert_overwrites_existing(repo: MongoRepository) -> None:
@@ -72,11 +72,11 @@ def test_get_players_filter_by_team(repo: MongoRepository) -> None:
     assert total_miss == 0
 
 
-def test_get_players_filter_by_sleeper_flag(repo: MongoRepository) -> None:
+def test_get_players_filter_by_underpredicted_flag(repo: MongoRepository) -> None:
     repo.upsert_player(_make_player("1"))
-    players, total = repo.get_players(season="2025-2026", sleeper_flag="HIGH_VALUE")
+    players, total = repo.get_players(season="2025-2026", underpredicted_flag="HIGH_VALUE")
     assert total == 1
-    _, total_miss = repo.get_players(season="2025-2026", sleeper_flag="OVERPERFORMING")
+    _, total_miss = repo.get_players(season="2025-2026", underpredicted_flag="OVERPERFORMING")
     assert total_miss == 0
 
 

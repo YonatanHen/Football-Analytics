@@ -42,13 +42,13 @@ class CompetitionEntry:
 
 @dataclass
 class AggregatedScores:
-    """Season-level fantasy scores summed across all competitions, plus sleeper classification."""
+    """Season-level fantasy scores summed across all competitions, plus prediction classification."""
     offensive: float
     defensive: float
     tactical: float
     s_final: float
-    sleeper_ratio: Optional[float]
-    sleeper_flag: Optional[str]  # "HIGH_VALUE" | "OVERPERFORMING" | None
+    underpredicted_ratio: Optional[float]
+    underpredicted_flag: Optional[str]  # "HIGH_VALUE" | "OVERPERFORMING" | None
 
 
 @dataclass

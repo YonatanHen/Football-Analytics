@@ -27,9 +27,9 @@ class CompetitionOut(BaseModel):
 
 
 class AggregatedScoresOut(BaseModel):
-    """Season-level fantasy scores including sleeper analysis across all competitions."""
+    """Season-level fantasy scores including underprediction analysis across all competitions."""
     offensive: float; defensive: float; tactical: float; s_final: float
-    sleeper_ratio: Optional[float]; sleeper_flag: Optional[str]
+    underpredicted_ratio: Optional[float]; underpredicted_flag: Optional[str]
 
 
 class PlayerOut(BaseModel):
@@ -72,7 +72,7 @@ def list_players(
     team: Optional[str] = None,
     nationality: Optional[str] = None,
     name: Optional[str] = None,
-    sleeper_flag: Optional[str] = Query(None, pattern="^(HIGH_VALUE|OVERPERFORMING)$"),
+    underpredicted_flag: Optional[str] = Query(None, pattern="^(HIGH_VALUE|OVERPERFORMING)$"),
     season: Optional[str] = None,
     sort_by: str = Query("s_final", pattern="^s_final$"),
     order: str = Query("desc", pattern="^(asc|desc)$"),
@@ -80,11 +80,11 @@ def list_players(
     page_size: int = Query(50, ge=1, le=200),
     repo: MongoRepository = Depends(get_repo),
 ) -> PlayerListOut:
-    """Return a paginated player list with optional filters for position, team, nationality, name, and sleeper flag."""
+    """Return a paginated player list with optional filters for position, team, nationality, name, and underprediction flag."""
     players, total = repo.get_players(
         season=season or settings.season,
         position=position, team=team, nationality=nationality,
-        name=name, sleeper_flag=sleeper_flag, sort_by=sort_by, order=order,
+        name=name, underpredicted_flag=underpredicted_flag, sort_by=sort_by, order=order,
         page=page, page_size=page_size,
     )
     return PlayerListOut(data=[_to_out(p) for p in players], total=total, page=page, page_size=page_size)

@@ -57,10 +57,10 @@ def build_player(
             defensive=agg_score.defensive,
             tactical=agg_score.tactical,
             s_final=agg_score.s_final,
-            sleeper_ratio=_sleeper.get_ratio(
+            underpredicted_ratio=_sleeper.get_ratio(
                 agg_stats.xg, agg_stats.xa, agg_stats.goals, agg_stats.assists
             ),
-            sleeper_flag=_sleeper.classify(
+            underpredicted_flag=_sleeper.classify(
                 agg_stats.xg, agg_stats.xa,
                 agg_stats.goals, agg_stats.assists, agg_stats.minutes,
             ),

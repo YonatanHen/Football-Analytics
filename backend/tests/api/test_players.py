@@ -24,7 +24,7 @@ def _make_player(player_id: str = "1", season: str = "2025-2026") -> PlayerDTO:
         aggregated_stats=stats,
         aggregated_scores=AggregatedScores(
             offensive=35.5, defensive=0.0, tactical=1.0, s_final=4.06,
-            sleeper_ratio=1.3, sleeper_flag="HIGH_VALUE",
+            underpredicted_ratio=1.3, underpredicted_flag="HIGH_VALUE",
         ),
         low_sample_size=False,
         last_updated=datetime.now(timezone.utc).isoformat(),
@@ -78,7 +78,7 @@ def test_get_player_found(client_with_player: TestClient) -> None:
     resp = client_with_player.get("/v1/players/1")
     assert resp.status_code == 200
     assert resp.json()["sofascore_player_id"] == "1"
-    assert resp.json()["aggregated_scores"]["sleeper_flag"] == "HIGH_VALUE"
+    assert resp.json()["aggregated_scores"]["underpredicted_flag"] == "HIGH_VALUE"
 
 
 def test_get_player_not_found(client: TestClient) -> None:

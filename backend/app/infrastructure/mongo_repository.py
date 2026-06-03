@@ -68,8 +68,8 @@ def _player_to_doc(player: PlayerDTO) -> dict:
             "defensive": player.aggregated_scores.defensive,
             "tactical": player.aggregated_scores.tactical,
             "s_final": player.aggregated_scores.s_final,
-            "sleeper_ratio": player.aggregated_scores.sleeper_ratio,
-            "sleeper_flag": player.aggregated_scores.sleeper_flag,
+            "sleeper_ratio": player.aggregated_scores.underpredicted_ratio,
+            "sleeper_flag": player.aggregated_scores.underpredicted_flag,
         },
         "low_sample_size": player.low_sample_size,
         "last_updated": player.last_updated,
@@ -106,8 +106,8 @@ def _player_from_doc(doc: dict) -> PlayerDTO:
         aggregated_scores=AggregatedScores(
             offensive=ag["offensive"], defensive=ag["defensive"],
             tactical=ag["tactical"], s_final=ag["s_final"],
-            sleeper_ratio=ag.get("sleeper_ratio"),
-            sleeper_flag=ag.get("sleeper_flag"),
+            underpredicted_ratio=ag.get("sleeper_ratio"),
+            underpredicted_flag=ag.get("sleeper_flag"),
         ),
         low_sample_size=doc["low_sample_size"],
         last_updated=doc["last_updated"],
@@ -223,7 +223,7 @@ class MongoRepository:
         position: Optional[str] = None,
         team: Optional[str] = None,
         nationality: Optional[str] = None,
-        sleeper_flag: Optional[str] = None,
+        underpredicted_flag: Optional[str] = None,
         name: Optional[str] = None,
         sort_by: str = "s_final",
         order: str = "desc",
@@ -238,8 +238,8 @@ class MongoRepository:
             query["team"] = team
         if nationality:
             query["nationality"] = nationality
-        if sleeper_flag:
-            query["aggregated_scores.sleeper_flag"] = sleeper_flag
+        if underpredicted_flag:
+            query["aggregated_scores.sleeper_flag"] = underpredicted_flag
         if name:
             query["name"] = {"$regex": name, "$options": "i"}
 
