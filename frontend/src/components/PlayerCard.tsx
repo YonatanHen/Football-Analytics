@@ -30,13 +30,13 @@ export default function PlayerCard({ player: p }: PlayerCardProps) {
       <div className="mb-3">
         <div className="text-xs text-gray-400 uppercase mb-1">Score</div>
         <div className="text-2xl font-mono text-indigo-300">{sc.s_final.toFixed(2)}</div>
-        {sc.sleeper_ratio != null && (
-          <div className="text-xs text-gray-500 mt-0.5">sleeper ratio: {sc.sleeper_ratio.toFixed(2)}</div>
+        {sc.underpredicted_ratio != null && (
+          <div className="text-xs text-gray-500 mt-0.5">underpredicted ratio: {sc.underpredicted_ratio.toFixed(2)}</div>
         )}
-        {sc.sleeper_flag && (
+        {sc.underpredicted_flag && (
           <span className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${
-            sc.sleeper_flag === 'HIGH_VALUE' ? 'bg-green-800 text-green-200' : 'bg-amber-800 text-amber-200'
-          }`}>{sc.sleeper_flag}</span>
+            sc.underpredicted_flag === 'HIGH_VALUE' ? 'bg-green-800 text-green-200' : 'bg-amber-800 text-amber-200'
+          }`}>{sc.underpredicted_flag === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'}</span>
         )}
       </div>
 

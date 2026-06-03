@@ -4,11 +4,11 @@ import { triggerFetch } from '../api/fetch'
 import FilterBar from '../components/FilterBar'
 import PlayerTable from '../components/PlayerTable'
 
-interface Filters { position: string; team: string; nationality: string; sleeper_flag: string }
+interface Filters { position: string; team: string; nationality: string; underpredicted_flag: string }
 
 export default function Rankings() {
   const [data, setData] = useState<PlayerList | null>(null)
-  const [filters, setFilters] = useState<Filters>({ position: '', team: '', nationality: '', sleeper_flag: '' })
+  const [filters, setFilters] = useState<Filters>({ position: '', team: '', nationality: '', underpredicted_flag: '' })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [fetchMsg, setFetchMsg] = useState('')
@@ -20,7 +20,7 @@ export default function Rankings() {
       if (filters.position) params.position = filters.position
       if (filters.team) params.team = filters.team
       if (filters.nationality) params.nationality = filters.nationality
-      if (filters.sleeper_flag) params.sleeper_flag = filters.sleeper_flag
+      if (filters.underpredicted_flag) params.underpredicted_flag = filters.underpredicted_flag
       setData(await getPlayers(params))
     } catch (e) {
       console.error(e)

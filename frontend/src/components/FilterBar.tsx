@@ -1,5 +1,5 @@
 interface Filters {
-  position: string; team: string; nationality: string; sleeper_flag: string
+  position: string; team: string; nationality: string; underpredicted_flag: string
 }
 
 interface FilterBarProps {
@@ -8,7 +8,6 @@ interface FilterBarProps {
 }
 
 const POSITIONS = ['', 'GK', 'DF', 'MF', 'FW']
-const SLEEPER_FLAGS = ['', 'HIGH_VALUE', 'OVERPERFORMING']
 
 export default function FilterBar({ filters, onChange }: FilterBarProps) {
   const set = (key: keyof Filters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -39,11 +38,13 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
       />
 
       <select
-        value={filters.sleeper_flag}
-        onChange={set('sleeper_flag')}
+        value={filters.underpredicted_flag}
+        onChange={set('underpredicted_flag')}
         className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
       >
-        {SLEEPER_FLAGS.map((f) => <option key={f} value={f}>{f || 'All sleeper flags'}</option>)}
+        <option value="">All flags</option>
+        <option value="HIGH_VALUE">Underpredicted</option>
+        <option value="OVERPERFORMING">Overperforming</option>
       </select>
     </div>
   )

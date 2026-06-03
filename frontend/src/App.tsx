@@ -14,7 +14,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'rankings', label: 'Rankings' },
   { id: 'detail', label: 'Player Detail' },
   { id: 'compare', label: 'Compare' },
-  { id: 'sleepers', label: 'Sleepers' },
+  { id: 'sleepers', label: 'Underpredicted' },
   { id: 'scatter', label: 'Scatter Plot' },
   { id: 'load', label: 'Load Data' },
 ]

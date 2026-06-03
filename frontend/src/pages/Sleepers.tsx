@@ -10,7 +10,7 @@ export default function Sleepers() {
 
   useEffect(() => {
     setLoading(true)
-    getPlayers({ sleeper_flag: flag, page, page_size: 50 })
+    getPlayers({ underpredicted_flag: flag, page, page_size: 50 })
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -18,10 +18,10 @@ export default function Sleepers() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-2">Sleeper Picks</h1>
+      <h1 className="text-xl font-bold mb-2">Underpredicted Picks</h1>
       <p className="text-sm text-gray-400 mb-4">
-        <strong className="text-green-300">High Value</strong>: xG+xA &gt; 1.2×(G+A) with &gt;450 min — underperforming their underlying numbers.{' '}
-        <strong className="text-amber-300">Overperforming</strong>: G+A &gt; 1.25×(xG+xA) — scoring above expectation, likely to regress.
+        <strong className="text-green-300">Underpredicted</strong>: xG+xA &gt; 1.2×(G+A) with &gt;450 min — underperforming their underlying numbers.{' '}
+        <strong className="text-amber-300">Overperforming</strong>: G+A &gt; 1.25×(xG+xA) with &gt;450 min — scoring above expectation, likely to regress.
       </p>
       <div className="flex gap-2 mb-4">
         {(['HIGH_VALUE', 'OVERPERFORMING'] as const).map((f) => (
@@ -32,7 +32,7 @@ export default function Sleepers() {
               flag === f ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}
           >
-            {f === 'HIGH_VALUE' ? 'High Value Sleepers' : 'Overperforming'}
+            {f === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'}
           </button>
         ))}
       </div>

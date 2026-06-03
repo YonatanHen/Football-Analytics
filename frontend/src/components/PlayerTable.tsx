@@ -17,7 +17,8 @@ export default function PlayerTable({
   const flagBadge = (flag: string | null) => {
     if (!flag) return null
     const color = flag === 'HIGH_VALUE' ? 'bg-green-800 text-green-200' : 'bg-amber-800 text-amber-200'
-    return <span className={`text-xs px-2 py-0.5 rounded ${color}`}>{flag}</span>
+    const label = flag === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'
+    return <span className={`text-xs px-2 py-0.5 rounded ${color}`}>{label}</span>
   }
 
   return (
@@ -56,7 +57,7 @@ export default function PlayerTable({
                 <td className="py-2 pr-4 text-gray-400">{p.aggregated_stats.xg.toFixed(1)}</td>
                 <td className="py-2 pr-4 text-gray-400">{p.aggregated_stats.xa.toFixed(1)}</td>
                 <td className="py-2 pr-4 text-gray-400">{p.aggregated_stats.minutes}</td>
-                <td className="py-2">{flagBadge(p.aggregated_scores.sleeper_flag)}</td>
+                <td className="py-2">{flagBadge(p.aggregated_scores.underpredicted_flag)}</td>
               </tr>
             ))}
           </tbody>

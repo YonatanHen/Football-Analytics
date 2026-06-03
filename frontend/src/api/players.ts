@@ -16,7 +16,7 @@ export interface CompetitionEntry {
 }
 
 export interface AggregatedScores extends Score {
-  sleeper_ratio: number | null; sleeper_flag: 'HIGH_VALUE' | 'OVERPERFORMING' | null
+  underpredicted_ratio: number | null; underpredicted_flag: 'HIGH_VALUE' | 'OVERPERFORMING' | null
 }
 
 export interface Player {
