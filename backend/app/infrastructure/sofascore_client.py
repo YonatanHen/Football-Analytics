@@ -1,4 +1,8 @@
+import logging
+import time
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Maps ScraperFC Sofascore output column names → our internal names.
 _COLUMN_MAP = {
@@ -45,18 +49,35 @@ class SofascoreClient:
         competition: str,
         season: str,
         positions: list[str] | None = None,
+        max_retries: int = 3,
+        retry_delay: float = 2.0,
     ) -> pd.DataFrame:
         """Scrape player league stats from Sofascore via ScraperFC and return normalized DataFrame.
 
         positions: subset of ["Goalkeepers","Defenders","Midfielders","Forwards"] for parallel splits.
+        Retries up to max_retries times on transient empty-response failures (botasaurus concurrency).
         """
         from ScraperFC import Sofascore  # type: ignore[import]  # lazy: triggers network on import
         year = _season_to_sofascore_year(season)
         kwargs: dict = {"year": year, "league": competition}
         if positions is not None:
             kwargs["selected_positions"] = positions
-        raw: pd.DataFrame = Sofascore().scrape_player_league_stats(**kwargs)
-        return self._normalize(raw)
+
+        last_exc: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                raw: pd.DataFrame = Sofascore().scrape_player_league_stats(**kwargs)
+                if raw.empty and attempt < max_retries:
+                    raise ValueError("Empty response — likely transient botasaurus collision")
+                return self._normalize(raw)
+            except Exception as exc:
+                last_exc = exc
+                label = f"{competition}/{positions}"
+                logger.warning("Sofascore attempt %d/%d failed for %s: %s", attempt, max_retries, label, exc)
+                if attempt < max_retries:
+                    time.sleep(retry_delay * attempt)
+
+        raise RuntimeError(f"Sofascore fetch failed after {max_retries} attempts") from last_exc
 
     def _normalize(self, raw: pd.DataFrame) -> pd.DataFrame:
         """Rename ScraperFC columns to internal names, map positions, and fill nulls."""

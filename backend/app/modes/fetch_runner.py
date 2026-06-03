@@ -8,10 +8,8 @@ import pandas as pd
 from app.config import settings
 from app.domain.competitions import canonical_competition
 from app.domain.player_assembler import build_player, merge
-from app.domain.models import Stats, Score, CompetitionEntry
+from app.domain.models import Stats, CompetitionEntry
 from app.infrastructure.sofascore_client import SofascoreClient
-from app.infrastructure.fbref_client import FBrefClient
-from app.infrastructure.data_merger import PlayerDataMerger
 from app.infrastructure.text_utils import normalize_text
 
 logger = logging.getLogger(__name__)
@@ -38,37 +36,31 @@ def _make_tasks(competitions: list[str]) -> list[dict]:
     for comp in competitions:
         for group in _SS_POSITION_GROUPS:
             tasks.append({"label": f"{comp} — {group}", "status": "pending", "type": "ss", "comp": comp, "group": group})
-        tasks.append({"label": f"{comp} — FBref", "status": "pending", "type": "fb", "comp": comp})
     return tasks
 
 
-def _update_task(job: FetchJob, idx: int, status: str, current_label: str | None = None) -> None:
+def _update_task(job: FetchJob, idx: int, status: str) -> None:
     with job.lock:
         job.tasks[idx]["status"] = status
         job.completed += 1
-        if current_label is not None:
-            job.current = current_label
 
 
 def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> None:  # type: ignore[type-arg]
     """Execute a parallel fetch job and upsert results.
 
-    Runs SS position-group tasks concurrently up to settings.fetch_concurrency.
-    FBref tasks are serialized via a semaphore (headful Chrome + 6s rate limit).
-    After all scraping, reconciles each player across competitions and upserts once.
+    Each competition is split into 4 concurrent Sofascore tasks (by position group).
+    Competitions themselves also run concurrently up to settings.fetch_concurrency.
+    After all scraping, reconciles each player and upserts once (no write races).
+    pk_won comes directly from Sofascore's penaltyWon field — FBref is not used.
     """
     sofascore = SofascoreClient()
-    fbref = FBrefClient()
-    merger = PlayerDataMerger()
-    fbref_sem = threading.Semaphore(settings.fetch_fbref_concurrency)
 
     tasks = _make_tasks(competitions)
     with job.lock:
         job.tasks = tasks
         job.total = len(tasks)
 
-    # Collect raw frames per competition: {comp: {"ss": [df, ...], "fb": df}}
-    results: dict[str, dict] = {comp: {"ss": [], "fb": pd.DataFrame()} for comp in competitions}
+    results: dict[str, list[pd.DataFrame]] = {comp: [] for comp in competitions}
     failed_comps: set[str] = set()
 
     def _scrape_ss(task_idx: int, comp: str, group: str) -> None:
@@ -78,32 +70,18 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
         try:
             df = sofascore.fetch(comp, season, positions=[group])
             with job.lock:
-                results[comp]["ss"].append(df)
+                results[comp].append(df)
+            _update_task(job, task_idx, "done")
         except Exception as exc:
             logger.warning("Sofascore fetch failed %s/%s: %s", comp, group, exc)
             with job.lock:
                 failed_comps.add(comp)
-        _update_task(job, task_idx, "done" if comp not in failed_comps else "failed")
-
-    def _scrape_fb(task_idx: int, comp: str) -> None:
-        with job.lock:
-            job.tasks[task_idx]["status"] = "running"
-        with fbref_sem:
-            try:
-                df = fbref.fetch_misc(comp, season)
-                with job.lock:
-                    results[comp]["fb"] = df
-            except Exception as exc:
-                logger.warning("FBref fetch failed %s: %s", comp, exc)
-        _update_task(job, task_idx, "done")
+            _update_task(job, task_idx, "failed")
 
     futures = []
     with ThreadPoolExecutor(max_workers=settings.fetch_concurrency) as executor:
         for idx, task in enumerate(tasks):
-            if task["type"] == "ss":
-                futures.append(executor.submit(_scrape_ss, idx, task["comp"], task["group"]))
-            else:
-                futures.append(executor.submit(_scrape_fb, idx, task["comp"]))
+            futures.append(executor.submit(_scrape_ss, idx, task["comp"], task["group"]))
         for fut in as_completed(futures):
             try:
                 fut.result()
@@ -111,27 +89,27 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 logger.error("Unexpected task error: %s", exc)
 
     # Sequential reconciling write pass (no write races)
+    from app.domain.scoring_engine import ScoringEngine
+    _scoring = ScoringEngine()
     upserted = 0
+
     for comp in competitions:
-        ss_frames = results[comp]["ss"]
-        if not ss_frames:
+        frames = results[comp]
+        if not frames:
             failed_comps.add(comp)
             continue
         try:
-            ss_df = pd.concat(ss_frames, ignore_index=True).drop_duplicates(subset=["sofascore_player_id"])
-            fb_df = results[comp]["fb"]
-            merged_df = merger.merge(ss_df, fb_df)
+            ss_df = pd.concat(frames, ignore_index=True).drop_duplicates(subset=["sofascore_player_id"])
         except Exception as exc:
-            logger.warning("Merge failed for %s: %s", comp, exc)
+            logger.warning("Concat failed for %s: %s", comp, exc)
             failed_comps.add(comp)
             continue
 
-        for _, row in merged_df.iterrows():
+        for _, row in ss_df.iterrows():
             pid = str(row.get("sofascore_player_id", "")).strip()
             if not pid:
                 continue
-            from app.domain.models import Stats as _Stats, Score as _Score, CompetitionEntry as _CE
-            stats = _Stats(
+            stats = Stats(
                 goals=int(row.get("goals", 0)),
                 assists=int(row.get("assists", 0)),
                 xg=float(row.get("xg", 0.0)),
@@ -149,10 +127,9 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 big_chances_created=int(row.get("big_chances_created", 0)),
                 key_passes=int(row.get("key_passes", 0)),
             )
-            from app.domain.scoring_engine import ScoringEngine
             position = str(row.get("position", "MF"))
-            score = ScoringEngine().calculate(stats, position)
-            entry = _CE(competition=canonical_competition(comp), stats=stats, scores=score)
+            score = _scoring.calculate(stats, position)
+            entry = CompetitionEntry(competition=canonical_competition(comp), stats=stats, scores=score)
             meta = {
                 "sofascore_player_id": pid,
                 "name": str(row.get("name", "")),
@@ -169,8 +146,7 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 norm_name=normalize_text(meta["name"]),
                 norm_team=normalize_text(meta["team"]),
             )
-            final_player = merge(existing, incoming)
-            repo.upsert_player(final_player)
+            repo.upsert_player(merge(existing, incoming))
             upserted += 1
 
     with job.lock:

@@ -16,11 +16,26 @@ YEAR = "24/25"
 POSITIONS = ["Goalkeepers", "Defenders", "Midfielders", "Forwards"]
 
 
+_MAX_RETRIES = 3
+_RETRY_DELAY = 2.0
+
+
 def _scrape_group(group: str) -> tuple[str, int, float]:
     t0 = time.time()
-    df = Sofascore().scrape_player_league_stats(year=YEAR, league=LEAGUE, selected_positions=[group])
-    elapsed = time.time() - t0
-    return group, len(df), elapsed
+    last_exc: Exception | None = None
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            df = Sofascore().scrape_player_league_stats(year=YEAR, league=LEAGUE, selected_positions=[group])
+            if df.empty and attempt < _MAX_RETRIES:
+                raise ValueError("Empty response")
+            elapsed = time.time() - t0
+            return group, len(df), elapsed
+        except Exception as exc:
+            last_exc = exc
+            print(f"  [{group}] attempt {attempt}/{_MAX_RETRIES} failed: {exc}")
+            if attempt < _MAX_RETRIES:
+                time.sleep(_RETRY_DELAY * attempt)
+    raise RuntimeError(f"Failed after {_MAX_RETRIES} attempts") from last_exc
 
 
 def run_baseline() -> tuple[int, float]:
