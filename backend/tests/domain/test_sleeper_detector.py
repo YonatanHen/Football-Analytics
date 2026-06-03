@@ -23,6 +23,12 @@ def test_overperforming(detector: SleeperDetector) -> None:
     assert result == "OVERPERFORMING"
 
 
+def test_overperforming_requires_450_minutes(detector: SleeperDetector) -> None:
+    # ratio < 0.8 but only 300 min → should NOT be flagged
+    result = detector.classify(xg=0.5, xa=0.2, goals=3, assists=1, minutes=300)
+    assert result is None
+
+
 def test_no_flag_when_ratio_in_range(detector: SleeperDetector) -> None:
     # ratio = 1.0/1 = 1.0, between 0.8 and 1.2
     result = detector.classify(xg=1.0, xa=0.0, goals=1, assists=0, minutes=900)

@@ -14,7 +14,7 @@ class SleeperDetector:
         ratio = (xg + xa) / total_output
         if ratio > 1.2 and minutes > 450:
             return "HIGH_VALUE"
-        if ratio < 0.8:
+        if ratio < 0.8 and minutes > 450:
             return "OVERPERFORMING"
         return None
 
