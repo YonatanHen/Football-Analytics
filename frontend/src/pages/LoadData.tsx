@@ -1,8 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { triggerFetch, getFetchStatus, getCompetitions, type FetchJobStatus } from '../api/fetch'
+import { triggerFetch, getFetchStatus, getCompetitions, type FetchJobStatus, type FetchTask } from '../api/fetch'
 
 const SEASONS = ['2025-2026', '2024-2025', '2023-2024']
 const POLL_MS = 3000
+
+function TaskIcon({ status }: { status: FetchTask['status'] }) {
+  if (status === 'done') return <span className="text-green-400 w-4 shrink-0">✓</span>
+  if (status === 'failed') return <span className="text-red-400 w-4 shrink-0">✗</span>
+  if (status === 'running') return <span className="text-indigo-400 w-4 shrink-0 animate-spin inline-block">⟳</span>
+  return <span className="text-gray-600 w-4 shrink-0">·</span>
+}
 
 type PageStatus = 'idle' | 'running' | 'done' | 'partial' | 'error'
 
@@ -148,14 +155,26 @@ export default function LoadData() {
             <span className="truncate max-w-xs">{current || 'Starting…'}</span>
             <span>{done} / {total}</span>
           </div>
-          <div className="w-full bg-gray-800 rounded-full h-2">
+          <div className="w-full bg-gray-800 rounded-full h-2 mb-2">
             <div
               className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
           {failed > 0 && (
-            <p className="text-xs text-amber-400 mt-1">{failed} failed so far — see server logs.</p>
+            <p className="text-xs text-amber-400 mb-2">{failed} failed so far — see server logs.</p>
+          )}
+          {jobStatus && jobStatus.tasks.length > 0 && (
+            <div className="max-h-40 overflow-y-auto bg-gray-900 rounded p-2 space-y-0.5">
+              {jobStatus.tasks.map((task: FetchTask, i: number) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <TaskIcon status={task.status} />
+                  <span className={task.status === 'failed' ? 'text-red-400' : task.status === 'done' ? 'text-gray-400' : 'text-gray-200'}>
+                    {task.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

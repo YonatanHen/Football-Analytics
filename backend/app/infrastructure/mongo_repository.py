@@ -5,6 +5,7 @@ from pymongo.collection import Collection
 from app.domain.models import (
     PlayerDTO, Stats, Score, CompetitionEntry, AggregatedScores,
 )
+from app.infrastructure.text_utils import normalize_text
 
 
 def _stats_to_dict(stats: Stats) -> dict:
@@ -72,6 +73,8 @@ def _player_to_doc(player: PlayerDTO) -> dict:
         },
         "low_sample_size": player.low_sample_size,
         "last_updated": player.last_updated,
+        "norm_name": normalize_text(player.name),
+        "norm_team": normalize_text(player.team),
     }
 
 
@@ -127,17 +130,82 @@ class MongoRepository:
             self._players.drop_index("sofascore_player_id_1_season_1")
         self._players.create_index([("sofascore_player_id", ASCENDING), ("season", ASCENDING)])
         self._players.create_index([("name", ASCENDING), ("team", ASCENDING), ("season", ASCENDING)])
+        self._players.create_index([("norm_name", ASCENDING), ("norm_team", ASCENDING), ("season", ASCENDING)])
         self._players.create_index([("season", ASCENDING)])
         self._players.create_index([("aggregated_scores.s_final", DESCENDING)])
 
+    def find_existing(
+        self,
+        season: str,
+        sofascore_player_id: Optional[str] = None,
+        norm_name: Optional[str] = None,
+        norm_team: Optional[str] = None,
+    ) -> Optional[PlayerDTO]:
+        """Find an existing player doc.
+
+        Lookup order:
+        1. sofascore_player_id + season (any source).
+        2. norm_name + norm_team + season WHERE sofascore_player_id IS NULL
+           (targets only Kaggle-seeded docs, avoiding collisions between different real players
+           who share the same display name on different Sofascore IDs).
+        """
+        doc = None
+        if sofascore_player_id:
+            doc = self._players.find_one(
+                {"sofascore_player_id": sofascore_player_id, "season": season}
+            )
+        if doc is None and norm_name and norm_team:
+            # Restrict to Kaggle-origin docs (no sofascore_player_id) to avoid false merges
+            doc = self._players.find_one(
+                {
+                    "norm_name": norm_name,
+                    "norm_team": norm_team,
+                    "season": season,
+                    "sofascore_player_id": None,
+                }
+            )
+        return _player_from_doc(doc) if doc else None
+
     def upsert_player(self, player: PlayerDTO) -> None:
-        """Insert or update a player document; keyed by sofascore_player_id+season or name+team+season."""
+        """Insert or update a player document.
+
+        Matches first by sofascore_player_id+season; if not found and the player has a
+        sofascore_player_id, also checks for a Kaggle-origin doc (sofascore_player_id=None)
+        with the same norm_name+norm_team+season so a fantasy upsert cleanly overwrites a
+        prior Kaggle seed (no duplicate left behind).
+        """
         doc = _player_to_doc(player)
+        existing_raw = None
         if player.sofascore_player_id:
-            filter_ = {"sofascore_player_id": player.sofascore_player_id, "season": player.season}
+            existing_raw = self._players.find_one(
+                {"sofascore_player_id": player.sofascore_player_id, "season": player.season},
+                {"_id": 1},
+            )
+            if existing_raw is None:
+                # Check for a Kaggle-seeded doc (no sofascore_id) for the same player
+                existing_raw = self._players.find_one(
+                    {
+                        "norm_name": normalize_text(player.name),
+                        "norm_team": normalize_text(player.team),
+                        "season": player.season,
+                        "sofascore_player_id": None,
+                    },
+                    {"_id": 1},
+                )
         else:
-            filter_ = {"name": player.name, "team": player.team, "season": player.season}
-        self._players.update_one(filter_, {"$set": doc}, upsert=True)
+            # Kaggle player: match by norm_name+norm_team (no sofascore_id to disambiguate)
+            existing_raw = self._players.find_one(
+                {
+                    "norm_name": normalize_text(player.name),
+                    "norm_team": normalize_text(player.team),
+                    "season": player.season,
+                },
+                {"_id": 1},
+            )
+        if existing_raw is not None:
+            self._players.update_one({"_id": existing_raw["_id"]}, {"$set": doc})
+        else:
+            self._players.insert_one(doc)
 
     def get_players(
         self,

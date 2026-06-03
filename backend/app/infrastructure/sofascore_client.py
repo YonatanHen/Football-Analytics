@@ -40,11 +40,22 @@ _NUMERIC_COLS = [
 class SofascoreClient:
     """Fetches player league stats from Sofascore via ScraperFC and normalises them to internal column names."""
 
-    def fetch(self, competition: str, season: str) -> pd.DataFrame:
-        """Scrape player league stats from Sofascore via ScraperFC and return normalized DataFrame."""
+    def fetch(
+        self,
+        competition: str,
+        season: str,
+        positions: list[str] | None = None,
+    ) -> pd.DataFrame:
+        """Scrape player league stats from Sofascore via ScraperFC and return normalized DataFrame.
+
+        positions: subset of ["Goalkeepers","Defenders","Midfielders","Forwards"] for parallel splits.
+        """
         from ScraperFC import Sofascore  # type: ignore[import]  # lazy: triggers network on import
         year = _season_to_sofascore_year(season)
-        raw: pd.DataFrame = Sofascore().scrape_player_league_stats(year=year, league=competition)
+        kwargs: dict = {"year": year, "league": competition}
+        if positions is not None:
+            kwargs["selected_positions"] = positions
+        raw: pd.DataFrame = Sofascore().scrape_player_league_stats(**kwargs)
         return self._normalize(raw)
 
     def _normalize(self, raw: pd.DataFrame) -> pd.DataFrame:

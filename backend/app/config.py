@@ -13,6 +13,9 @@ class Settings(BaseSettings):
         "France Ligue 1",
     ]
 
+    fetch_concurrency: int = 4
+    fetch_fbref_concurrency: int = 1
+
     kaggle_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:5173"]
 

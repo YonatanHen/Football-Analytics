@@ -1,14 +1,5 @@
-import unicodedata
 import pandas as pd
-
-
-def _normalize(s: object) -> str:
-    text = str(s).lower().strip()
-    text = text.replace('ß', 'ss')
-    return ''.join(
-        c for c in unicodedata.normalize('NFKD', text)
-        if unicodedata.category(c) != 'Mn'
-    )
+from app.infrastructure.text_utils import normalize_text as _normalize
 
 
 class PlayerDataMerger:

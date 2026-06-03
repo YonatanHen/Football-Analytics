@@ -1,31 +1,20 @@
 import logging
 import uuid
 import yaml
-from dataclasses import dataclass
 from importlib import resources
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from app.dependencies import get_mode_factory
 from app.modes.base import AnalysisMode
 from app.modes.factory import ModeFactory
+from app.modes.fetch_runner import FetchJob, run_fetch_job
+from app.infrastructure.mongo_repository import MongoRepository
 from app.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-_jobs: dict[str, "FetchJob"] = {}
-
-
-@dataclass
-class FetchJob:
-    """In-memory state for a single background fetch operation."""
-    id: str
-    status: str = "running"       # running | done | partial | error
-    total: int = 0
-    completed: int = 0
-    current: str = ""
-    players_upserted: int = 0
-    competitions_failed: int = 0
+_jobs: dict[str, FetchJob] = {}
 
 
 class FetchRequest(BaseModel):
@@ -57,9 +46,17 @@ def trigger_fetch(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    job = FetchJob(id=str(uuid.uuid4()), total=len(competitions))
+    job = FetchJob(id=str(uuid.uuid4()))
     _jobs[job.id] = job
-    background_tasks.add_task(_run_fetch, job, season, competitions, mode)
+
+    if body.mode == "fantasy":
+        from app.modes.fantasy import FantasyMode
+        if isinstance(mode, FantasyMode):
+            background_tasks.add_task(_run_fantasy_fetch, job, season, competitions, mode._repo)
+            return {"job_id": job.id}
+
+    # Non-fantasy modes: fall back to sequential fetch via mode.fetch_data
+    background_tasks.add_task(_run_legacy_fetch, job, season, competitions, mode)
     return {"job_id": job.id}
 
 
@@ -69,18 +66,26 @@ def get_fetch_status(job_id: str) -> dict:
     job = _jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return {
-        "job_id": job.id,
-        "status": job.status,
-        "total": job.total,
-        "completed": job.completed,
-        "current": job.current,
-        "players_upserted": job.players_upserted,
-        "competitions_failed": job.competitions_failed,
-    }
+    with job.lock:
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "total": job.total,
+            "completed": job.completed,
+            "current": job.current,
+            "players_upserted": job.players_upserted,
+            "competitions_failed": job.competitions_failed,
+            "tasks": list(job.tasks),
+        }
 
 
-def _run_fetch(job: FetchJob, season: str, competitions: list[str], mode: AnalysisMode) -> None:
+def _run_fantasy_fetch(job: FetchJob, season: str, competitions: list[str], repo: MongoRepository) -> None:
+    run_fetch_job(job, season, competitions, repo)
+
+
+def _run_legacy_fetch(job: FetchJob, season: str, competitions: list[str], mode: AnalysisMode) -> None:
+    """Sequential fallback for non-fantasy modes (e.g. Kaggle)."""
+    job.total = len(competitions)
     for comp in competitions:
         job.current = comp
         try:
