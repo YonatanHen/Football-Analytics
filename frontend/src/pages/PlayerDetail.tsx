@@ -1,22 +1,21 @@
 import { useState } from 'react'
 import { getPlayers, getPlayer, type Player } from '../api/players'
-import PlayerCard from '../components/PlayerCard'
+import PlayerModal from '../components/PlayerModal'
 
 type SearchState = 'idle' | 'loading' | 'done' | 'error'
 
 export default function PlayerDetail() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Player[]>([])
-  const [selected, setSelected] = useState<Player | null>(null)
   const [state, setState] = useState<SearchState>('idle')
   const [error, setError] = useState('')
+  const [modalPlayer, setModalPlayer] = useState<Player | null>(null)
 
   const search = async () => {
     const q = query.trim()
     if (!q) return
     setState('loading')
     setError('')
-    setSelected(null)
     try {
       const r = await getPlayers({ name: q, page_size: 20 })
       setResults(r.data)
@@ -28,11 +27,11 @@ export default function PlayerDetail() {
   }
 
   const selectPlayer = async (p: Player) => {
-    if (!p.sofascore_player_id) { setSelected(p); return }
+    if (!p.sofascore_player_id) { setModalPlayer(p); return }
     try {
-      setSelected(await getPlayer(p.sofascore_player_id))
+      setModalPlayer(await getPlayer(p.sofascore_player_id))
     } catch {
-      setSelected(p)
+      setModalPlayer(p)
     }
   }
 
@@ -62,7 +61,7 @@ export default function PlayerDetail() {
         <div className="text-gray-400 text-sm">No players found for "{query}".</div>
       )}
 
-      {state === 'done' && results.length > 0 && !selected && (
+      {state === 'done' && results.length > 0 && (
         <div className="bg-gray-900 rounded-lg overflow-hidden">
           {results.map((p) => (
             <button
@@ -85,17 +84,7 @@ export default function PlayerDetail() {
         </div>
       )}
 
-      {selected && (
-        <div>
-          <button
-            onClick={() => setSelected(null)}
-            className="text-sm text-gray-400 hover:text-gray-200 mb-4"
-          >
-            ← Back to results
-          </button>
-          <PlayerCard player={selected} />
-        </div>
-      )}
+      <PlayerModal player={modalPlayer} playerId={null} onClose={() => setModalPlayer(null)} />
     </div>
   )
 }

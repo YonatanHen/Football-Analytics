@@ -3,6 +3,7 @@ import { getPlayers, type PlayerList } from '../api/players'
 import { triggerFetch } from '../api/fetch'
 import FilterBar from '../components/FilterBar'
 import PlayerTable from '../components/PlayerTable'
+import PlayerModal from '../components/PlayerModal'
 
 interface Filters { position: string; team: string; nationality: string; underpredicted_flag: string }
 
@@ -12,6 +13,7 @@ export default function Rankings() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [fetchMsg, setFetchMsg] = useState('')
+  const [modalId, setModalId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -69,10 +71,11 @@ export default function Rankings() {
             page={page}
             pageSize={50}
             onPageChange={setPage}
-            onPlayerClick={() => {}}
+            onPlayerClick={(id) => setModalId(id)}
           />
         </>
       )}
+      <PlayerModal playerId={modalId} onClose={() => setModalId(null)} />
     </div>
   )
 }

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { getPlayers, type PlayerList } from '../api/players'
 import PlayerTable from '../components/PlayerTable'
+import PlayerModal from '../components/PlayerModal'
 
 export default function Sleepers() {
   const [data, setData] = useState<PlayerList | null>(null)
   const [flag, setFlag] = useState<'HIGH_VALUE' | 'OVERPERFORMING'>('HIGH_VALUE')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [modalId, setModalId] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -46,10 +48,11 @@ export default function Sleepers() {
             page={page}
             pageSize={50}
             onPageChange={setPage}
-            onPlayerClick={() => {}}
+            onPlayerClick={(id) => setModalId(id)}
           />
         </>
       )}
+      <PlayerModal playerId={modalId} onClose={() => setModalId(null)} />
     </div>
   )
 }
