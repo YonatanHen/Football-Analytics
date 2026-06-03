@@ -8,7 +8,7 @@ import Sleepers from './pages/Sleepers'
 import ScatterPage from './pages/ScatterPage'
 import LoadData from './pages/LoadData'
 
-type Tab = 'rankings' | 'detail' | 'compare' | 'sleepers' | 'scatter' | 'load'
+type Tab = 'rankings' | 'detail' | 'compare' | 'sleepers' | 'scatter'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'rankings', label: 'Rankings' },
@@ -16,13 +16,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'sleepers', label: 'Underpredicted' },
   { id: 'scatter', label: 'Scatter Plot' },
-  { id: 'load', label: 'Load Data' },
 ]
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('rankings')
   const [isEmpty, setIsEmpty] = useState<boolean | null>(null)
   const [dbError, setDbError] = useState(false)
+  const [showLoad, setShowLoad] = useState(false)
 
   useEffect(() => {
     getPlayers({ page_size: 1 })
@@ -38,7 +38,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <nav className="bg-gray-900 border-b border-gray-800 px-4">
-        <div className="flex gap-1 max-w-7xl mx-auto">
+        <div className="flex gap-1 max-w-7xl mx-auto items-center">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -52,8 +52,17 @@ export default function App() {
               {t.label}
             </button>
           ))}
+          <div className="ml-auto">
+            <button
+              onClick={() => setShowLoad(true)}
+              className="px-3 py-1 text-xs text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              Load Kaggle data
+            </button>
+          </div>
         </div>
       </nav>
+
       <main className="max-w-7xl mx-auto p-4">
         {dbError && (
           <div className="flex items-center justify-center min-h-[60vh] text-red-400 text-sm">
@@ -73,10 +82,27 @@ export default function App() {
             {tab === 'compare' && <Compare />}
             {tab === 'sleepers' && <Sleepers />}
             {tab === 'scatter' && <ScatterPage />}
-            {tab === 'load' && <LoadData />}
           </>
         )}
       </main>
+
+      {showLoad && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowLoad(false)}
+        >
+          <div
+            className="bg-gray-900 rounded-xl max-w-lg w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Load Kaggle Dataset</h2>
+              <button onClick={() => setShowLoad(false)} className="text-gray-400 hover:text-gray-200">✕</button>
+            </div>
+            <LoadData />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
