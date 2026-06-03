@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useRef, type ReactNode } from 'react'
 import { triggerFetch, getFetchStatus } from '../api/fetch'
+import LoadData from '../pages/LoadData'
 
 const POLL_MS = 3000
 type Status = 'idle' | 'loading' | 'done' | 'error'
@@ -7,13 +8,10 @@ type Status = 'idle' | 'loading' | 'done' | 'error'
 export default function SeedPrompt({ onSeeded }: { onSeeded: () => void }) {
   const [status, setStatus] = useState<Status>('idle')
   const [count, setCount] = useState(0)
+  const [showScraper, setShowScraper] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [])
-
-  const handleLoad = async () => {
+  const handleKaggle = async () => {
     setStatus('loading')
     try {
       const { job_id } = await triggerFetch({ mode: 'kaggle' })
@@ -64,23 +62,42 @@ export default function SeedPrompt({ onSeeded }: { onSeeded: () => void }) {
       <div className="text-5xl mb-4">⚠️</div>
       <h2 className="text-xl font-bold text-gray-100 mb-2">Something went wrong</h2>
       <p className="text-gray-400 text-sm mb-6">Couldn't load player data. Please try again.</p>
-      <button onClick={handleLoad} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-semibold">
+      <button onClick={handleKaggle} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-semibold">
         Try Again
       </button>
     </Center>
+  )
+
+  if (showScraper) return (
+    <div className="max-w-2xl mx-auto mt-8">
+      <button
+        onClick={() => setShowScraper(false)}
+        className="text-sm text-gray-400 hover:text-gray-200 mb-6"
+      >
+        ← Back
+      </button>
+      <LoadData onDone={onSeeded} />
+    </div>
   )
 
   return (
     <Center>
       <div className="text-5xl mb-4">⚽</div>
       <h2 className="text-xl font-bold text-gray-100 mb-3">No player data loaded</h2>
-      <p className="text-gray-400 text-sm max-w-md text-center mb-2 leading-relaxed">
-        Load the 2025/26 season to get started. You'll get 2,800+ players across the top European
-        competitions — ranked, scored, and ready to explore.
+      <p className="text-gray-400 text-sm max-w-md text-center mb-8 leading-relaxed">
+        Scrape live data from Sofascore, or load the Kaggle demo dataset to explore the app quickly.
       </p>
-      <p className="text-gray-600 text-xs mb-6">This takes about 10–30 seconds and only needs to be done once.</p>
-      <button onClick={handleLoad} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-semibold">
-        Load 2025/26 Season
+      <button
+        onClick={() => setShowScraper(true)}
+        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-semibold mb-4"
+      >
+        Scrape Live Data
+      </button>
+      <button
+        onClick={handleKaggle}
+        className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+      >
+        or load Kaggle demo data (2025/26, ~2,800 players)
       </button>
     </Center>
   )

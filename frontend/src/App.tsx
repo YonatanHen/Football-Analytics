@@ -57,7 +57,7 @@ export default function App() {
               onClick={() => setShowLoad(true)}
               className="px-3 py-1 text-xs text-gray-600 hover:text-gray-400 transition-colors"
             >
-              Load Kaggle data
+              Load Data
             </button>
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Load Kaggle Dataset</h2>
+              <h2 className="text-lg font-bold">Load Data</h2>
               <button onClick={() => setShowLoad(false)} className="text-gray-400 hover:text-gray-200">✕</button>
             </div>
             <LoadData />

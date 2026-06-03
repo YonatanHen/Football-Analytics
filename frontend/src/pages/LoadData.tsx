@@ -13,7 +13,7 @@ function TaskIcon({ status }: { status: FetchTask['status'] }) {
 
 type PageStatus = 'idle' | 'running' | 'done' | 'partial' | 'error'
 
-export default function LoadData() {
+export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
   const [competitions, setCompetitions] = useState<string[]>([])
   const [compsLoading, setCompsLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -64,6 +64,7 @@ export default function LoadData() {
             setPageStatus(status.status as PageStatus)
             if (status.status === 'done') {
               setResultMsg(`Done — ${status.players_upserted.toLocaleString()} players loaded for ${season}.`)
+              onDone?.()
             } else if (status.status === 'partial') {
               setResultMsg(`${status.players_upserted.toLocaleString()} players loaded. ${status.competitions_failed} competition${status.competitions_failed !== 1 ? 's' : ''} failed — see server logs.`)
             } else {
