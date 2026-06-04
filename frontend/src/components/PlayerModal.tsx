@@ -26,6 +26,16 @@ export default function PlayerModal({ playerId, player: prefetched, onClose }: P
       .finally(() => setLoading(false))
   }, [playerId, prefetched])
 
+  // Re-poll once after 5s if bio fields are missing (background enrichment in progress)
+  useEffect(() => {
+    const id = player?.sofascore_player_id
+    if (!id || player?.nationality || player?.position_exact) return
+    const timer = setTimeout(() => {
+      getPlayer(id).then(setPlayer).catch(() => {})
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [player?.sofascore_player_id, player?.nationality, player?.position_exact])
+
   const open = playerId != null || prefetched != null
   if (!open) return null
 
