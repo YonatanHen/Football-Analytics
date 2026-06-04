@@ -13,7 +13,7 @@ class Settings(BaseSettings):
         "France Ligue 1",
     ]
 
-    fetch_concurrency: int = 4
+    fetch_concurrency: int = 1
     fetch_fbref_concurrency: int = 1
 
     kaggle_api_key: str = ""

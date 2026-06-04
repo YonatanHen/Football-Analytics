@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Backend**: FastAPI + PyMongo (Python 3.12), runs on port 8000
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS, runs on port 5173
 - **Database**: MongoDB 7 (`football_analytics` db)
-- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` (available in Docker, but not required)
+- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` — all external scraping must go through this (Sofascore 403-bans bare IPs)
 
 ## Running the project
 
@@ -108,5 +108,6 @@ On first load (`isEmpty === true`), `SeedPrompt` is shown — it calls `POST /v1
 ## Constraints
 
 - Never pick a technology or design without consulting the user first
+- All external scraping goes through rotating proxies (Tor); never hit sources from local IP
 - No auto-fetch in the UI; all data loads are explicit user actions
 - Compare page must always show exactly 2 players side-by-side

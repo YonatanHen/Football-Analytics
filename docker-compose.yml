@@ -1,13 +1,17 @@
 services:
   backend:
     build: ./backend
+    init: true
     ports: ["8000:8000"]
     env_file: secrets.env
     environment:
       - MONGO_URI=mongodb://mongodb:27017/football_analytics
+      - ALL_PROXY=socks5://tor:9050
     depends_on:
       mongodb:
         condition: service_healthy
+      tor:
+        condition: service_started
     volumes:
       - ./backend:/app
       - ./logs:/app/logs
@@ -37,6 +41,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
+
+  tor:
+    image: dperson/torproxy
+    ports: ["9050:9050"]
     restart: unless-stopped
 
 volumes:
