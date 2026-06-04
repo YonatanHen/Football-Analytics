@@ -45,6 +45,39 @@ _NUMERIC_COLS = [
 class SofascoreClient:
     """Fetches player league stats from Sofascore via ScraperFC and normalises them to internal column names."""
 
+    def fetch_player_bio(self, player_id: str) -> dict:
+        """Fetch nationality and position_exact for a single player on demand.
+
+        Uses botasaurus browser. Returns {} on any failure so callers can skip gracefully.
+        Called from a background task when a player modal is opened and bio is missing.
+        """
+        import json as _json
+        from botasaurus.browser import browser as botasaurus_browser  # type: ignore[import]
+
+        @botasaurus_browser(output=None, create_error_logs=False, block_images_and_css=True)
+        def _get(driver, url: str) -> dict | None:
+            driver.get(url)
+            text = driver.page_text
+            if not text:
+                return None
+            try:
+                return _json.loads(text)
+            except Exception:
+                return None
+
+        try:
+            data = _get(f"https://api.sofascore.com/api/v1/player/{player_id}")
+            if not data:
+                return {}
+            p = data["player"]
+            return {
+                "nationality": (p.get("country") or {}).get("name") or "",
+                "position_exact": ",".join(p.get("positionsDetailed") or []),
+            }
+        except Exception as exc:
+            logger.warning("fetch_player_bio: player %s failed: %s", player_id, exc)
+            return {}
+
     def fetch(
         self,
         competition: str,

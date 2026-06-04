@@ -9,7 +9,6 @@ from app.infrastructure.text_utils import normalize_text
 
 
 def _stats_to_dict(stats: Stats) -> dict:
-    """Serialize a Stats dataclass to a plain dict for MongoDB storage."""
     return {
         "goals": stats.goals, "assists": stats.assists,
         "xg": stats.xg, "xa": stats.xa,
@@ -24,7 +23,6 @@ def _stats_to_dict(stats: Stats) -> dict:
 
 
 def _stats_from_dict(d: dict) -> Stats:
-    """Deserialize a MongoDB document dict back to a Stats dataclass."""
     return Stats(
         goals=d.get("goals", 0), assists=d.get("assists", 0),
         xg=d.get("xg", 0.0), xa=d.get("xa", 0.0),
@@ -38,17 +36,32 @@ def _stats_from_dict(d: dict) -> Stats:
     )
 
 
-def _player_to_doc(player: PlayerDTO) -> dict:
-    """Convert a PlayerDTO to a MongoDB document dict (no _id — let MongoDB generate it)."""
-    return {
-        "sofascore_player_id": player.sofascore_player_id,
+def _bio_doc(player: PlayerDTO) -> dict:
+    """Build a player_bios document. Only includes non-empty fields."""
+    doc: dict = {
         "name": player.name,
+        "norm_name": normalize_text(player.name),
+    }
+    if player.sofascore_player_id:
+        doc["sofascore_player_id"] = player.sofascore_player_id
+    if player.position:
+        doc["position"] = player.position
+    if player.position_exact:
+        doc["position_exact"] = player.position_exact
+    if player.nationality:
+        doc["nationality"] = player.nationality
+    if player.photo_url:
+        doc["photo_url"] = player.photo_url
+    return doc
+
+
+def _stats_doc(player: PlayerDTO, bio_id) -> dict:
+    """Build a player_stats document from a PlayerDTO and bio _id."""
+    return {
+        "player_bio_id": bio_id,
         "season": player.season,
-        "position": player.position,
-        "position_exact": player.position_exact,
         "team": player.team,
-        "nationality": player.nationality,
-        "photo_url": player.photo_url,
+        "norm_team": normalize_text(player.team),
         "competitions": [
             {
                 "competition": c.competition,
@@ -73,15 +86,13 @@ def _player_to_doc(player: PlayerDTO) -> dict:
         },
         "low_sample_size": player.low_sample_size,
         "last_updated": player.last_updated,
-        "norm_name": normalize_text(player.name),
-        "norm_team": normalize_text(player.team),
     }
 
 
-def _player_from_doc(doc: dict) -> PlayerDTO:
-    """Reconstruct a PlayerDTO from a MongoDB document dict."""
+def _player_from_docs(bio: dict, stats: dict) -> PlayerDTO:
+    """Reconstruct a PlayerDTO from a player_bios + player_stats document pair."""
     comps = []
-    for c in doc.get("competitions", []):
+    for c in stats.get("competitions", []):
         s = c["scores"]
         comps.append(CompetitionEntry(
             competition=c["competition"],
@@ -91,48 +102,88 @@ def _player_from_doc(doc: dict) -> PlayerDTO:
                 tactical=s["tactical"], s_final=s["s_final"],
             ),
         ))
-    ag = doc["aggregated_scores"]
+    ag = stats["aggregated_scores"]
     return PlayerDTO(
-        sofascore_player_id=doc.get("sofascore_player_id"),
-        name=doc["name"],
-        season=doc["season"],
-        position=doc["position"],
-        position_exact=doc["position_exact"],
-        team=doc["team"],
-        nationality=doc["nationality"],
-        photo_url=doc["photo_url"],
+        sofascore_player_id=bio.get("sofascore_player_id"),
+        name=bio["name"],
+        season=stats["season"],
+        position=bio.get("position", "MF"),
+        position_exact=bio.get("position_exact", ""),
+        team=stats["team"],
+        nationality=bio.get("nationality", ""),
+        photo_url=bio.get("photo_url", ""),
         competitions=comps,
-        aggregated_stats=_stats_from_dict(doc["aggregated_stats"]),
+        aggregated_stats=_stats_from_dict(stats["aggregated_stats"]),
         aggregated_scores=AggregatedScores(
             offensive=ag["offensive"], defensive=ag["defensive"],
             tactical=ag["tactical"], s_final=ag["s_final"],
             underpredicted_ratio=ag.get("sleeper_ratio"),
             underpredicted_flag=ag.get("sleeper_flag"),
         ),
-        low_sample_size=doc["low_sample_size"],
-        last_updated=doc["last_updated"],
+        low_sample_size=stats["low_sample_size"],
+        last_updated=stats["last_updated"],
     )
 
 
 class MongoRepository:
-    """All MongoDB I/O for the application: player upserts, queries, and scrape audit logging."""
+    """All MongoDB I/O for the application.
+
+    Two collections:
+    - player_bios: one doc per player (sofascore_player_id or norm_name key); holds identity/bio fields.
+    - player_stats: one doc per (player_bio_id, season); holds seasonal stats and scores.
+    """
 
     def __init__(self, client: MongoClient) -> None:
-        """Connect to the football_analytics database and ensure indexes exist."""
         self._db = client["football_analytics"]
-        self._players: Collection = self._db["players"]
+        self._player_bios: Collection = self._db["player_bios"]
+        self._player_stats: Collection = self._db["player_stats"]
         self._scrape_log: Collection = self._db["scrape_log"]
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
-        existing = {idx["name"] for idx in self._players.list_indexes()}
-        if "sofascore_player_id_1_season_1" in existing:
-            self._players.drop_index("sofascore_player_id_1_season_1")
-        self._players.create_index([("sofascore_player_id", ASCENDING), ("season", ASCENDING)])
-        self._players.create_index([("name", ASCENDING), ("team", ASCENDING), ("season", ASCENDING)])
-        self._players.create_index([("norm_name", ASCENDING), ("norm_team", ASCENDING), ("season", ASCENDING)])
-        self._players.create_index([("season", ASCENDING)])
-        self._players.create_index([("aggregated_scores.s_final", DESCENDING)])
+        self._player_bios.create_index(
+            [("sofascore_player_id", ASCENDING)],
+            unique=True, sparse=True,
+            name="bios_sofascore_id",
+        )
+        self._player_bios.create_index([("norm_name", ASCENDING)])
+        self._player_stats.create_index(
+            [("player_bio_id", ASCENDING), ("season", ASCENDING)],
+            unique=True,
+            name="stats_bio_season",
+        )
+        self._player_stats.create_index([("season", ASCENDING)])
+        self._player_stats.create_index([("aggregated_scores.s_final", DESCENDING)])
+
+    def _find_or_create_bio(self, player: PlayerDTO):
+        """Find or create a player_bios doc; return its _id."""
+        bio = _bio_doc(player)
+
+        existing = None
+        if player.sofascore_player_id:
+            existing = self._player_bios.find_one(
+                {"sofascore_player_id": player.sofascore_player_id}, {"_id": 1}
+            )
+
+        if existing is None:
+            # Check for a Kaggle-origin bio (no sofascore_player_id) with matching name
+            existing = self._player_bios.find_one(
+                {
+                    "$or": [
+                        {"norm_name": normalize_text(player.name)},
+                        {"name": player.name},
+                    ],
+                    "sofascore_player_id": {"$exists": False},
+                },
+                {"_id": 1},
+            )
+
+        if existing:
+            update = {k: v for k, v in bio.items() if v}
+            self._player_bios.update_one({"_id": existing["_id"]}, {"$set": update})
+            return existing["_id"]
+
+        return self._player_bios.insert_one(bio).inserted_id
 
     def find_existing(
         self,
@@ -141,81 +192,48 @@ class MongoRepository:
         norm_name: Optional[str] = None,
         norm_team: Optional[str] = None,
     ) -> Optional[PlayerDTO]:
-        """Find an existing player doc.
-
-        Lookup order:
-        1. sofascore_player_id + season (any source).
-        2. norm_name + norm_team + season WHERE sofascore_player_id IS NULL
-           (targets only Kaggle-seeded docs, avoiding collisions between different real players
-           who share the same display name on different Sofascore IDs).
-        """
-        doc = None
+        bio = None
         if sofascore_player_id:
-            doc = self._players.find_one(
-                {"sofascore_player_id": sofascore_player_id, "season": season}
-            )
-        if doc is None and norm_name and norm_team:
-            # Restrict to Kaggle-origin docs (no sofascore_player_id) to avoid false merges
-            doc = self._players.find_one(
-                {
-                    "norm_name": norm_name,
-                    "norm_team": norm_team,
-                    "season": season,
-                    "sofascore_player_id": None,
-                }
-            )
-        return _player_from_doc(doc) if doc else None
+            bio = self._player_bios.find_one({"sofascore_player_id": sofascore_player_id})
+        if bio is None and norm_name:
+            bio = self._player_bios.find_one({
+                "norm_name": norm_name,
+                "sofascore_player_id": {"$exists": False},
+            })
+        if bio is None:
+            return None
+
+        stats_query: dict = {"player_bio_id": bio["_id"], "season": season}
+        if norm_team and not sofascore_player_id:
+            stats_query["norm_team"] = norm_team
+        stats = self._player_stats.find_one(stats_query)
+        if stats is None:
+            return None
+        return _player_from_docs(bio, stats)
 
     def upsert_player(self, player: PlayerDTO) -> None:
-        """Insert or update a player document.
+        bio_id = self._find_or_create_bio(player)
+        doc = _stats_doc(player, bio_id)
+        existing = self._player_stats.find_one(
+            {"player_bio_id": bio_id, "season": player.season}, {"_id": 1}
+        )
+        if existing:
+            self._player_stats.update_one({"_id": existing["_id"]}, {"$set": doc})
+        else:
+            self._player_stats.insert_one(doc)
 
-        Matches first by sofascore_player_id+season; if not found and the player has a
-        sofascore_player_id, also checks for a Kaggle-origin doc (sofascore_player_id=None)
-        with the same norm_name+norm_team+season so a fantasy upsert cleanly overwrites a
-        prior Kaggle seed (no duplicate left behind).
-        """
-        doc = _player_to_doc(player)
-        existing_raw = None
-        if player.sofascore_player_id:
-            existing_raw = self._players.find_one(
-                {"sofascore_player_id": player.sofascore_player_id, "season": player.season},
-                {"_id": 1},
+    def upsert_player_bio(self, player_id: str, nationality: str, position_exact: str) -> None:
+        """Patch bio fields fetched on demand. Only sets non-empty values."""
+        update: dict = {}
+        if nationality:
+            update["nationality"] = nationality
+        if position_exact:
+            update["position_exact"] = position_exact
+        if update:
+            self._player_bios.update_one(
+                {"sofascore_player_id": player_id},
+                {"$set": update},
             )
-            if existing_raw is None:
-                # Check for a Kaggle-seeded doc for the same player.
-                # Legacy docs may lack norm_name/norm_team (written before those
-                # fields existed), so fall back to raw name+team match.
-                existing_raw = self._players.find_one(
-                    {
-                        "$or": [
-                            {
-                                "norm_name": normalize_text(player.name),
-                                "norm_team": normalize_text(player.team),
-                            },
-                            {
-                                "name": player.name,
-                                "team": player.team,
-                            },
-                        ],
-                        "season": player.season,
-                        "sofascore_player_id": None,
-                    },
-                    {"_id": 1},
-                )
-        else:
-            # Kaggle player: match by norm_name+norm_team (no sofascore_id to disambiguate)
-            existing_raw = self._players.find_one(
-                {
-                    "norm_name": normalize_text(player.name),
-                    "norm_team": normalize_text(player.team),
-                    "season": player.season,
-                },
-                {"_id": 1},
-            )
-        if existing_raw is not None:
-            self._players.update_one({"_id": existing_raw["_id"]}, {"$set": doc})
-        else:
-            self._players.insert_one(doc)
 
     def get_players(
         self,
@@ -230,50 +248,88 @@ class MongoRepository:
         page: int = 1,
         page_size: int = 50,
     ) -> tuple[list[PlayerDTO], int]:
-        """Return a paginated, filtered, sorted list of players and the total match count."""
-        query: dict = {"season": season}
+        # Resolve bio-level filters to a set of bio _ids
+        bio_query: dict = {}
         if position:
-            query["position"] = position
-        if team:
-            query["team"] = team
+            bio_query["position"] = position
         if nationality:
-            query["nationality"] = nationality
-        if underpredicted_flag:
-            query["aggregated_scores.sleeper_flag"] = underpredicted_flag
+            bio_query["nationality"] = nationality
         if name:
-            query["name"] = {"$regex": name, "$options": "i"}
+            bio_query["name"] = {"$regex": name, "$options": "i"}
+
+        stats_query: dict = {"season": season}
+        if bio_query:
+            bio_ids = [d["_id"] for d in self._player_bios.find(bio_query, {"_id": 1})]
+            stats_query["player_bio_id"] = {"$in": bio_ids}
+        if team:
+            stats_query["team"] = team
+        if underpredicted_flag:
+            stats_query["aggregated_scores.sleeper_flag"] = underpredicted_flag
 
         sort_field = f"aggregated_scores.{sort_by}" if sort_by == "s_final" else sort_by
         sort_dir = DESCENDING if order == "desc" else ASCENDING
-        total = self._players.count_documents(query)
+        total = self._player_stats.count_documents(stats_query)
         skip = (page - 1) * page_size
-        docs = list(
-            self._players.find(query)
+        stats_docs = list(
+            self._player_stats.find(stats_query)
             .sort(sort_field, sort_dir)
             .skip(skip)
             .limit(page_size)
         )
-        return [_player_from_doc(d) for d in docs], total
+
+        bio_ids_page = [d["player_bio_id"] for d in stats_docs]
+        bio_map = {
+            d["_id"]: d
+            for d in self._player_bios.find({"_id": {"$in": bio_ids_page}})
+        }
+
+        players = []
+        for stats in stats_docs:
+            bio = bio_map.get(stats["player_bio_id"])
+            if bio:
+                players.append(_player_from_docs(bio, stats))
+        return players, total
 
     def get_player(self, player_id: str, season: str) -> Optional[PlayerDTO]:
-        """Return a single player by Sofascore ID and season, or None if not found."""
-        doc = self._players.find_one({"sofascore_player_id": player_id, "season": season})
-        return _player_from_doc(doc) if doc else None
+        bio = self._player_bios.find_one({"sofascore_player_id": player_id})
+        if bio is None:
+            return None
+        stats = self._player_stats.find_one({"player_bio_id": bio["_id"], "season": season})
+        if stats is None:
+            return None
+        return _player_from_docs(bio, stats)
 
     def get_scatter_data(self, season: str) -> list[dict]:
-        """Return minimal player docs (id, name, position, xg/xa/goals/assists) for scatter chart."""
-        projection = {
-            "name": 1, "position": 1, "sofascore_player_id": 1,
-            "aggregated_stats.xg": 1, "aggregated_stats.xa": 1,
-            "aggregated_stats.goals": 1, "aggregated_stats.assists": 1,
-            "_id": 0,
+        stats_docs = list(self._player_stats.find(
+            {"season": season},
+            {
+                "player_bio_id": 1,
+                "aggregated_stats.xg": 1, "aggregated_stats.xa": 1,
+                "aggregated_stats.goals": 1, "aggregated_stats.assists": 1,
+            },
+        ))
+        bio_ids = [d["player_bio_id"] for d in stats_docs]
+        bio_map = {
+            d["_id"]: d
+            for d in self._player_bios.find(
+                {"_id": {"$in": bio_ids}},
+                {"name": 1, "position": 1, "sofascore_player_id": 1},
+            )
         }
-        return list(self._players.find({"season": season}, projection))
+        result = []
+        for s in stats_docs:
+            bio = bio_map.get(s["player_bio_id"], {})
+            result.append({
+                "sofascore_player_id": bio.get("sofascore_player_id"),
+                "name": bio.get("name", ""),
+                "position": bio.get("position", ""),
+                "aggregated_stats": s.get("aggregated_stats", {}),
+            })
+        return result
 
     def log_scrape(
         self, season: str, competitions: list[str], players_upserted: int, status: str
     ) -> dict:
-        """Write a scrape audit record and return it with the inserted MongoDB _id."""
         entry: dict = {
             "scraped_at": datetime.now(timezone.utc).isoformat(),
             "season": season,

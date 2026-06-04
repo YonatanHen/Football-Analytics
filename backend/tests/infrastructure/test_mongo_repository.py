@@ -4,6 +4,7 @@ from app.domain.models import (
     PlayerDTO, Stats, Score, CompetitionEntry, AggregatedScores,
 )
 from app.infrastructure.mongo_repository import MongoRepository
+from app.infrastructure.text_utils import normalize_text
 
 
 def _make_player(player_id: str = "123", season: str = "2025-2026") -> PlayerDTO:
@@ -37,6 +38,15 @@ def test_upsert_and_get_player(repo: MongoRepository) -> None:
     assert result.name == "Test Player"
     assert result.aggregated_stats.goals == 5
     assert result.aggregated_scores.underpredicted_flag == "HIGH_VALUE"
+
+
+def test_upsert_and_get_player_bio_fields(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("123"))
+    result = repo.get_player("123", "2025-2026")
+    assert result is not None
+    assert result.nationality == "England"
+    assert result.position == "FW"
+    assert result.position_exact == "ST"
 
 
 def test_upsert_overwrites_existing(repo: MongoRepository) -> None:
@@ -97,6 +107,25 @@ def test_get_players_separate_seasons(repo: MongoRepository) -> None:
     assert t2 == 1
 
 
+def test_bio_shared_across_seasons(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("1", "2025-2026"))
+    repo.upsert_player(_make_player("1", "2024-2025"))
+    assert repo._player_bios.count_documents({"sofascore_player_id": "1"}) == 1
+    assert repo._player_stats.count_documents({"season": "2025-2026"}) == 1
+    assert repo._player_stats.count_documents({"season": "2024-2025"}) == 1
+
+
+def test_upsert_player_bio_updates_nationality(repo: MongoRepository) -> None:
+    p = _make_player("1")
+    p.nationality = ""
+    repo.upsert_player(p)
+    repo.upsert_player_bio("1", nationality="Spain", position_exact="RW")
+    result = repo.get_player("1", "2025-2026")
+    assert result is not None
+    assert result.nationality == "Spain"
+    assert result.position_exact == "RW"
+
+
 def test_log_scrape(repo: MongoRepository) -> None:
     entry = repo.log_scrape(
         season="2025-2026",
@@ -152,26 +181,44 @@ def test_get_players_filter_by_name_matches_substring(repo: MongoRepository) -> 
     assert total == 2
 
 
-def test_sofascore_upsert_overwrites_legacy_kaggle_doc_without_norm_fields(repo: MongoRepository) -> None:
-    """Sofascore upsert must merge with legacy Kaggle docs that lack norm_name/norm_team."""
-    # Insert a Kaggle-origin doc the old way: no norm_name or norm_team
-    repo._players.insert_one({
-        "sofascore_player_id": None,
+def test_sofascore_upsert_merges_with_kaggle_bio(repo: MongoRepository) -> None:
+    """When a Sofascore upsert matches an existing Kaggle-origin bio, it merges (no duplicate)."""
+    # Insert Kaggle-origin bio (no sofascore_player_id)
+    bio_id = repo._player_bios.insert_one({
         "name": "Kenan Yıldız",
-        "team": "Juventus",
+        "norm_name": normalize_text("Kenan Yıldız"),
+    }).inserted_id
+    repo._player_stats.insert_one({
+        "player_bio_id": bio_id,
         "season": "2025-2026",
-        # deliberately omit norm_name / norm_team
+        "team": "Juventus",
+        "norm_team": normalize_text("Juventus"),
+        "competitions": [],
+        "aggregated_stats": _stats_to_empty(),
+        "aggregated_scores": _scores_to_empty(),
+        "low_sample_size": True,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
     })
-    assert repo._players.count_documents({"name": "Kenan Yıldız"}) == 1
+    assert repo._player_bios.count_documents({"name": "Kenan Yıldız"}) == 1
 
-    # Upsert the Sofascore version
     p = _make_player("1149011")
     p.name = "Kenan Yıldız"
     p.team = "Juventus"
     repo.upsert_player(p)
 
-    # Must still be exactly one document (no duplicate)
-    count = repo._players.count_documents({"name": "Kenan Yıldız", "season": "2025-2026"})
-    assert count == 1
-    doc = repo._players.find_one({"sofascore_player_id": "1149011"})
-    assert doc is not None
+    assert repo._player_bios.count_documents({"name": "Kenan Yıldız"}) == 1
+    assert repo._player_bios.count_documents({"sofascore_player_id": "1149011"}) == 1
+    assert repo._player_stats.count_documents({"season": "2025-2026"}) == 1
+
+
+def _stats_to_empty() -> dict:
+    return {k: 0 for k in [
+        "goals", "assists", "xg", "xa", "minutes", "clean_sheets",
+        "pk_saved", "pk_won", "pk_scored", "pk_taken", "yellow_cards",
+        "red_cards", "fouls_committed", "rating", "big_chances_created", "key_passes",
+    ]}
+
+
+def _scores_to_empty() -> dict:
+    return {"offensive": 0.0, "defensive": 0.0, "tactical": 0.0, "s_final": 0.0,
+            "sleeper_ratio": None, "sleeper_flag": None}
