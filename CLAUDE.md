@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Backend**: FastAPI + PyMongo (Python 3.12), runs on port 8000
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS, runs on port 5173
 - **Database**: MongoDB 7 (`football_analytics` db)
-- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` — all external scraping must go through this
+- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` (available in Docker, but not required)
 
 ## Running the project
 

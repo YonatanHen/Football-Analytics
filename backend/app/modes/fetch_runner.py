@@ -137,7 +137,7 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 "nationality": str(row.get("nationality", "")),
                 "position": position,
                 "position_exact": str(row.get("position_exact", "")),
-                "photo_url": str(row.get("photo_url", "")),
+                "photo_url": "",
             }
             incoming = build_player(meta, [entry], season)
             existing = repo.find_existing(
