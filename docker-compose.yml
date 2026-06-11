@@ -6,15 +6,11 @@ services:
     env_file: secrets.env
     environment:
       - MONGO_URI=mongodb://mongodb:27017/football_analytics
-      # Privoxy (port 8118) fronts Tor SOCKS5 — works with Chrome/botasaurus unlike socks5:// directly
-      - ALL_PROXY=http://tor:8118
-      - HTTP_PROXY=http://tor:8118
-      - HTTPS_PROXY=http://tor:8118
+      # No proxy: Tor exit IPs are blanket-403'd by Sofascore's Cloudflare. botasaurus/Chrome
+      # evades bot detection on its own; scrape infrequently (snapshot workflow) to avoid rate-limit bans.
     depends_on:
       mongodb:
         condition: service_healthy
-      tor:
-        condition: service_started
     volumes:
       - ./backend:/app
       - ./logs:/app/logs
