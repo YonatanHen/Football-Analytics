@@ -6,7 +6,10 @@ services:
     env_file: secrets.env
     environment:
       - MONGO_URI=mongodb://mongodb:27017/football_analytics
-      - ALL_PROXY=socks5://tor:9050
+      # Privoxy (port 8118) fronts Tor SOCKS5 — works with Chrome/botasaurus unlike socks5:// directly
+      - ALL_PROXY=http://tor:8118
+      - HTTP_PROXY=http://tor:8118
+      - HTTPS_PROXY=http://tor:8118
     depends_on:
       mongodb:
         condition: service_healthy
@@ -45,7 +48,6 @@ services:
 
   tor:
     image: dperson/torproxy
-    ports: ["9050:9050"]
     restart: unless-stopped
 
 volumes:
