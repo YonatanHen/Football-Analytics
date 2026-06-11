@@ -27,10 +27,11 @@ Invoke-RestMethod http://localhost:8000/v1/fetch/status/$($job.job_id)
 
 ### 2. Dump the snapshot
 
-From `backend/` (host venv; Mongo is exposed on `localhost:27017`):
+Run inside the backend container (pymongo/bson are installed there, not on the host):
 
 ```powershell
-python scripts/snapshot_dump.py            # -> backend/snapshots/cl-2025-2026.json
+docker exec football-analytics-backend-1 python scripts/snapshot_dump.py
+# -> backend/snapshots/cl-2025-2026.json  (via the ./backend:/app volume mount)
 ```
 
 Exports `player_bios` + `player_stats` + `scrape_log` as MongoDB Extended JSON,
@@ -42,7 +43,7 @@ Any later session — even after `docker compose down` / `up` or wiping the coll
 restore the snapshot instead of re-scraping:
 
 ```powershell
-python scripts/snapshot_load.py cl-2025-2026.json
+docker exec football-analytics-backend-1 python scripts/snapshot_load.py cl-2025-2026.json
 ```
 
 This replaces the three collections with the snapshot contents. Indexes are rebuilt
