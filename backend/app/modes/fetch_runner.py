@@ -14,8 +14,6 @@ from app.infrastructure.text_utils import normalize_text
 
 logger = logging.getLogger(__name__)
 
-_SS_POSITION_GROUPS = ["Goalkeepers", "Defenders", "Midfielders", "Forwards"]
-
 
 @dataclass
 class FetchJob:
@@ -32,11 +30,10 @@ class FetchJob:
 
 
 def _make_tasks(competitions: list[str]) -> list[dict]:
-    tasks = []
-    for comp in competitions:
-        for group in _SS_POSITION_GROUPS:
-            tasks.append({"label": f"{comp} — {group}", "status": "pending", "type": "ss", "comp": comp, "group": group})
-    return tasks
+    return [
+        {"label": comp, "status": "pending", "type": "ss", "comp": comp}
+        for comp in competitions
+    ]
 
 
 def _update_task(job: FetchJob, idx: int, status: str) -> None:
@@ -46,12 +43,12 @@ def _update_task(job: FetchJob, idx: int, status: str) -> None:
 
 
 def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> None:  # type: ignore[type-arg]
-    """Execute a parallel fetch job and upsert results.
+    """Execute a fetch job and upsert results.
 
-    Each competition is split into 4 concurrent Sofascore tasks (by position group).
-    Competitions themselves also run concurrently up to settings.fetch_concurrency.
-    After all scraping, reconciles each player and upserts once (no write races).
-    pk_won comes directly from Sofascore's penaltyWon field — FBref is not used.
+    Each competition is scraped in a single Sofascore call (all positions at once) to
+    minimise requests and avoid Cloudflare rate-limit bans. Competitions run concurrently
+    up to settings.fetch_concurrency. After all scraping, reconciles each player and
+    upserts once (no write races). pk_won comes directly from Sofascore's penaltyWon field.
     """
     sofascore = SofascoreClient()
 
@@ -63,17 +60,17 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
     results: dict[str, list[pd.DataFrame]] = {comp: [] for comp in competitions}
     failed_comps: set[str] = set()
 
-    def _scrape_ss(task_idx: int, comp: str, group: str) -> None:
+    def _scrape_ss(task_idx: int, comp: str) -> None:
         with job.lock:
             job.tasks[task_idx]["status"] = "running"
-            job.current = f"{comp} — {group}"
+            job.current = comp
         try:
-            df = sofascore.fetch(comp, season, positions=[group])
+            df = sofascore.fetch(comp, season)
             with job.lock:
                 results[comp].append(df)
             _update_task(job, task_idx, "done")
         except Exception as exc:
-            logger.warning("Sofascore fetch failed %s/%s: %s", comp, group, exc)
+            logger.warning("Sofascore fetch failed %s: %s", comp, exc)
             with job.lock:
                 failed_comps.add(comp)
             _update_task(job, task_idx, "failed")
@@ -81,7 +78,7 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
     futures = []
     with ThreadPoolExecutor(max_workers=settings.fetch_concurrency) as executor:
         for idx, task in enumerate(tasks):
-            futures.append(executor.submit(_scrape_ss, idx, task["comp"], task["group"]))
+            futures.append(executor.submit(_scrape_ss, idx, task["comp"]))
         for fut in as_completed(futures):
             try:
                 fut.result()

@@ -21,7 +21,7 @@ class FantasyMode(AnalysisMode):
         """Scrape Sofascore+FBref for each competition using the parallel fetch runner."""
         from app.modes.fetch_runner import FetchJob, run_fetch_job
         import uuid
-        job = FetchJob(id=str(uuid.uuid4()), total=len(competitions) * 4)
+        job = FetchJob(id=str(uuid.uuid4()), total=len(competitions))
         run_fetch_job(job, season, competitions, self._repo)
         log = self._repo.log_scrape(
             season=season,
