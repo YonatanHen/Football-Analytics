@@ -13,10 +13,10 @@ backend/.venv/
 secrets/
 secrets.env
 logs/
-scripts/
+backend/scripts/*
+!backend/scripts/DB/
 backend/snapshots/
 docs/superpowers/plans/
 CLAUDE.local.md
 .superpowers
 settings.local.json
-! scripts/DB/
