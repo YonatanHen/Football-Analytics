@@ -1,8 +1,8 @@
 """
 Phase 0 benchmark — run INSIDE the backend container:
-    docker compose exec backend python /app/../scripts/benchmark_scrape.py
+    docker compose exec backend python /app/../scripts/benchmark_fetch.py
 
-Measures whether position-split concurrent scraping is faster than a single bulk call.
+Measures whether position-split concurrent fetching is faster than a single bulk call.
 Results determine fetch_concurrency and whether position-split is kept in the app.
 """
 
@@ -20,7 +20,7 @@ _MAX_RETRIES = 3
 _RETRY_DELAY = 2.0
 
 
-def _scrape_group(group: str) -> tuple[str, int, float]:
+def _fetch_group(group: str) -> tuple[str, int, float]:
     t0 = time.time()
     last_exc: Exception | None = None
     for attempt in range(1, _MAX_RETRIES + 1):
@@ -52,7 +52,7 @@ def run_serial_split() -> tuple[int, float]:
     total_rows = 0
     t0 = time.time()
     for group in POSITIONS:
-        group_name, rows, t = _scrape_group(group)
+        group_name, rows, t = _fetch_group(group)
         total_rows += rows
         print(f"  {group_name}: rows={rows}, time={t:.1f}s")
     elapsed = time.time() - t0
@@ -67,7 +67,7 @@ def run_parallel_split(max_workers: int = 4) -> tuple[int, float]:
     futures = {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         for group in POSITIONS:
-            futures[ex.submit(_scrape_group, group)] = group
+            futures[ex.submit(_fetch_group, group)] = group
         for fut in as_completed(futures):
             try:
                 group_name, rows, t = fut.result()
@@ -81,7 +81,7 @@ def run_parallel_split(max_workers: int = 4) -> tuple[int, float]:
 
 
 if __name__ == "__main__":
-    print(f"Benchmarking Sofascore scrape for {LEAGUE} {YEAR}")
+    print(f"Benchmarking Sofascore fetch for {LEAGUE} {YEAR}")
     print("=" * 60)
 
     rows_baseline, t_baseline = run_baseline()

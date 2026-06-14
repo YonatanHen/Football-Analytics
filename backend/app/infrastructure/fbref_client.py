@@ -11,7 +11,7 @@ class FBrefClient:
     """Fetches misc stats (penalties won) from FBref via ScraperFC to supplement Sofascore data."""
 
     def fetch_misc(self, competition: str, season: str) -> pd.DataFrame:
-        """Scrape FBref misc stats via ScraperFC and return DataFrame with player_name, team, pk_won."""
+        """Fetch FBref misc stats via ScraperFC and return DataFrame with player_name, team, pk_won."""
         from ScraperFC import FBref  # type: ignore[import]  # lazy: triggers network on import
         result = FBref().scrape_stats(year=season, league=competition, stat_category="misc")
         raw: pd.DataFrame = result.get("player", pd.DataFrame())

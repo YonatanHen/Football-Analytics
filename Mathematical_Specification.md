@@ -64,5 +64,5 @@ $$Sleeper Ratio = \frac{xG + xA}{G + A}$$
 
 ## 4. Data Constraints for Python Implementation
 - **Null Handling**: All missing values for $xG$, $xA$, or $PK$ stats must be treated as `0`.
-- **Position Mapping**: Ensure the scraper maps various position strings (e.g., 'CB', 'LB', 'RB') to the generic 'DF' category to apply the correct weights.
+- **Position Mapping**: Ensure position strings (e.g., 'CB', 'LB', 'RB') are mapped to the generic 'DF' category to apply the correct weights.
 - **Normalization**: If $Minutes < 90$, the $S_{final}$ should be flagged as "Low Sample Size" to avoid skewing the rankings with bench-warmers.

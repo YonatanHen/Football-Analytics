@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Backend**: FastAPI + PyMongo (Python 3.12), runs on port 8000
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS, runs on port 5173
 - **Database**: MongoDB 7 (`football_analytics` db)
-- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` — all external scraping must go through this (Sofascore 403-bans bare IPs)
+- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` — all external fetching must go through this (Sofascore 403-bans bare IPs)
 
 ## Running the project
 
@@ -48,7 +48,7 @@ No frontend tests currently.
 ```
 app/
   api/          # FastAPI routers — thin HTTP layer only
-    fetch.py    # POST /v1/fetch/ — triggers scrape
+    fetch.py    # POST /v1/fetch/ — triggers data fetch
     players.py  # GET /v1/players, GET /v1/players/{id}
     analysis.py # GET /v1/analysis/scatter
   modes/        # Strategy pattern: FantasyMode, KaggleMode
@@ -60,8 +60,8 @@ app/
     sleeper_detector.py
   infrastructure/
     mongo_repository.py   # All MongoDB I/O; serializes/deserializes domain models
-    sofascore_client.py   # Scrapes Sofascore via scraperfc
-    fbref_client.py       # Scrapes FBref misc stats
+    sofascore_client.py   # Fetches from Sofascore via ScraperFC
+    fbref_client.py       # Fetches FBref misc stats
     kaggle_client.py      # Downloads FBref dataset from Kaggle
     data_merger.py        # Merges Sofascore + FBref DataFrames by player name
   config.py     # Pydantic Settings (env vars)
@@ -71,7 +71,7 @@ app/
 
 ### Data flow
 
-**Fantasy mode** (live scrape): `POST /v1/fetch/` → `FantasyMode.fetch_data()` → scrapes Sofascore + FBref per competition → merges → scores via `ScoringEngine` → upserts `PlayerDTO` to MongoDB.
+**Fantasy mode** (live fetch): `POST /v1/fetch/` → `FantasyMode.fetch_data()` → fetches from Sofascore + FBref per competition → merges → scores via `ScoringEngine` → upserts `PlayerDTO` to MongoDB.
 
 **Kaggle mode** (offline): Downloads the `merterdemir/fbref-2025-26-football-stats` Kaggle dataset as CSV → parses → upserts to MongoDB. Used for initial seeding from the UI.
 
@@ -80,7 +80,7 @@ app/
 ### MongoDB collections
 
 - `players` — one doc per `(sofascore_player_id, season)` or `(name, team, season)` for Kaggle players. Contains nested `competitions[]`, `aggregated_stats`, `aggregated_scores`.
-- `scrape_log` — audit trail for each `fetch_data()` call.
+- `fetch_log` — audit trail for each `fetch_data()` call.
 
 ### Key domain concepts
 
@@ -108,6 +108,6 @@ On first load (`isEmpty === true`), `SeedPrompt` is shown — it calls `POST /v1
 ## Constraints
 
 - Never pick a technology or design without consulting the user first
-- All external scraping goes through rotating proxies (Tor); never hit sources from local IP
+- All external fetching goes through rotating proxies (Tor); never hit sources from local IP
 - No auto-fetch in the UI; all data loads are explicit user actions
 - Compare page must always show exactly 2 players side-by-side

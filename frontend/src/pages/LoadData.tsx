@@ -89,7 +89,7 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
             } else if (status.status === 'partial') {
               setResultMsg(`${status.players_upserted.toLocaleString()} players loaded, but some data failed — see server logs.`)
             } else {
-              setResultMsg('No data loaded — the scrape failed (Sofascore may be blocking). You can try again.')
+              setResultMsg('No data loaded — the fetch failed (Sofascore may be blocking). You can try again.')
             }
             refreshCooldown()  // lock now starts if the fetch succeeded
           }

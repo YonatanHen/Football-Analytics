@@ -9,7 +9,7 @@ from app.config import settings
 
 
 class KaggleMode(AnalysisMode):
-    """Loads player data from the Kaggle FBref dataset CSV. Fast offline seed — no live scraping."""
+    """Loads player data from the Kaggle FBref dataset CSV. Fast offline seed — no live fetching."""
 
     def __init__(self, mongo_client: MongoClient) -> None:
         self._repo = MongoRepository(mongo_client)
@@ -35,7 +35,7 @@ class KaggleMode(AnalysisMode):
             )
             self._repo.upsert_player(merge(existing, incoming))
 
-        return self._repo.log_scrape(
+        return self._repo.log_fetch(
             season=season,
             competitions=competitions,
             players_upserted=len(players),

@@ -86,7 +86,7 @@ class SofascoreClient:
         max_retries: int = 3,
         retry_delay: float = 2.0,
     ) -> pd.DataFrame:
-        """Scrape player league stats from Sofascore via ScraperFC and return normalized DataFrame.
+        """Fetch player league stats from Sofascore via ScraperFC and return normalized DataFrame.
 
         positions: subset of ["Goalkeepers","Defenders","Midfielders","Forwards"] for parallel splits.
         Retries up to max_retries times on transient empty-response failures (botasaurus concurrency).

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class FantasyMode(AnalysisMode):
-    """Live scrape mode: fetches Sofascore + FBref per competition, scores players, and upserts to MongoDB."""
+    """Live fetch mode: fetches Sofascore + FBref per competition, scores players, and upserts to MongoDB."""
 
     def __init__(self, mongo_client: MongoClient) -> None:
         self._repo = MongoRepository(mongo_client)
@@ -18,12 +18,12 @@ class FantasyMode(AnalysisMode):
         return "fantasy"
 
     def fetch_data(self, season: str, competitions: list[str]) -> dict:
-        """Scrape Sofascore+FBref for each competition using the parallel fetch runner."""
+        """Fetch Sofascore+FBref for each competition using the parallel fetch runner."""
         from app.modes.fetch_runner import FetchJob, run_fetch_job
         import uuid
         job = FetchJob(id=str(uuid.uuid4()), total=len(competitions))
         run_fetch_job(job, season, competitions, self._repo)
-        log = self._repo.log_scrape(
+        log = self._repo.log_fetch(
             season=season,
             competitions=competitions,
             players_upserted=job.players_upserted,

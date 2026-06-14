@@ -126,8 +126,8 @@ def test_upsert_player_bio_updates_nationality(repo: MongoRepository) -> None:
     assert result.position_exact == "RW"
 
 
-def test_log_scrape(repo: MongoRepository) -> None:
-    entry = repo.log_scrape(
+def test_log_fetch(repo: MongoRepository) -> None:
+    entry = repo.log_fetch(
         season="2025-2026",
         competitions=["England Premier League"],
         players_upserted=42,

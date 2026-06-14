@@ -8,7 +8,7 @@ type Status = 'idle' | 'loading' | 'done' | 'error'
 export default function SeedPrompt({ onSeeded }: { onSeeded: () => void }) {
   const [status, setStatus] = useState<Status>('idle')
   const [count, setCount] = useState(0)
-  const [showScraper, setShowScraper] = useState(false)
+  const [showFetcher, setShowFetcher] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const handleKaggle = async () => {
@@ -68,10 +68,10 @@ export default function SeedPrompt({ onSeeded }: { onSeeded: () => void }) {
     </Center>
   )
 
-  if (showScraper) return (
+  if (showFetcher) return (
     <div className="max-w-2xl mx-auto mt-8">
       <button
-        onClick={() => setShowScraper(false)}
+        onClick={() => setShowFetcher(false)}
         className="text-sm text-gray-400 hover:text-gray-200 mb-6"
       >
         ← Back
@@ -85,13 +85,13 @@ export default function SeedPrompt({ onSeeded }: { onSeeded: () => void }) {
       <div className="text-5xl mb-4">⚽</div>
       <h2 className="text-xl font-bold text-gray-100 mb-3">No player data loaded</h2>
       <p className="text-gray-400 text-sm max-w-md text-center mb-8 leading-relaxed">
-        Scrape live data from Sofascore, or load the Kaggle demo dataset to explore the app quickly.
+        Fetch live data from Sofascore, or load the Kaggle demo dataset to explore the app quickly.
       </p>
       <button
-        onClick={() => setShowScraper(true)}
+        onClick={() => setShowFetcher(true)}
         className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-semibold mb-4"
       >
-        Scrape Live Data
+        Fetch Live Data
       </button>
       <button
         onClick={handleKaggle}

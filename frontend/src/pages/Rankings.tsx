@@ -39,7 +39,7 @@ export default function Rankings() {
   useEffect(() => { load() }, [load])
 
   const handleFetch = async () => {
-    setFetchMsg('Scraping… this may take several minutes.')
+    setFetchMsg('Fetching… this may take several minutes.')
     try {
       const r = await triggerFetch()
       setFetchMsg(`Done: ${r.season}`)

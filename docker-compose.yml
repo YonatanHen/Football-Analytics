@@ -8,7 +8,7 @@ services:
     environment:
       - MONGO_URI=mongodb://mongodb:27017/football_analytics
       # No proxy: Tor exit IPs are blanket-403'd by Sofascore's Cloudflare. botasaurus/Chrome
-      # evades bot detection on its own; scrape infrequently (snapshot workflow) to avoid rate-limit bans.
+      # evades bot detection on its own; fetch infrequently (snapshot workflow) to avoid rate-limit bans.
     depends_on:
       mongodb:
         condition: service_healthy

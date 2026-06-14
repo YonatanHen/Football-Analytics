@@ -141,7 +141,7 @@ class MongoRepository:
         self._db = client["football_analytics"]
         self._player_bios: Collection = self._db["player_bios"]
         self._player_stats: Collection = self._db["player_stats"]
-        self._scrape_log: Collection = self._db["scrape_log"]
+        self._fetch_log: Collection = self._db["fetch_log"]
         self._fetch_state: Collection = self._db["fetch_state"]
         self._ensure_indexes()
 
@@ -351,17 +351,17 @@ class MongoRepository:
             upsert=True,
         )
 
-    def log_scrape(
+    def log_fetch(
         self, season: str, competitions: list[str], players_upserted: int, status: str
     ) -> dict:
         entry: dict = {
-            "scraped_at": datetime.now(timezone.utc).isoformat(),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
             "season": season,
-            "competitions_scraped": competitions,
+            "competitions_fetched": competitions,
             "sources": ["sofascore", "fbref"],
             "status": status,
             "players_upserted": players_upserted,
         }
-        result = self._scrape_log.insert_one(entry)
+        result = self._fetch_log.insert_one(entry)
         entry["_id"] = str(result.inserted_id)
         return entry
