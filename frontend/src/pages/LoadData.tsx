@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { triggerFetch, getFetchStatus, getCompetitions, type FetchJobStatus, type FetchTask } from '../api/fetch'
+import {
+  triggerFetch, getFetchStatus, getCompetitions, getCooldown,
+  type FetchJobStatus, type FetchTask, type CooldownStatus,
+} from '../api/fetch'
 
 const SEASONS = ['2025-2026', '2024-2025', '2023-2024']
 const POLL_MS = 3000
@@ -11,49 +14,67 @@ function TaskIcon({ status }: { status: FetchTask['status'] }) {
   return <span className="text-gray-600 w-4 shrink-0">·</span>
 }
 
+function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, totalSeconds)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return `${h}h ${m}m ${sec}s`
+}
+
 type PageStatus = 'idle' | 'running' | 'done' | 'partial' | 'error'
 
 export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
   const [competitions, setCompetitions] = useState<string[]>([])
   const [compsLoading, setCompsLoading] = useState(true)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<string>('')
   const [season, setSeason] = useState(SEASONS[0])
+
+  const [cooldown, setCooldown] = useState<CooldownStatus | null>(null)
+  const [remaining, setRemaining] = useState(0)
 
   const [pageStatus, setPageStatus] = useState<PageStatus>('idle')
   const [jobStatus, setJobStatus] = useState<FetchJobStatus | null>(null)
   const [resultMsg, setResultMsg] = useState('')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const refreshCooldown = () =>
+    getCooldown()
+      .then(cd => { setCooldown(cd); setRemaining(cd.seconds_remaining) })
+      .catch(() => setCooldown(null))
+
   useEffect(() => {
     getCompetitions()
-      .then(list => { setCompetitions(list); setSelected(new Set(list)) })
+      .then(list => { setCompetitions(list); setSelected(list[0] ?? '') })
       .catch(() => setCompetitions([]))
       .finally(() => setCompsLoading(false))
+    refreshCooldown()
   }, [])
+
+  // Live countdown while locked; re-check the server when it elapses.
+  useEffect(() => {
+    if (cooldown?.allowed !== false) return
+    const t = setInterval(() => {
+      setRemaining(prev => {
+        if (prev <= 1) { clearInterval(t); refreshCooldown(); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [cooldown])
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
 
-  const toggle = (comp: string) => {
-    setSelected(prev => {
-      const next = new Set(prev)
-      next.has(comp) ? next.delete(comp) : next.add(comp)
-      return next
-    })
-  }
-
-  const toggleAll = () =>
-    setSelected(prev => prev.size === competitions.length ? new Set() : new Set(competitions))
-
   const handleFetch = async () => {
-    if (selected.size === 0) return
+    if (!selected) return
     setPageStatus('running')
     setJobStatus(null)
     setResultMsg('')
 
     try {
-      const { job_id } = await triggerFetch({ mode: 'fantasy', season, competitions: [...selected] })
+      const { job_id } = await triggerFetch({ mode: 'fantasy', season, competitions: [selected] })
       pollRef.current = setInterval(async () => {
         try {
           const status = await getFetchStatus(job_id)
@@ -63,13 +84,14 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
             pollRef.current = null
             setPageStatus(status.status as PageStatus)
             if (status.status === 'done') {
-              setResultMsg(`Done — ${status.players_upserted.toLocaleString()} players loaded for ${season}.`)
+              setResultMsg(`Done — ${status.players_upserted.toLocaleString()} players loaded for ${selected}.`)
               onDone?.()
             } else if (status.status === 'partial') {
-              setResultMsg(`${status.players_upserted.toLocaleString()} players loaded. ${status.competitions_failed} competition${status.competitions_failed !== 1 ? 's' : ''} failed — see server logs.`)
+              setResultMsg(`${status.players_upserted.toLocaleString()} players loaded, but some data failed — see server logs.`)
             } else {
-              setResultMsg('No data loaded. Check server logs for details.')
+              setResultMsg('No data loaded — the scrape failed (Sofascore may be blocking). You can try again.')
             }
+            refreshCooldown()  // lock now starts if the fetch succeeded
           }
         } catch {
           clearInterval(pollRef.current!)
@@ -78,14 +100,17 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
           setResultMsg('Lost connection to server.')
         }
       }, POLL_MS)
-    } catch {
+    } catch (e) {
       setPageStatus('error')
-      setResultMsg('Failed to start fetch. Check server logs.')
+      setResultMsg(e instanceof Error ? e.message : 'Failed to start fetch. Check server logs.')
+      refreshCooldown()  // a 429 means we're already locked — reflect it
     }
   }
 
   const running = pageStatus === 'running'
-  const total = jobStatus?.total ?? selected.size
+  const locked = cooldown?.allowed === false
+  const nextAllowed = cooldown?.next_allowed_at ? new Date(cooldown.next_allowed_at).toLocaleString() : null
+  const total = jobStatus?.total ?? 1
   const done = jobStatus?.completed ?? 0
   const failed = jobStatus?.competitions_failed ?? 0
   const current = jobStatus?.current ?? ''
@@ -96,57 +121,55 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
     pageStatus === 'partial' ? 'text-amber-400' :
     'text-red-400'
 
+  const disabled = running || locked
+
   return (
     <div className="max-w-md">
       <h1 className="text-xl font-bold mb-2">Load Data</h1>
 
-      <div className="mb-5">
+      <p className="text-sm text-gray-400 mb-4">
+        Fetch player data for one league at a time. To avoid being rate-limited by the data source,
+        you can load <span className="text-gray-200 font-medium">one league every {cooldown?.cooldown_hours ?? 24} hours</span>.
+        This takes a few minutes.
+      </p>
+
+      {locked && (
+        <div className="bg-amber-950/40 border border-amber-800/60 rounded-lg p-3 mb-4 text-sm">
+          <div className="text-amber-300 font-medium">Next league fetch available in {formatDuration(remaining)}</div>
+          {nextAllowed && <div className="text-amber-500/80 text-xs mt-1">Unlocks at {nextAllowed}</div>}
+          {cooldown?.last_competition && (
+            <div className="text-amber-500/80 text-xs mt-0.5">Last loaded: {cooldown.last_competition}</div>
+          )}
+        </div>
+      )}
+
+      <div className="mb-4">
         <label className="block text-xs text-gray-400 mb-1">Season</label>
         <select
           value={season}
           onChange={(e) => setSeason(e.target.value)}
-          disabled={running}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm disabled:opacity-50"
+          disabled={disabled}
+          className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm disabled:opacity-50"
         >
           {SEASONS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
-      <p className="text-sm text-gray-400 mb-4">
-        Fetch player data for the selected competitions and store in the database.
-        This takes a few minutes per competition.
-      </p>
-
-      <div className="bg-gray-900 rounded-lg p-4 mb-4">
+      <div className="mb-5">
+        <label className="block text-xs text-gray-400 mb-1">League</label>
         {compsLoading ? (
-          <div className="text-sm text-gray-500 py-2">Loading competitions…</div>
+          <div className="text-sm text-gray-500 py-2">Loading leagues…</div>
         ) : competitions.length === 0 ? (
-          <div className="text-sm text-red-400 py-2">Could not load competition list.</div>
+          <div className="text-sm text-red-400 py-2">Could not load league list.</div>
         ) : (
-          <>
-            <label className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-800 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selected.size === competitions.length}
-                onChange={toggleAll}
-                disabled={running}
-                className="w-4 h-4 accent-indigo-500"
-              />
-              <span className="text-sm font-medium">All competitions</span>
-            </label>
-            {competitions.map(comp => (
-              <label key={comp} className="flex items-center gap-3 py-1.5 cursor-pointer hover:text-white">
-                <input
-                  type="checkbox"
-                  checked={selected.has(comp)}
-                  onChange={() => toggle(comp)}
-                  disabled={running}
-                  className="w-4 h-4 accent-indigo-500"
-                />
-                <span className="text-sm text-gray-300">{comp}</span>
-              </label>
-            ))}
-          </>
+          <select
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            disabled={disabled}
+            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm disabled:opacity-50"
+          >
+            {competitions.map(comp => <option key={comp} value={comp}>{comp}</option>)}
+          </select>
         )}
       </div>
 
@@ -183,10 +206,10 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
       <div className="flex items-center gap-4 flex-wrap">
         <button
           onClick={handleFetch}
-          disabled={running || selected.size === 0}
-          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 rounded-lg text-sm font-semibold"
+          disabled={disabled || !selected}
+          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold"
         >
-          {running ? 'Fetching…' : `Fetch ${selected.size} competition${selected.size !== 1 ? 's' : ''}`}
+          {running ? 'Fetching…' : locked ? 'Locked' : 'Fetch league'}
         </button>
         {resultMsg && !running && (
           <span className={`text-sm ${msgColor}`}>{resultMsg}</span>

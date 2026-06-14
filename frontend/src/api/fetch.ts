@@ -32,3 +32,16 @@ export async function getFetchStatus(jobId: string): Promise<FetchJobStatus> {
 export async function getCompetitions(): Promise<string[]> {
   return apiFetch<string[]>('/v1/competitions')
 }
+
+export interface CooldownStatus {
+  allowed: boolean
+  cooldown_hours: number
+  last_fetched_at: string | null
+  next_allowed_at: string | null
+  seconds_remaining: number
+  last_competition: string | null
+}
+
+export async function getCooldown(): Promise<CooldownStatus> {
+  return apiFetch<CooldownStatus>('/v1/fetch/cooldown')
+}

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     fetch_concurrency: int = 1
     fetch_fbref_concurrency: int = 1
+    fetch_cooldown_hours: int = 24  # min hours between successful Sofascore league fetches
 
     kaggle_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:5173"]

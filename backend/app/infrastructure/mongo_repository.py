@@ -125,12 +125,16 @@ def _player_from_docs(bio: dict, stats: dict) -> PlayerDTO:
     )
 
 
+_FETCH_STATE_ID = "singleton"
+
+
 class MongoRepository:
     """All MongoDB I/O for the application.
 
-    Two collections:
+    Collections:
     - player_bios: one doc per player (sofascore_player_id or norm_name key); holds identity/bio fields.
     - player_stats: one doc per (player_bio_id, season); holds seasonal stats and scores.
+    - fetch_state: single doc tracking the last successful Sofascore fetch (for the cooldown limit).
     """
 
     def __init__(self, client: MongoClient) -> None:
@@ -138,6 +142,7 @@ class MongoRepository:
         self._player_bios: Collection = self._db["player_bios"]
         self._player_stats: Collection = self._db["player_stats"]
         self._scrape_log: Collection = self._db["scrape_log"]
+        self._fetch_state: Collection = self._db["fetch_state"]
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
@@ -326,6 +331,25 @@ class MongoRepository:
                 "aggregated_stats": s.get("aggregated_stats", {}),
             })
         return result
+
+    def get_last_fetch(self) -> Optional[dict]:
+        """Return the singleton fetch-state doc, or None if no fetch has succeeded yet."""
+        return self._fetch_state.find_one({"_id": _FETCH_STATE_ID})
+
+    def set_last_fetch(self, competition: str, season: str, at: datetime) -> None:
+        """Record the most recent successful Sofascore fetch (upserts the singleton doc).
+
+        Stores the timestamp as an ISO string to keep timezone info across pymongo round-trips.
+        """
+        self._fetch_state.update_one(
+            {"_id": _FETCH_STATE_ID},
+            {"$set": {
+                "last_fetched_at": at.isoformat(),
+                "last_competition": competition,
+                "last_season": season,
+            }},
+            upsert=True,
+        )
 
     def log_scrape(
         self, season: str, competitions: list[str], players_upserted: int, status: str

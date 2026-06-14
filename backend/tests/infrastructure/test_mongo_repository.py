@@ -222,3 +222,22 @@ def _stats_to_empty() -> dict:
 def _scores_to_empty() -> dict:
     return {"offensive": 0.0, "defensive": 0.0, "tactical": 0.0, "s_final": 0.0,
             "sleeper_ratio": None, "sleeper_flag": None}
+
+
+def test_fetch_state_absent_initially(repo: MongoRepository) -> None:
+    assert repo.get_last_fetch() is None
+
+
+def test_set_and_get_last_fetch_roundtrip(repo: MongoRepository) -> None:
+    at = datetime(2026, 6, 12, 9, 30, tzinfo=timezone.utc)
+    repo.set_last_fetch("England Premier League", "2025-2026", at)
+
+    state = repo.get_last_fetch()
+    assert state is not None
+    assert state["last_competition"] == "England Premier League"
+    assert state["last_season"] == "2025-2026"
+    assert datetime.fromisoformat(state["last_fetched_at"]) == at
+    # Singleton: a second write updates rather than inserts a new doc.
+    repo.set_last_fetch("Spain La Liga", "2025-2026", at)
+    assert repo._fetch_state.count_documents({}) == 1
+    assert repo.get_last_fetch()["last_competition"] == "Spain La Liga"
