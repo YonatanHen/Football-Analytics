@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Backend**: FastAPI + PyMongo (Python 3.12), runs on port 8000
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS, runs on port 5173
 - **Database**: MongoDB 7 (`football_analytics` db)
-- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` — all external fetching must go through this (Sofascore 403-bans bare IPs)
+- **Proxy**: Tor SOCKS5 proxy at `socks5://tor:9050` — all external fetching must go through this
 
 ## Running the project
 
@@ -73,13 +73,11 @@ app/
 
 **Fantasy mode** (live fetch): `POST /v1/fetch/` → `FantasyMode.fetch_data()` → fetches from Sofascore + FBref per competition → merges → scores via `ScoringEngine` → upserts `PlayerDTO` to MongoDB.
 
-**Kaggle mode** (offline): Downloads the `merterdemir/fbref-2025-26-football-stats` Kaggle dataset as CSV → parses → upserts to MongoDB. Used for initial seeding from the UI.
-
 **Read path**: `GET /v1/players` → `MongoRepository.get_players()` → paginates + filters by position/team/nationality/sleeper_flag.
 
 ### MongoDB collections
 
-- `players` — one doc per `(sofascore_player_id, season)` or `(name, team, season)` for Kaggle players. Contains nested `competitions[]`, `aggregated_stats`, `aggregated_scores`.
+- `players` — one doc per `(sofascore_player_id, season)`. Contains nested `competitions[]`, `aggregated_stats`, `aggregated_scores`.
 - `fetch_log` — audit trail for each `fetch_data()` call.
 
 ### Key domain concepts
@@ -110,4 +108,10 @@ On first load (`isEmpty === true`), `SeedPrompt` is shown — it calls `POST /v1
 - Never pick a technology or design without consulting the user first
 - All external fetching goes through rotating proxies (Tor); never hit sources from local IP
 - No auto-fetch in the UI; all data loads are explicit user actions
-- Compare page must always show exactly 2 players side-by-side
+- Always open a 'dev/*' branch for new features or bugfixes. 
+- Always take a DB snapshot before implementing new feature.
+
+## Never do these
+
+- Never work directly on master, if not mentioned explicitly otherwise.
+- Never commit & push code without testing it first.
