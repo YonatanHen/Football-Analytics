@@ -17,6 +17,7 @@ backend/scripts/*
 !backend/scripts/DB/
 backend/snapshots/
 docs/superpowers/plans/
+docs/decisions/
 CLAUDE.local.md
 .superpowers
 settings.local.json
