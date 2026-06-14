@@ -6,7 +6,7 @@ interface PlayerTableProps {
   page: number
   pageSize: number
   onPageChange: (page: number) => void
-  onPlayerClick: (playerId: string) => void
+  onPlayerClick: (player: Player) => void
 }
 
 export default function PlayerTable({
@@ -43,8 +43,8 @@ export default function PlayerTable({
           <tbody>
             {players.map((p, i) => (
               <tr
-                key={p.sofascore_player_id ?? p.name}
-                onClick={() => p.sofascore_player_id && onPlayerClick(p.sofascore_player_id)}
+                key={p.sofascore_player_id ?? `${p.name}|${p.team}`}
+                onClick={() => onPlayerClick(p)}
                 className="border-b border-gray-800 hover:bg-gray-800 cursor-pointer"
               >
                 <td className="py-2 pr-4 text-gray-500">{(page - 1) * pageSize + i + 1}</td>

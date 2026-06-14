@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getPlayers, type PlayerList } from '../api/players'
+import { getPlayers, type Player, type PlayerList } from '../api/players'
 import PlayerTable from '../components/PlayerTable'
 import PlayerModal from '../components/PlayerModal'
 
@@ -9,6 +9,11 @@ export default function Sleepers() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [modalId, setModalId] = useState<string | null>(null)
+  const [modalPlayer, setModalPlayer] = useState<Player | null>(null)
+
+  const openPlayer = (p: Player) =>
+    p.sofascore_player_id ? setModalId(p.sofascore_player_id) : setModalPlayer(p)
+  const closeModal = () => { setModalId(null); setModalPlayer(null) }
 
   useEffect(() => {
     setLoading(true)
@@ -48,11 +53,11 @@ export default function Sleepers() {
             page={page}
             pageSize={50}
             onPageChange={setPage}
-            onPlayerClick={(id) => setModalId(id)}
+            onPlayerClick={openPlayer}
           />
         </>
       )}
-      <PlayerModal playerId={modalId} onClose={() => setModalId(null)} />
+      <PlayerModal playerId={modalId} player={modalPlayer ?? undefined} onClose={closeModal} />
     </div>
   )
 }

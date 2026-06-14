@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getPlayers, type PlayerList } from '../api/players'
+import { getPlayers, type Player, type PlayerList } from '../api/players'
 import { triggerFetch } from '../api/fetch'
 import FilterBar from '../components/FilterBar'
 import PlayerTable from '../components/PlayerTable'
@@ -14,6 +14,11 @@ export default function Rankings() {
   const [loading, setLoading] = useState(false)
   const [fetchMsg, setFetchMsg] = useState('')
   const [modalId, setModalId] = useState<string | null>(null)
+  const [modalPlayer, setModalPlayer] = useState<Player | null>(null)
+
+  const openPlayer = (p: Player) =>
+    p.sofascore_player_id ? setModalId(p.sofascore_player_id) : setModalPlayer(p)
+  const closeModal = () => { setModalId(null); setModalPlayer(null) }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -71,11 +76,11 @@ export default function Rankings() {
             page={page}
             pageSize={50}
             onPageChange={setPage}
-            onPlayerClick={(id) => setModalId(id)}
+            onPlayerClick={openPlayer}
           />
         </>
       )}
-      <PlayerModal playerId={modalId} onClose={() => setModalId(null)} />
+      <PlayerModal playerId={modalId} player={modalPlayer ?? undefined} onClose={closeModal} />
     </div>
   )
 }

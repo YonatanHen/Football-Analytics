@@ -1,9 +1,8 @@
 from typing import Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from app.dependencies import get_repo
 from app.infrastructure.mongo_repository import MongoRepository
-from app.infrastructure.sofascore_client import SofascoreClient
 from app.config import settings
 
 router = APIRouter()
@@ -91,20 +90,13 @@ def list_players(
     return PlayerListOut(data=[_to_out(p) for p in players], total=total, page=page, page_size=page_size)
 
 
-def _enrich_bio_bg(player_id: str, repo: MongoRepository) -> None:
-    bio = SofascoreClient().fetch_player_bio(player_id)
-    if bio:
-        repo.upsert_player_bio(player_id, bio.get("nationality", ""), bio.get("position_exact", ""))
-
-
 @router.get("/players/{player_id}", response_model=PlayerOut)
 def get_player(
     player_id: str,
-    background_tasks: BackgroundTasks,
     season: Optional[str] = None,
     repo: MongoRepository = Depends(get_repo),
 ) -> PlayerOut:
-    """Return a single player by ID; 404 if not found. Triggers background bio enrichment if bio is missing."""
+    """Return a single player by ID; 404 if not found."""
     season_ = season or settings.season
     player = repo.get_player(player_id, season_)
     if not player:
@@ -112,6 +104,4 @@ def get_player(
             status_code=404,
             detail={"error": {"code": "not_found", "message": "Player not found."}},
         )
-    if not player.nationality and not player.position_exact:
-        background_tasks.add_task(_enrich_bio_bg, player_id, repo)
     return _to_out(player)

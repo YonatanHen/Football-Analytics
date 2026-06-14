@@ -6,5 +6,8 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // Bind-mounted source on Windows/Docker doesn't deliver inotify events;
+    // poll so HMR actually picks up edits.
+    watch: { usePolling: true, interval: 300 },
   },
 })
