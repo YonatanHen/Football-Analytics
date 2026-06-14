@@ -1,6 +1,6 @@
 ---
 name: document-tech-challenge
-description: Capture a tech challenge or investigation from the current conversation into a dated markdown file in the project root, structured so the user can revisit it later AND repurpose it as a LinkedIn post. Trigger this whenever the user says things like "document this challenge", "save this for later", "this would make a good post", "write this up", "log this", or asks to remember a debugging session, performance investigation, architectural decision, or a non-obvious tradeoff. Also offer this proactively when a substantive investigation just concluded — the user may not think to ask. Output is one .md per challenge in the project root.
+description: Capture a tech challenge or investigation from the current conversation into a dated markdown file in the project root, structured so the user can revisit it later. Trigger this whenever the user says things like "document this challenge", "save this for later", "this would make a good post", "write this up", "log this", or asks to remember a debugging session, performance investigation, architectural decision, or a non-obvious tradeoff. Also offer this proactively when a substantive investigation just concluded — the user may not think to ask. Output is one .md per challenge in the project root.
 ---
 
 # Documenting tech challenges
@@ -9,7 +9,7 @@ Capture a tech challenge worked through in the current conversation as a standal
 
 ## When this triggers
 
-Explicit cues: "document this challenge", "save this for later", "this would make a good post", "write this up", "log this for me", "let's remember this one".
+Explicit cues: "document this challenge", "save this for later", "write this up", "log this for me", "let's remember this one".
 
 Implicit cues — offer to use this skill if the user hasn't asked:
 - A substantive investigation or debugging session just concluded
