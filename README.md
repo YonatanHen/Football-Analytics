@@ -1,6 +1,6 @@
 # Football Analytics
 
-A full-stack fantasy football analytics platform that fetches live player statistics, scores them with a position-weighted formula, and surfaces rankings, sleeper picks, and head-to-head comparisons in a data-driven React UI.
+A football analytics platform for observing and analyzing player statistics across leagues worldwide, with dedicated support for fantasy league decision-making.
 
 ---
 
