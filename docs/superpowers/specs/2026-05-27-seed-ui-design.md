@@ -55,9 +55,7 @@ On app mount (`App.tsx`), call `GET /v1/players/?page_size=1` (existing endpoint
 
 ## API Call
 
-Button triggers `POST /v1/fetch/` with body `{ "mode": "kaggle" }` — the existing `triggerFetch` helper in `frontend/src/api/fetch.ts`, updated to accept `mode` override.
-
-The `fetch.ts` file already has `triggerFetch(req: FetchRequest)` which merges `mode: 'fantasy'` by default. We change the default to `'kaggle'` or accept it as a param.
+Button triggers `POST /v1/fetch/` with body `{ "mode": "fantasy" }` — the existing `triggerFetch` helper in `frontend/src/api/fetch.ts`.
 
 ---
 

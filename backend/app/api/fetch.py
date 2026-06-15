@@ -127,7 +127,7 @@ def _run_fantasy_fetch(job: FetchJob, season: str, competitions: list[str], repo
 
 
 def _run_legacy_fetch(job: FetchJob, season: str, competitions: list[str], mode: AnalysisMode) -> None:
-    """Sequential fallback for non-fantasy modes (e.g. Kaggle)."""
+    """Sequential fallback for non-fantasy modes."""
     job.total = len(competitions)
     for comp in competitions:
         job.current = comp

@@ -1,7 +1,6 @@
 from pymongo import MongoClient
 from app.modes.base import AnalysisMode
 from app.modes.fantasy import FantasyMode
-from app.modes.kaggle import KaggleMode
 
 
 class ModeFactory:
@@ -13,6 +12,4 @@ class ModeFactory:
     def create(self, mode: str) -> AnalysisMode:
         if mode == "fantasy":
             return FantasyMode(self._mongo_client)
-        if mode == "kaggle":
-            return KaggleMode(self._mongo_client)
-        raise ValueError(f"Unknown mode: {mode!r}. Available: fantasy, kaggle")
+        raise ValueError(f"Unknown mode: {mode!r}. Available: fantasy")

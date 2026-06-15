@@ -54,7 +54,7 @@ class AggregatedScores:
 @dataclass
 class PlayerDTO:
     """Complete player record stored in MongoDB and passed between all application layers."""
-    sofascore_player_id: Optional[str]  # Sofascore numeric ID; None for FBref/Kaggle players
+    sofascore_player_id: Optional[str]  # Sofascore numeric ID; None when not yet linked
     name: str
     season: str             # "2025-2026"
     position: str           # GK | DF | MF | FW

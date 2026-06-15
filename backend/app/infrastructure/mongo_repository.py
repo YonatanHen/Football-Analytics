@@ -171,7 +171,7 @@ class MongoRepository:
             )
 
         if existing is None:
-            # Check for a Kaggle-origin bio (no sofascore_player_id) with matching name
+            # Check for a name-matched bio with no sofascore_player_id (e.g. FBref-only entry)
             existing = self._player_bios.find_one(
                 {
                     "$or": [

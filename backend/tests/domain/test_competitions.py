@@ -22,7 +22,7 @@ from app.domain.competitions import canonical_competition
     ("Ligue 1", "France Ligue 1"),
     ("Champions League", "UEFA Champions League"),
     ("UCL", "UEFA Champions League"),
-    # Kaggle-style country-prefixed names
+    # FBref country-prefixed names
     ("eng Premier League", "England Premier League"),
     ("es La Liga", "Spain La Liga"),
     ("de Bundesliga", "Germany Bundesliga"),

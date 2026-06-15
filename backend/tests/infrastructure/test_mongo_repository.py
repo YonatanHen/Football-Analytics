@@ -181,9 +181,9 @@ def test_get_players_filter_by_name_matches_substring(repo: MongoRepository) -> 
     assert total == 2
 
 
-def test_sofascore_upsert_merges_with_kaggle_bio(repo: MongoRepository) -> None:
-    """When a Sofascore upsert matches an existing Kaggle-origin bio, it merges (no duplicate)."""
-    # Insert Kaggle-origin bio (no sofascore_player_id)
+def test_sofascore_upsert_merges_with_unlinked_bio(repo: MongoRepository) -> None:
+    """When a Sofascore upsert matches an unlinked bio (no sofascore_player_id), it merges (no duplicate)."""
+    # Insert unlinked bio (no sofascore_player_id)
     bio_id = repo._player_bios.insert_one({
         "name": "Kenan Yıldız",
         "norm_name": normalize_text("Kenan Yıldız"),

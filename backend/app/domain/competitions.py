@@ -36,7 +36,7 @@ _ALIASES: dict[str, str] = {
     "cl": "UEFA Champions League",
 }
 
-# Country-code prefixes that FBref/Kaggle prepend (e.g. "eng Premier League")
+# Country-code prefixes that FBref prepends (e.g. "eng Premier League")
 _COUNTRY_PREFIX = re.compile(r"^(eng|es|de|it|fr|pt|nl|tr|ru|br|ar|mx|us|au|jp|kr)\s+", re.I)
 
 

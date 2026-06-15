@@ -88,11 +88,11 @@ def test_merge_alias_same_competition() -> None:
     assert result.aggregated_stats.goals == 8
 
 
-def test_merge_fantasy_supersedes_kaggle() -> None:
-    """Fantasy player (has sofascore_id + photo_url) supersedes Kaggle seed."""
-    kaggle_player = _make_player(sofascore_id=None, photo_url="")
-    fantasy_player = _make_player(sofascore_id="12345", photo_url="https://example.com/pic.jpg")
-    result = merge(kaggle_player, fantasy_player)
+def test_merge_linked_player_supersedes_unlinked() -> None:
+    """Player with sofascore_id + photo_url supersedes an unlinked (id-less) entry."""
+    unlinked = _make_player(sofascore_id=None, photo_url="")
+    linked = _make_player(sofascore_id="12345", photo_url="https://example.com/pic.jpg")
+    result = merge(unlinked, linked)
     assert result.sofascore_player_id == "12345"
     assert result.photo_url == "https://example.com/pic.jpg"
 
