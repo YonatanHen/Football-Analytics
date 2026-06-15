@@ -171,7 +171,7 @@ class MongoRepository:
             )
 
         if existing is None:
-            # Check for a name-matched bio with no sofascore_player_id (e.g. FBref-only entry)
+            # Check for a name-matched bio with no sofascore_player_id
             existing = self._player_bios.find_one(
                 {
                     "$or": [
@@ -358,7 +358,7 @@ class MongoRepository:
             "fetched_at": datetime.now(timezone.utc).isoformat(),
             "season": season,
             "competitions_fetched": competitions,
-            "sources": ["sofascore", "fbref"],
+            "sources": ["sofascore"],
             "status": status,
             "players_upserted": players_upserted,
         }

@@ -92,8 +92,7 @@ exploration/one-offs; Recharts for anything that ships in the UI.
 
 ## Domain knowledge (apply without being told)
 
-- **The Sofascore↔FBref merge is by player name (fuzzy).** Mismatched/transliterated names
-  drop rows or null out FBref fields — consider merge gaps before blaming the data.
+- All stats come from Sofascore only. There is no FBref merge step.
 - `position` is coarse (`GK|DF|MF|FW`); `position_exact` is the raw string (`CB`, `RW`…).
   Group by `position` for position-aware analysis.
 - `s_final` is the primary sort key (see the scoring math above).

@@ -65,7 +65,7 @@ app/
   modes/        # Strategy pattern
     base.py     # AnalysisMode ABC: fetch_data(), process()
     factory.py  # ModeFactory.create("fantasy")
-    fantasy.py  # FantasyMode — live Sofascore + FBref fetch
+    fantasy.py  # FantasyMode — live Sofascore fetch
     fetch_runner.py  # Shared orchestration: run tasks, log to fetch_log
   domain/       # Pure business logic, no I/O
     models.py         # PlayerDTO, Stats, Score, CompetitionEntry, AggregatedScores
@@ -77,8 +77,6 @@ app/
   infrastructure/
     mongo_repository.py   # All MongoDB I/O; serializes/deserializes domain models
     sofascore_client.py   # Fetches from Sofascore via ScraperFC (Chrome/botasaurus)
-    fbref_client.py       # Fetches FBref misc stats
-    data_merger.py        # Merges Sofascore + FBref DataFrames by player name
     text_utils.py         # normalize_text() for name/team fuzzy matching
   config.py        # Pydantic Settings (env vars); includes fetch_cooldown_hours (default 24)
   dependencies.py  # FastAPI DI: get_repo(), get_mode_factory()
@@ -88,7 +86,7 @@ app/
 
 ### Data flow
 
-**Fantasy mode** (live fetch): `POST /v1/fetch/` → `FantasyMode.fetch_data()` → fetches from Sofascore + FBref per competition → merges → `player_assembler.build_player()` → scores via `ScoringEngine` → upserts to MongoDB.
+**Fantasy mode** (live fetch): `POST /v1/fetch/` → `FantasyMode.fetch_data()` → fetches from Sofascore per competition → `player_assembler.build_player()` → scores via `ScoringEngine` → upserts to MongoDB.
 
 **Read path**: `GET /v1/players` → `MongoRepository.get_players()` → paginates + filters by position/team/nationality/sleeper_flag.
 
