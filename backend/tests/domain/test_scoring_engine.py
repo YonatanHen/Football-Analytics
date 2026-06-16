@@ -1,4 +1,5 @@
 import pytest
+
 from app.domain.models import Stats
 from app.domain.scoring_engine import ScoringEngine
 
@@ -64,8 +65,12 @@ def test_forward_zero_defensive_score(engine: ScoringEngine) -> None:
 
 def test_tactical_full(engine: ScoringEngine) -> None:
     stats = Stats(
-        pk_won=2, pk_scored=3, pk_taken=4,
-        yellow_cards=2, red_cards=1, fouls_committed=10,
+        pk_won=2,
+        pk_scored=3,
+        pk_taken=4,
+        yellow_cards=2,
+        red_cards=1,
+        fouls_committed=10,
         minutes=900,
     )
     score = engine.calculate(stats, "FW")

@@ -1,11 +1,13 @@
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+
 import mongomock
 import pytest
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from fastapi.testclient import TestClient
-from app.main import app, get_repo
+
+from app.domain.models import AggregatedScores, CompetitionEntry, PlayerDTO, Score, Stats
 from app.infrastructure.mongo_repository import MongoRepository
-from app.domain.models import PlayerDTO, Stats, Score, CompetitionEntry, AggregatedScores
+from app.main import app, get_repo
 
 
 @asynccontextmanager
@@ -17,17 +19,26 @@ def _make_player(player_id: str = "1", season: str = "2025-2026") -> PlayerDTO:
     stats = Stats(goals=5, assists=3, xg=4.0, xa=2.5, minutes=900)
     score = Score(offensive=35.5, defensive=0.0, tactical=1.0, s_final=4.06)
     return PlayerDTO(
-        sofascore_player_id=player_id, name="Test Player", season=season,
-        position="FW", position_exact="ST", team="Arsenal",
-        nationality="England", photo_url="https://example.com/p.jpg",
+        sofascore_player_id=player_id,
+        name="Test Player",
+        season=season,
+        position="FW",
+        position_exact="ST",
+        team="Arsenal",
+        nationality="England",
+        photo_url="https://example.com/p.jpg",
         competitions=[CompetitionEntry("England Premier League", stats, score)],
         aggregated_stats=stats,
         aggregated_scores=AggregatedScores(
-            offensive=35.5, defensive=0.0, tactical=1.0, s_final=4.06,
-            underpredicted_ratio=1.3, underpredicted_flag="HIGH_VALUE",
+            offensive=35.5,
+            defensive=0.0,
+            tactical=1.0,
+            s_final=4.06,
+            underpredicted_ratio=1.3,
+            underpredicted_flag="HIGH_VALUE",
         ),
         low_sample_size=False,
-        last_updated=datetime.now(timezone.utc).isoformat(),
+        last_updated=datetime.now(UTC).isoformat(),
     )
 
 

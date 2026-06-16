@@ -1,7 +1,11 @@
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from app.domain.models import (
-    PlayerDTO, Stats, Score, CompetitionEntry, AggregatedScores,
+    AggregatedScores,
+    CompetitionEntry,
+    PlayerDTO,
+    Score,
+    Stats,
 )
 from app.infrastructure.mongo_repository import MongoRepository
 from app.infrastructure.text_utils import normalize_text
@@ -22,11 +26,15 @@ def _make_player(player_id: str = "123", season: str = "2025-2026") -> PlayerDTO
         competitions=[CompetitionEntry("England Premier League", stats, score)],
         aggregated_stats=stats,
         aggregated_scores=AggregatedScores(
-            offensive=35.5, defensive=0.0, tactical=1.0, s_final=4.06,
-            underpredicted_ratio=1.3, underpredicted_flag="HIGH_VALUE",
+            offensive=35.5,
+            defensive=0.0,
+            tactical=1.0,
+            s_final=4.06,
+            underpredicted_ratio=1.3,
+            underpredicted_flag="HIGH_VALUE",
         ),
         low_sample_size=False,
-        last_updated=datetime.now(timezone.utc).isoformat(),
+        last_updated=datetime.now(UTC).isoformat(),
     )
 
 
@@ -182,23 +190,28 @@ def test_get_players_filter_by_name_matches_substring(repo: MongoRepository) -> 
 
 
 def test_sofascore_upsert_merges_with_unlinked_bio(repo: MongoRepository) -> None:
-    """When a Sofascore upsert matches an unlinked bio (no sofascore_player_id), it merges (no duplicate)."""
+    """When a Sofascore upsert matches an unlinked bio (no sofascore_player_id),
+    it merges (no duplicate)."""
     # Insert unlinked bio (no sofascore_player_id)
-    bio_id = repo._player_bios.insert_one({
-        "name": "Kenan Yıldız",
-        "norm_name": normalize_text("Kenan Yıldız"),
-    }).inserted_id
-    repo._player_stats.insert_one({
-        "player_bio_id": bio_id,
-        "season": "2025-2026",
-        "team": "Juventus",
-        "norm_team": normalize_text("Juventus"),
-        "competitions": [],
-        "aggregated_stats": _stats_to_empty(),
-        "aggregated_scores": _scores_to_empty(),
-        "low_sample_size": True,
-        "last_updated": datetime.now(timezone.utc).isoformat(),
-    })
+    bio_id = repo._player_bios.insert_one(
+        {
+            "name": "Kenan Yıldız",
+            "norm_name": normalize_text("Kenan Yıldız"),
+        }
+    ).inserted_id
+    repo._player_stats.insert_one(
+        {
+            "player_bio_id": bio_id,
+            "season": "2025-2026",
+            "team": "Juventus",
+            "norm_team": normalize_text("Juventus"),
+            "competitions": [],
+            "aggregated_stats": _stats_to_empty(),
+            "aggregated_scores": _scores_to_empty(),
+            "low_sample_size": True,
+            "last_updated": datetime.now(UTC).isoformat(),
+        }
+    )
     assert repo._player_bios.count_documents({"name": "Kenan Yıldız"}) == 1
 
     p = _make_player("1149011")
@@ -212,16 +225,38 @@ def test_sofascore_upsert_merges_with_unlinked_bio(repo: MongoRepository) -> Non
 
 
 def _stats_to_empty() -> dict:
-    return {k: 0 for k in [
-        "goals", "assists", "xg", "xa", "minutes", "clean_sheets",
-        "pk_saved", "pk_won", "pk_scored", "pk_taken", "yellow_cards",
-        "red_cards", "fouls_committed", "rating", "big_chances_created", "key_passes",
-    ]}
+    return {
+        k: 0
+        for k in [
+            "goals",
+            "assists",
+            "xg",
+            "xa",
+            "minutes",
+            "clean_sheets",
+            "pk_saved",
+            "pk_won",
+            "pk_scored",
+            "pk_taken",
+            "yellow_cards",
+            "red_cards",
+            "fouls_committed",
+            "rating",
+            "big_chances_created",
+            "key_passes",
+        ]
+    }
 
 
 def _scores_to_empty() -> dict:
-    return {"offensive": 0.0, "defensive": 0.0, "tactical": 0.0, "s_final": 0.0,
-            "sleeper_ratio": None, "sleeper_flag": None}
+    return {
+        "offensive": 0.0,
+        "defensive": 0.0,
+        "tactical": 0.0,
+        "s_final": 0.0,
+        "sleeper_ratio": None,
+        "sleeper_flag": None,
+    }
 
 
 def test_fetch_state_absent_initially(repo: MongoRepository) -> None:
@@ -229,7 +264,7 @@ def test_fetch_state_absent_initially(repo: MongoRepository) -> None:
 
 
 def test_set_and_get_last_fetch_roundtrip(repo: MongoRepository) -> None:
-    at = datetime(2026, 6, 12, 9, 30, tzinfo=timezone.utc)
+    at = datetime(2026, 6, 12, 9, 30, tzinfo=UTC)
     repo.set_last_fetch("England Premier League", "2025-2026", at)
 
     state = repo.get_last_fetch()

@@ -6,6 +6,5 @@ def normalize_text(s: object) -> str:
     text = str(s).lower().strip()
     text = text.replace("ß", "ss")
     return "".join(
-        c for c in unicodedata.normalize("NFKD", text)
-        if unicodedata.category(c) != "Mn"
+        c for c in unicodedata.normalize("NFKD", text) if unicodedata.category(c) != "Mn"
     )

@@ -1,4 +1,4 @@
-from app.domain.models import Stats, Score
+from app.domain.models import Score, Stats
 
 _POSITION_WEIGHTS: dict[str, dict[str, int]] = {
     "GK": {"goals": 10, "assists": 5},

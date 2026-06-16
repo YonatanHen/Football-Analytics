@@ -1,17 +1,19 @@
 import logging
 import uuid
-import yaml
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from importlib import resources
+
+import yaml
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
+
+from app.config import settings
 from app.dependencies import get_mode_factory, get_repo
 from app.domain.fetch_cooldown import cooldown_status
+from app.infrastructure.mongo_repository import MongoRepository
 from app.modes.base import AnalysisMode
 from app.modes.factory import ModeFactory
 from app.modes.fetch_runner import FetchJob, run_fetch_job
-from app.infrastructure.mongo_repository import MongoRepository
-from app.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -28,7 +30,7 @@ def _cooldown_payload(repo: MongoRepository) -> dict:
     state = repo.get_last_fetch()
     raw = state.get("last_fetched_at") if state else None
     last = datetime.fromisoformat(raw) if raw else None
-    status = cooldown_status(last, datetime.now(timezone.utc), settings.fetch_cooldown_hours)
+    status = cooldown_status(last, datetime.now(UTC), settings.fetch_cooldown_hours)
     return {
         "allowed": status["allowed"],
         "cooldown_hours": settings.fetch_cooldown_hours,
@@ -41,6 +43,7 @@ def _cooldown_payload(repo: MongoRepository) -> dict:
 
 class FetchRequest(BaseModel):
     """Body for POST /v1/fetch/. Omit fields to use server defaults from config."""
+
     season: str | None = None
     mode: str = "fantasy"
     competitions: list[str] | None = None
@@ -72,25 +75,30 @@ def trigger_fetch(
     try:
         mode = mode_factory.create(body.mode)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     job = FetchJob(id=str(uuid.uuid4()))
     _jobs[job.id] = job
 
     if body.mode == "fantasy":
         from app.modes.fantasy import FantasyMode
+
         if isinstance(mode, FantasyMode):
             # Enforce the once-per-window limit (Sofascore only). Cosmetic UI greying isn't enough.
             cooldown = _cooldown_payload(mode._repo)
             if not cooldown["allowed"]:
-                raise HTTPException(status_code=429, detail={
-                    "message": (
-                        f"You can fetch one league every {settings.fetch_cooldown_hours} hours. "
-                        f"Next fetch allowed at {cooldown['next_allowed_at']}."
-                    ),
-                    "next_allowed_at": cooldown["next_allowed_at"],
-                    "seconds_remaining": cooldown["seconds_remaining"],
-                })
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "message": (
+                            f"You can fetch one league every "
+                            f"{settings.fetch_cooldown_hours} hours. "
+                            f"Next fetch allowed at {cooldown['next_allowed_at']}."
+                        ),
+                        "next_allowed_at": cooldown["next_allowed_at"],
+                        "seconds_remaining": cooldown["seconds_remaining"],
+                    },
+                )
             background_tasks.add_task(_run_fantasy_fetch, job, season, competitions, mode._repo)
             return {"job_id": job.id}
 
@@ -118,15 +126,20 @@ def get_fetch_status(job_id: str) -> dict:
         }
 
 
-def _run_fantasy_fetch(job: FetchJob, season: str, competitions: list[str], repo: MongoRepository) -> None:
+def _run_fantasy_fetch(
+    job: FetchJob, season: str, competitions: list[str], repo: MongoRepository
+) -> None:
     run_fetch_job(job, season, competitions, repo)
-    # Start the cooldown only when data actually landed — a 403/failed fetch must not lock the user out.
+    # Start the cooldown only when data actually landed — a 403/failed fetch must
+    # not lock the user out.
     if job.status in ("done", "partial"):
         comp = competitions[0] if competitions else ""
-        repo.set_last_fetch(comp, season, datetime.now(timezone.utc))
+        repo.set_last_fetch(comp, season, datetime.now(UTC))
 
 
-def _run_legacy_fetch(job: FetchJob, season: str, competitions: list[str], mode: AnalysisMode) -> None:
+def _run_legacy_fetch(
+    job: FetchJob, season: str, competitions: list[str], mode: AnalysisMode
+) -> None:
     """Sequential fallback for non-fantasy modes."""
     job.total = len(competitions)
     for comp in competitions:

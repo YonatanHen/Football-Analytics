@@ -7,6 +7,7 @@ startup. Run from backend/ while the stack is up:
 
     python scripts/snapshot_load.py cl-2025-2026.json
 """
+
 import os
 import sys
 from pathlib import Path

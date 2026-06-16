@@ -1,4 +1,5 @@
 import pytest
+
 from app.domain.sleeper_detector import SleeperDetector
 
 

@@ -44,8 +44,7 @@ def _norm(raw: str) -> str:
     text = str(raw).strip().lower()
     text = text.replace("ß", "ss")
     text = "".join(
-        c for c in unicodedata.normalize("NFKD", text)
-        if unicodedata.category(c) != "Mn"
+        c for c in unicodedata.normalize("NFKD", text) if unicodedata.category(c) != "Mn"
     )
     text = _COUNTRY_PREFIX.sub("", text).strip()
     return text

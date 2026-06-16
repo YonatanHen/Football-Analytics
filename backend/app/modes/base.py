@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
+
 from app.domain.models import PlayerDTO
 
 
 class AnalysisMode(ABC):
-    """Strategy interface for a data source. Implementations define how to fetch and process player data."""
+    """Strategy interface for a data source. Implementations define how to fetch
+    and process player data."""
 
     @abstractmethod
     def fetch_data(self, season: str, competitions: list[str]) -> dict:

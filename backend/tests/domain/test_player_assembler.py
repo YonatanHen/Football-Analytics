@@ -1,4 +1,4 @@
-from app.domain.models import Stats, Score, CompetitionEntry, PlayerDTO, AggregatedScores
+from app.domain.models import CompetitionEntry, PlayerDTO, Score, Stats
 from app.domain.player_assembler import aggregate_stats, build_player, merge
 
 

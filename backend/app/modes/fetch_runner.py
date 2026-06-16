@@ -7,8 +7,8 @@ import pandas as pd
 
 from app.config import settings
 from app.domain.competitions import canonical_competition
+from app.domain.models import CompetitionEntry, Stats
 from app.domain.player_assembler import build_player, merge
-from app.domain.models import Stats, CompetitionEntry
 from app.infrastructure.sofascore_client import SofascoreClient
 from app.infrastructure.text_utils import normalize_text
 
@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FetchJob:
     """In-memory state for a single background fetch operation."""
+
     id: str
-    status: str = "running"       # running | done | partial | error
+    status: str = "running"  # running | done | partial | error
     total: int = 0
     completed: int = 0
     current: str = ""
@@ -31,8 +32,7 @@ class FetchJob:
 
 def _make_tasks(competitions: list[str]) -> list[dict]:
     return [
-        {"label": comp, "status": "pending", "type": "ss", "comp": comp}
-        for comp in competitions
+        {"label": comp, "status": "pending", "type": "ss", "comp": comp} for comp in competitions
     ]
 
 
@@ -87,6 +87,7 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
 
     # Sequential reconciling write pass (no write races)
     from app.domain.scoring_engine import ScoringEngine
+
     _scoring = ScoringEngine()
     upserted = 0
 
@@ -96,7 +97,9 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
             failed_comps.add(comp)
             continue
         try:
-            ss_df = pd.concat(frames, ignore_index=True).drop_duplicates(subset=["sofascore_player_id"])
+            ss_df = pd.concat(frames, ignore_index=True).drop_duplicates(
+                subset=["sofascore_player_id"]
+            )
         except Exception as exc:
             logger.warning("Concat failed for %s: %s", comp, exc)
             failed_comps.add(comp)
@@ -126,7 +129,9 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
             )
             position = str(row.get("position", "MF"))
             score = _scoring.calculate(stats, position)
-            entry = CompetitionEntry(competition=canonical_competition(comp), stats=stats, scores=score)
+            entry = CompetitionEntry(
+                competition=canonical_competition(comp), stats=stats, scores=score
+            )
             meta = {
                 "sofascore_player_id": pid,
                 "name": str(row.get("name", "")),

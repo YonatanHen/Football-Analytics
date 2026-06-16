@@ -1,15 +1,17 @@
 import logging
-from datetime import datetime, timezone
+
 from pymongo import MongoClient
-from app.modes.base import AnalysisMode
+
 from app.domain.models import PlayerDTO
 from app.infrastructure.mongo_repository import MongoRepository
+from app.modes.base import AnalysisMode
 
 logger = logging.getLogger(__name__)
 
 
 class FantasyMode(AnalysisMode):
-    """Live fetch mode: fetches Sofascore per competition, scores players, and upserts to MongoDB."""
+    """Live fetch mode: fetches Sofascore per competition, scores players, and
+    upserts to MongoDB."""
 
     def __init__(self, mongo_client: MongoClient) -> None:
         self._repo = MongoRepository(mongo_client)
@@ -19,8 +21,10 @@ class FantasyMode(AnalysisMode):
 
     def fetch_data(self, season: str, competitions: list[str]) -> dict:
         """Fetch Sofascore data for each competition using the parallel fetch runner."""
-        from app.modes.fetch_runner import FetchJob, run_fetch_job
         import uuid
+
+        from app.modes.fetch_runner import FetchJob, run_fetch_job
+
         job = FetchJob(id=str(uuid.uuid4()), total=len(competitions))
         run_fetch_job(job, season, competitions, self._repo)
         log = self._repo.log_fetch(

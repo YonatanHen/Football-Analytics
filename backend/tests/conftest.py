@@ -1,6 +1,7 @@
-import pytest
 import mongomock
+import pytest
 from pymongo import MongoClient
+
 from app.infrastructure.mongo_repository import MongoRepository
 
 

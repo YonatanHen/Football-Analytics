@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+
 from app.modes.base import AnalysisMode
 from app.modes.fantasy import FantasyMode
 

@@ -29,21 +29,54 @@ _COLUMN_MAP = {
 }
 
 _POSITION_MAP: dict[str, str] = {
-    "G": "GK", "GK": "GK",
-    "D": "DF", "DF": "DF", "CB": "DF", "LB": "DF", "RB": "DF", "LWB": "DF", "RWB": "DF",
-    "M": "MF", "MF": "MF", "CM": "MF", "DM": "MF", "AM": "MF", "LM": "MF", "RM": "MF",
-    "F": "FW", "FW": "FW", "ST": "FW", "CF": "FW", "LW": "FW", "RW": "FW", "SS": "FW",
+    "G": "GK",
+    "GK": "GK",
+    "D": "DF",
+    "DF": "DF",
+    "CB": "DF",
+    "LB": "DF",
+    "RB": "DF",
+    "LWB": "DF",
+    "RWB": "DF",
+    "M": "MF",
+    "MF": "MF",
+    "CM": "MF",
+    "DM": "MF",
+    "AM": "MF",
+    "LM": "MF",
+    "RM": "MF",
+    "F": "FW",
+    "FW": "FW",
+    "ST": "FW",
+    "CF": "FW",
+    "LW": "FW",
+    "RW": "FW",
+    "SS": "FW",
 }
 
 _NUMERIC_COLS = [
-    "goals", "assists", "xg", "xa", "minutes", "clean_sheets",
-    "pk_saved", "pk_won", "pk_scored", "pk_taken", "yellow_cards", "red_cards",
-    "fouls_committed", "rating", "big_chances_created", "key_passes",
+    "goals",
+    "assists",
+    "xg",
+    "xa",
+    "minutes",
+    "clean_sheets",
+    "pk_saved",
+    "pk_won",
+    "pk_scored",
+    "pk_taken",
+    "yellow_cards",
+    "red_cards",
+    "fouls_committed",
+    "rating",
+    "big_chances_created",
+    "key_passes",
 ]
 
 
 class SofascoreClient:
-    """Fetches player league stats from Sofascore via ScraperFC and normalises them to internal column names."""
+    """Fetches player league stats from Sofascore via ScraperFC and normalises
+    them to internal column names."""
 
     def fetch_player_bio(self, player_id: str) -> dict:
         """Fetch nationality and position_exact for a single player on demand.
@@ -52,6 +85,7 @@ class SofascoreClient:
         Called from a background task when a player modal is opened and bio is missing.
         """
         import json as _json
+
         from botasaurus.browser import browser as botasaurus_browser  # type: ignore[import]
 
         @botasaurus_browser(output=None, create_error_logs=False, block_images_and_css=True)
@@ -88,10 +122,13 @@ class SofascoreClient:
     ) -> pd.DataFrame:
         """Fetch player league stats from Sofascore via ScraperFC and return normalized DataFrame.
 
-        positions: subset of ["Goalkeepers","Defenders","Midfielders","Forwards"] for parallel splits.
-        Retries up to max_retries times on transient empty-response failures (botasaurus concurrency).
+        positions: subset of ["Goalkeepers","Defenders","Midfielders","Forwards"]
+            for parallel splits.
+        Retries up to max_retries times on transient empty-response failures
+            (botasaurus concurrency).
         """
         from ScraperFC import Sofascore  # type: ignore[import]  # lazy: triggers network on import
+
         year = _season_to_sofascore_year(season)
         kwargs: dict = {"year": year, "league": competition}
         if positions is not None:
@@ -107,7 +144,9 @@ class SofascoreClient:
             except Exception as exc:
                 last_exc = exc
                 label = f"{competition}/{positions}"
-                logger.warning("Sofascore attempt %d/%d failed for %s: %s", attempt, max_retries, label, exc)
+                logger.warning(
+                    "Sofascore attempt %d/%d failed for %s: %s", attempt, max_retries, label, exc
+                )
                 if attempt < max_retries:
                     time.sleep(retry_delay * attempt)
 

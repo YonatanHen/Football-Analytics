@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from app.domain.models import PlayerDTO, Stats, CompetitionEntry, AggregatedScores
+from app.domain.competitions import canonical_competition
+from app.domain.models import AggregatedScores, CompetitionEntry, PlayerDTO, Stats
 from app.domain.scoring_engine import ScoringEngine
 from app.domain.sleeper_detector import SleeperDetector
-from app.domain.competitions import canonical_competition
 
 _scoring = ScoringEngine()
 _sleeper = SleeperDetector()
@@ -61,12 +61,15 @@ def build_player(
                 agg_stats.xg, agg_stats.xa, agg_stats.goals, agg_stats.assists
             ),
             underpredicted_flag=_sleeper.classify(
-                agg_stats.xg, agg_stats.xa,
-                agg_stats.goals, agg_stats.assists, agg_stats.minutes,
+                agg_stats.xg,
+                agg_stats.xa,
+                agg_stats.goals,
+                agg_stats.assists,
+                agg_stats.minutes,
             ),
         ),
         low_sample_size=agg_stats.minutes < 90,
-        last_updated=datetime.now(timezone.utc).isoformat(),
+        last_updated=datetime.now(UTC).isoformat(),
     )
 
 
@@ -85,8 +88,7 @@ def merge(existing: PlayerDTO | None, incoming: PlayerDTO) -> PlayerDTO:
 
     # Canonicalize and de-duplicate: incoming entries win for same competition
     merged_entries: dict[str, CompetitionEntry] = {
-        canonical_competition(e.competition): e
-        for e in existing.competitions
+        canonical_competition(e.competition): e for e in existing.competitions
     }
     for e in incoming.competitions:
         merged_entries[canonical_competition(e.competition)] = e

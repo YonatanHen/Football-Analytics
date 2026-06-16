@@ -1,14 +1,16 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
+
+from app import dependencies
+from app.api import analysis, fetch, players
 from app.config import settings
-from app.modes.factory import ModeFactory
 from app.infrastructure.mongo_repository import MongoRepository
 from app.logging_config import configure_logging
-from app import dependencies
-from app.api import fetch, players, analysis
+from app.modes.factory import ModeFactory
 
 configure_logging()
 

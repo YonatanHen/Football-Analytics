@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.domain.fetch_cooldown import cooldown_status
 
-NOW = datetime(2026, 6, 12, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 12, 12, 0, 0, tzinfo=UTC)
 
 
 def test_no_prior_fetch_is_allowed():

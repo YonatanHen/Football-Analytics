@@ -7,6 +7,7 @@ while the stack is up (Mongo is exposed on localhost:27017):
     python scripts/snapshot_dump.py                 # -> snapshots/cl-2025-2026.json
     python scripts/snapshot_dump.py my-snapshot.json
 """
+
 import os
 import sys
 from pathlib import Path
