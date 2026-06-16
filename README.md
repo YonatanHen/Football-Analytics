@@ -4,16 +4,13 @@ A football analytics platform for observing and analyzing player statistics acro
 
 ## Disclaimer & Intended Use
 
-This is a **free, open-source, non-commercial project** built for educational purposes. It is intended for:
+This project is a **free, open-source, educational tool** built for football enthusiasts exploring soccer data and fantasy players seeking personal analytical insights.
 
-- **Football enthusiasts** who are curious about soccer data and want to explore player statistics
-- **Fantasy players** who want to gather analytical insights to inform their own decisions
+* **No Affiliation:** This project is not affiliated with, endorsed by, or sponsored by any football league, club, fantasy sports platform, or data provider. All trademarks, data, and intellectual property belong to their respective owners.
+* **Third-Party Data:** The software may retrieve data from third-party sources. The authors do not own, control, or warrant this data. 
+* **User Responsibility:** You are solely responsible for ensuring that your use of this software—including accessing or fetching third-party platforms—complies with applicable laws, regulations, and the respective third-party Terms of Service.
 
-This project is **not** affiliated with, endorsed by, or sponsored by any football league, club, fantasy sports platform, or data provider. All trademarks and data belong to their respective owners.
-
-The software is provided **"as is", without warranty of any kind**. The authors accept no liability for how it is used or for the accuracy of any data or insight it produces. **You are solely responsible** for ensuring that your use of this project — including any interaction with third-party platforms or data sources — complies with applicable laws and with the terms of service of those platforms.
-
-See the [LICENSE](LICENSE) for full terms.
+*The software is provided **"as is"**, without warranty of any kind. The authors accept no liability for its use or for the accuracy of any generated insights. See the [LICENSE](LICENSE) file for full terms.*
 
 ---
 
