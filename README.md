@@ -2,6 +2,19 @@
 
 A football analytics platform for observing and analyzing player statistics across leagues worldwide, with dedicated support for fantasy league decision-making.
 
+## Disclaimer & Intended Use
+
+This is a **free, open-source, non-commercial project** built for educational purposes. It is intended for:
+
+- **Football enthusiasts** who are curious about soccer data and want to explore player statistics
+- **Fantasy players** who want to gather analytical insights to inform their own decisions
+
+This project is **not** affiliated with, endorsed by, or sponsored by any football league, club, fantasy sports platform, or data provider. All trademarks and data belong to their respective owners.
+
+The software is provided **"as is", without warranty of any kind**. The authors accept no liability for how it is used or for the accuracy of any data or insight it produces. **You are solely responsible** for ensuring that your use of this project — including any interaction with third-party platforms or data sources — complies with applicable laws and with the terms of service of those platforms.
+
+See the [LICENSE](LICENSE) for full terms.
+
 ---
 
 ## Tech Stack
