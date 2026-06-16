@@ -42,7 +42,7 @@ export default function Rankings() {
     setFetchMsg('Fetching… this may take several minutes.')
     try {
       const r = await triggerFetch()
-      setFetchMsg(`Done: ${r.season}`)
+      setFetchMsg(`Fetch started (job ${r.job_id})`)
       load()
     } catch (e) {
       setFetchMsg(`Error: ${e instanceof Error ? e.message : 'Unknown'}`)
