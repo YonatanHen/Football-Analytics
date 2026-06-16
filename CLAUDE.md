@@ -130,6 +130,7 @@ app/
 - No auto-fetch in the UI; all data loads are explicit user actions
 - Always open a `dev/*` branch for new features or bugfixes
 - Always take a DB snapshot before implementing a new feature
+- Build all agent with project level memory.
 
 ## Never do these
 
