@@ -74,7 +74,7 @@ export default function PlayerDetail() {
               )}
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">{p.name}</div>
-                <div className="text-xs text-gray-400">{p.position_exact} · {p.team} · {p.nationality}</div>
+                <div className="text-xs text-gray-400">{p.position} · {p.team}</div>
               </div>
               <div className="text-indigo-300 font-mono text-sm flex-shrink-0">
                 {p.aggregated_scores.s_final.toFixed(2)}

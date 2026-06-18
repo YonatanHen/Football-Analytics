@@ -1,7 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
 import type { Player } from '../api/players'
 
-interface PlayerCardProps { player: Player }
+interface PlayerCardProps { player: Player; bioLoading?: boolean }
 
 const StatRow = ({ label, value }: { label: string; value: string | number }) => (
   <div className="flex justify-between py-1 border-b border-gray-800 text-sm">
@@ -10,7 +10,7 @@ const StatRow = ({ label, value }: { label: string; value: string | number }) =>
   </div>
 )
 
-export default function PlayerCard({ player: p }: PlayerCardProps) {
+export default function PlayerCard({ player: p, bioLoading = false }: PlayerCardProps) {
   const s = p.aggregated_stats
   const sc = p.aggregated_scores
 
@@ -28,8 +28,13 @@ export default function PlayerCard({ player: p }: PlayerCardProps) {
         />
         <div>
           <div className="font-semibold">{p.name}</div>
-          <div className="text-xs text-gray-400">{p.position_exact} · {p.team}</div>
-          <div className="text-xs text-gray-500">{p.nationality}</div>
+          <div className="text-xs text-gray-400">
+            {bioLoading && !p.position_exact ? <span className="animate-pulse">…</span> : p.position_exact}
+            {p.position_exact ? ' · ' : ''}{p.team}
+          </div>
+          <div className="text-xs text-gray-500">
+            {bioLoading && !p.nationality ? <span className="animate-pulse">…</span> : p.nationality}
+          </div>
         </div>
       </div>
 

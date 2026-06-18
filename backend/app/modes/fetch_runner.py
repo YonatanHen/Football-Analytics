@@ -32,6 +32,13 @@ class FetchJob:
 
 _POSITION_GROUPS = ["Goalkeepers", "Defenders", "Midfielders", "Forwards"]
 
+_GROUP_TO_POSITION: dict[str, str] = {
+    "Goalkeepers": "GK",
+    "Defenders": "DF",
+    "Midfielders": "MF",
+    "Forwards": "FW",
+}
+
 
 def _make_tasks(competitions: list[str]) -> list[dict]:
     return [
@@ -71,6 +78,7 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
             job.current = f"{comp} — {positions[0]}"
         try:
             df = sofascore.fetch(comp, season, positions=positions)
+            df["_position_group"] = _GROUP_TO_POSITION.get(positions[0], "MF")
             with job.lock:
                 results[comp].append(df)
             _update_task(job, task_idx, "done")
@@ -87,11 +95,6 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 fut.result()
             except Exception as exc:
                 logger.error("Unexpected task error: %s", exc)
-
-    # Fetch player bios (position_exact, nationality) for each competition
-    bio_maps: dict[str, dict] = {}
-    for comp in competitions:
-        bio_maps[comp] = sofascore.fetch_bios(comp, season)
 
     # Sequential reconciling write pass (no write races)
     from app.domain.scoring_engine import ScoringEngine
@@ -157,7 +160,7 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 left_foot_goals=int(row.get("left_foot_goals", 0)),
                 right_foot_goals=int(row.get("right_foot_goals", 0)),
             )
-            position = str(row.get("position", "MF"))
+            position = str(row.get("_position_group") or row.get("position", "MF"))
             score = _scoring.calculate(stats, position)
             raw_stats = row.get("_raw_stats") or {}
             if not isinstance(raw_stats, dict):
@@ -169,14 +172,13 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 raw_stats=raw_stats,
                 total_matches=total_matches,
             )
-            bio = bio_maps.get(comp, {}).get(pid, {})
             meta = {
                 "sofascore_player_id": pid,
                 "name": str(row.get("name", "")),
                 "team": str(row.get("team", "")),
-                "nationality": bio.get("nationality") or str(row.get("nationality", "")),
-                "position": bio.get("position") or position,
-                "position_exact": bio.get("position_exact") or str(row.get("position_exact", "")),
+                "nationality": "",
+                "position": position,
+                "position_exact": "",
                 "photo_url": "",
             }
             incoming = build_player(meta, [entry], season)
