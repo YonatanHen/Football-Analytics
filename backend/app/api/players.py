@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.config import settings
 from app.dependencies import get_repo
 from app.infrastructure.mongo_repository import MongoRepository
+from app.infrastructure.sofascore_client import SofascoreClient
 
 if TYPE_CHECKING:
     from app.domain.models import PlayerDTO
@@ -185,3 +186,27 @@ def get_player(
             detail={"error": {"code": "not_found", "message": "Player not found."}},
         )
     return _to_out(player)
+
+
+class BioOut(BaseModel):
+    nationality: str
+    position_exact: str
+
+
+@router.post("/players/{player_id}/refresh-bio", response_model=BioOut)
+def refresh_player_bio(
+    player_id: str,
+    repo: MongoRepository = Depends(get_repo),
+) -> BioOut:
+    """Fetch nationality and position_exact from Sofascore for a single player and persist them.
+
+    Called lazily when a player modal is opened and bio fields are empty.
+    Takes ~10s due to Chrome warm-up.
+    """
+    bio = SofascoreClient().fetch_player_bio(player_id)
+    if bio:
+        repo.upsert_player_bio(player_id, bio.get("nationality", ""), bio.get("position_exact", ""))
+    return BioOut(
+        nationality=bio.get("nationality", ""),
+        position_exact=bio.get("position_exact", ""),
+    )

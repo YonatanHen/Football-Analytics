@@ -104,66 +104,23 @@ class SofascoreClient:
     """Fetches player league stats from Sofascore via ScraperFC and normalises
     them to internal column names."""
 
-    def fetch_bios(self, competition: str, season: str) -> dict[str, dict]:
-        """Fetch player bios (position, nationality) for all players in a competition.
-
-        Calls scrape_player_details with include_career_stats=False to avoid N extra API
-        calls per player. Returns {str(player_id): {position, position_exact, nationality}}.
-        Returns {} on any failure so callers can skip gracefully.
-        """
-        from ScraperFC import Sofascore  # type: ignore[import]
-
-        try:
-            year = _season_to_sofascore_year(season)
-            players = Sofascore().scrape_player_details(year, competition, include_career_stats=False)
-            result: dict[str, dict] = {}
-            for p in players:
-                position = _POSITION_MAP.get(str(p.position or "").upper(), "MF")
-                if p.positions_detailed:
-                    position_exact = p.positions_detailed[0]
-                elif p.position:
-                    position_exact = str(p.position)
-                else:
-                    position_exact = ""
-                result[str(p.id)] = {
-                    "position": position,
-                    "position_exact": position_exact,
-                    "nationality": p.country or "",
-                }
-            return result
-        except Exception as exc:
-            logger.warning("fetch_bios failed for %s: %s", competition, exc)
-            return {}
-
     def fetch_player_bio(self, player_id: str) -> dict:
-        """Fetch nationality and position_exact for a single player on demand.
+        """Fetch nationality and position_exact for a single player on demand (lazy bio load).
 
-        Uses botasaurus browser. Returns {} on any failure so callers can skip gracefully.
-        Called from a background task when a player modal is opened and bio is missing.
+        Uses XHR via warm Sofascore session. Returns {} on failure.
         """
-        import json as _json
-
-        from botasaurus.browser import browser as botasaurus_browser  # type: ignore[import]
-
-        @botasaurus_browser(output=None, create_error_logs=False, block_images_and_css=True)
-        def _get(driver, url: str) -> dict | None:
-            driver.get(url)
-            text = driver.page_text
-            if not text:
-                return None
-            try:
-                return _json.loads(text)
-            except Exception:
-                return None
+        from ScraperFC.utils import botasaurus_browser_get_json_via_xhr  # type: ignore[import]
 
         try:
-            data = _get(f"https://api.sofascore.com/api/v1/player/{player_id}")
+            url = f"https://api.sofascore.com/api/v1/player/{player_id}"
+            data = botasaurus_browser_get_json_via_xhr(url, "https://www.sofascore.com/")
             if not data:
                 return {}
             p = data["player"]
+            positions_detailed: list[str] = p.get("positionsDetailed") or []
             return {
                 "nationality": (p.get("country") or {}).get("name") or "",
-                "position_exact": ",".join(p.get("positionsDetailed") or []),
+                "position_exact": ",".join(positions_detailed),
             }
         except Exception as exc:
             logger.warning("fetch_player_bio: player %s failed: %s", player_id, exc)

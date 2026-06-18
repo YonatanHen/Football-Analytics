@@ -64,3 +64,9 @@ export async function getScatterData(season?: string): Promise<ScatterData> {
   const qs = season ? `?season=${season}` : ''
   return apiFetch<ScatterData>(`/v1/analysis/scatter${qs}`)
 }
+
+export interface BioData { nationality: string; position_exact: string }
+
+export async function refreshBio(playerId: string): Promise<BioData> {
+  return apiFetch<BioData>(`/v1/players/${playerId}/refresh-bio`, { method: 'POST' })
+}
