@@ -7,9 +7,11 @@ logger = logging.getLogger(__name__)
 
 # Maps ScraperFC Sofascore output column names → our internal names.
 _COLUMN_MAP = {
+    # Identity
     "player id": "sofascore_player_id",
     "player": "name",
     "team": "team",
+    # Core stats
     "goals": "goals",
     "assists": "assists",
     "expectedGoals": "xg",
@@ -26,6 +28,35 @@ _COLUMN_MAP = {
     "rating": "rating",
     "bigChancesCreated": "big_chances_created",
     "keyPasses": "key_passes",
+    # Appearance
+    "appearances": "appearances",
+    "matchesStarted": "matches_started",
+    # Cards (detailed)
+    "yellowRedCards": "yellow_red_cards",
+    "directRedCards": "direct_red_cards",
+    # GK
+    "saves": "saves",
+    "savedShotsFromOutsideTheBox": "saves_outside_box",
+    "goalsConceded": "goals_conceded",
+    "goalsPrevented": "goals_prevented",
+    "highClaims": "high_claims",
+    "penaltyConceded": "penalty_conceded",
+    "penaltyFaced": "penalty_faced",
+    # Shots
+    "totalShots": "total_shots",
+    "shotsOnTarget": "shots_on_target",
+    "shotsOffTarget": "shots_off_target",
+    "scoringFrequency": "scoring_frequency",
+    "attemptPenaltyMiss": "penalty_miss",
+    # Goal breakdown
+    "headedGoals": "headed_goals",
+    "leftFootGoals": "left_foot_goals",
+    "rightFootGoals": "right_foot_goals",
+}
+
+# Columns promoted to typed Stats fields (plus identity/bio fields)
+_TYPED_INTERNAL_NAMES: frozenset[str] = frozenset(_COLUMN_MAP.values()) | {
+    "photo_url", "nationality", "position_exact", "position",
 }
 
 _POSITION_MAP: dict[str, str] = {
@@ -55,22 +86,17 @@ _POSITION_MAP: dict[str, str] = {
 }
 
 _NUMERIC_COLS = [
-    "goals",
-    "assists",
-    "xg",
-    "xa",
-    "minutes",
-    "clean_sheets",
-    "pk_saved",
-    "pk_won",
-    "pk_scored",
-    "pk_taken",
-    "yellow_cards",
-    "red_cards",
-    "fouls_committed",
-    "rating",
-    "big_chances_created",
-    "key_passes",
+    "goals", "assists", "xg", "xa", "minutes", "clean_sheets",
+    "pk_saved", "pk_won", "pk_scored", "pk_taken",
+    "yellow_cards", "red_cards", "yellow_red_cards", "direct_red_cards",
+    "fouls_committed", "rating", "big_chances_created", "key_passes",
+    "appearances", "matches_started",
+    "saves", "saves_outside_box",
+    "goals_conceded", "goals_prevented",
+    "high_claims", "penalty_conceded", "penalty_faced",
+    "total_shots", "shots_on_target", "shots_off_target", "scoring_frequency",
+    "penalty_miss",
+    "headed_goals", "left_foot_goals", "right_foot_goals",
 ]
 
 
@@ -174,6 +200,14 @@ class SofascoreClient:
         for col in ["photo_url", "nationality", "position_exact", "name", "team"]:
             if col not in df.columns:
                 df[col] = ""
+
+        raw_cols = [c for c in df.columns if c not in _TYPED_INTERNAL_NAMES and not c.startswith("_")]
+        if raw_cols:
+            df["_raw_stats"] = df[raw_cols].apply(
+                lambda row: {k: (None if pd.isna(v) else v) for k, v in row.items()}, axis=1
+            )
+        else:
+            df["_raw_stats"] = [{} for _ in range(len(df))]
 
         return df
 
