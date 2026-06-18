@@ -105,6 +105,9 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
             failed_comps.add(comp)
             continue
 
+        total_matches = int(ss_df["appearances"].max()) if "appearances" in ss_df.columns and not ss_df["appearances"].empty else 0
+        repo.set_league_total_matches(comp, season, total_matches)
+
         for _, row in ss_df.iterrows():
             pid = str(row.get("sofascore_player_id", "")).strip()
             if not pid:
@@ -156,6 +159,7 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 stats=stats,
                 scores=score,
                 raw_stats=raw_stats,
+                total_matches=total_matches,
             )
             meta = {
                 "sofascore_player_id": pid,
