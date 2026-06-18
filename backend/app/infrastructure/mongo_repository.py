@@ -91,6 +91,8 @@ def _stats_doc(player: PlayerDTO, bio_id) -> dict:
                     "tactical": c.scores.tactical,
                     "s_final": c.scores.s_final,
                 },
+                "raw_stats": c.raw_stats,
+                "total_matches": c.total_matches,
             }
             for c in player.competitions
         ],
@@ -123,11 +125,13 @@ def _player_from_docs(bio: dict, stats: dict) -> PlayerDTO:
                     tactical=s["tactical"],
                     s_final=s["s_final"],
                 ),
+                raw_stats=c.get("raw_stats") or {},
+                total_matches=c.get("total_matches", 0),
             )
         )
     ag = stats["aggregated_scores"]
     return PlayerDTO(
-        sofascore_player_id=bio.get("sofascore_player_id"),
+        sofascore_player_id=bio.get("sofascore_player_id", ""),
         name=bio["name"],
         season=stats["season"],
         position=bio.get("position", "MF"),
@@ -169,6 +173,7 @@ class MongoRepository:
         self._player_stats: Collection = self._db["player_stats"]
         self._fetch_log: Collection = self._db["fetch_log"]
         self._fetch_state: Collection = self._db["fetch_state"]
+        self._league_meta: Collection = self._db["league_meta"]
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
@@ -382,6 +387,23 @@ class MongoRepository:
                     "last_season": season,
                 }
             },
+            upsert=True,
+        )
+
+    def get_league_total_matches(self, season: str) -> dict[str, int]:
+        """Return {competition: total_matches} for all known leagues in a season."""
+        return {
+            doc["competition"]: doc["total_matches"]
+            for doc in self._league_meta.find(
+                {"season": season}, {"competition": 1, "total_matches": 1}
+            )
+        }
+
+    def set_league_total_matches(self, competition: str, season: str, total_matches: int) -> None:
+        """Persist total matches played for a (competition, season) pair (upsert)."""
+        self._league_meta.update_one(
+            {"competition": competition, "season": season},
+            {"$set": {"total_matches": total_matches, "updated_at": datetime.now(UTC).isoformat()}},
             upsert=True,
         )
 
