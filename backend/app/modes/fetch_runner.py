@@ -122,15 +122,40 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 pk_taken=int(row.get("pk_taken", 0)),
                 yellow_cards=int(row.get("yellow_cards", 0)),
                 red_cards=int(row.get("red_cards", 0)),
+                yellow_red_cards=int(row.get("yellow_red_cards", 0)),
+                direct_red_cards=int(row.get("direct_red_cards", 0)),
                 fouls_committed=float(row.get("fouls_committed", 0.0)),
                 rating=float(row.get("rating", 0.0)),
                 big_chances_created=int(row.get("big_chances_created", 0)),
                 key_passes=int(row.get("key_passes", 0)),
+                appearances=int(row.get("appearances", 0)),
+                matches_started=int(row.get("matches_started", 0)),
+                saves=int(row.get("saves", 0)),
+                saves_outside_box=int(row.get("saves_outside_box", 0)),
+                goals_conceded=int(row.get("goals_conceded", 0)),
+                goals_prevented=float(row.get("goals_prevented", 0.0)),
+                high_claims=int(row.get("high_claims", 0)),
+                penalty_conceded=int(row.get("penalty_conceded", 0)),
+                penalty_faced=int(row.get("penalty_faced", 0)),
+                total_shots=int(row.get("total_shots", 0)),
+                shots_on_target=int(row.get("shots_on_target", 0)),
+                shots_off_target=int(row.get("shots_off_target", 0)),
+                scoring_frequency=float(row.get("scoring_frequency", 0.0)),
+                penalty_miss=int(row.get("penalty_miss", 0)),
+                headed_goals=int(row.get("headed_goals", 0)),
+                left_foot_goals=int(row.get("left_foot_goals", 0)),
+                right_foot_goals=int(row.get("right_foot_goals", 0)),
             )
             position = str(row.get("position", "MF"))
             score = _scoring.calculate(stats, position)
+            raw_stats = row.get("_raw_stats") or {}
+            if not isinstance(raw_stats, dict):
+                raw_stats = {}
             entry = CompetitionEntry(
-                competition=canonical_competition(comp), stats=stats, scores=score
+                competition=canonical_competition(comp),
+                stats=stats,
+                scores=score,
+                raw_stats=raw_stats,
             )
             meta = {
                 "sofascore_player_id": pid,
