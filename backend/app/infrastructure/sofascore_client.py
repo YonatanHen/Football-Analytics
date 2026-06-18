@@ -189,7 +189,10 @@ class SofascoreClient:
             if col not in df.columns:
                 df[col] = ""
 
-        raw_cols = [c for c in df.columns if c not in _TYPED_INTERNAL_NAMES and not c.startswith("_")]
+        raw_cols = [
+            c for c in df.columns
+            if c not in _TYPED_INTERNAL_NAMES and not c.startswith("_")
+        ]
         if raw_cols:
             df["_raw_stats"] = df[raw_cols].apply(
                 lambda row: {k: (None if pd.isna(v) else v) for k, v in row.items()}, axis=1

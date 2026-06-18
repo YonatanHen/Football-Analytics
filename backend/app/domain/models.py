@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -68,8 +67,8 @@ class AggregatedScores:
     defensive: float
     tactical: float
     s_final: float
-    underpredicted_ratio: Optional[float]
-    underpredicted_flag: Optional[str]
+    underpredicted_ratio: float | None
+    underpredicted_flag: str | None
 
 
 @dataclass

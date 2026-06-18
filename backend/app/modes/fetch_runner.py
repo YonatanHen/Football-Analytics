@@ -42,7 +42,8 @@ _GROUP_TO_POSITION: dict[str, str] = {
 
 def _make_tasks(competitions: list[str]) -> list[dict]:
     return [
-        {"label": f"{comp} — {pos}", "status": "pending", "type": "ss", "comp": comp, "positions": [pos]}
+        {"label": f"{comp} — {pos}", "status": "pending", "type": "ss",
+         "comp": comp, "positions": [pos]}
         for comp in competitions
         for pos in _POSITION_GROUPS
     ]
@@ -116,7 +117,11 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
             failed_comps.add(comp)
             continue
 
-        total_matches = int(ss_df["appearances"].max()) if "appearances" in ss_df.columns and not ss_df["appearances"].empty else 0
+        total_matches = (
+            int(ss_df["appearances"].max())
+            if "appearances" in ss_df.columns and not ss_df["appearances"].empty
+            else 0
+        )
         repo.set_league_total_matches(comp, season, total_matches)
 
         for _, row in ss_df.iterrows():

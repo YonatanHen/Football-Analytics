@@ -1,4 +1,4 @@
-from app.domain.models import Stats, CompetitionEntry, Score
+from app.domain.models import CompetitionEntry, Score, Stats
 
 
 def test_stats_new_fields_have_defaults():
