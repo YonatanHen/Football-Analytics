@@ -65,41 +65,99 @@ def test_forward_zero_defensive_score(engine: ScoringEngine) -> None:
 
 def test_tactical_full(engine: ScoringEngine) -> None:
     stats = Stats(
-        pk_won=2,
-        pk_scored=3,
-        pk_taken=4,
-        yellow_cards=2,
-        red_cards=1,
+        pk_won=2, pk_scored=3, pk_taken=4,
+        yellow_cards=2, yellow_red_cards=1, direct_red_cards=1,
         fouls_committed=10,
-        minutes=900,
+        minutes=900, appearances=10, matches_started=10,
     )
-    score = engine.calculate(stats, "FW")
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
     # pk_ratio = 3/4 * 5 = 3.75
-    # tactical = 2*2 + 3.75 - 2 - 1*3 - 10*0.2 = 4 + 3.75 - 2 - 3 - 2 = 0.75
-    assert score.tactical == pytest.approx(0.75)
+    # tactical = 2*2 + 3.75 - 2 - 1*2 - 1*4 - 10*0.2 = 4 + 3.75 - 2 - 2 - 4 - 2 = -2.25
+    assert score.tactical == pytest.approx(-2.25)
 
 
 def test_tactical_pk_ratio_zero_when_no_pk_taken(engine: ScoringEngine) -> None:
     stats = Stats(pk_scored=0, pk_taken=0, minutes=900)
-    score = engine.calculate(stats, "FW")
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
     assert score.tactical == pytest.approx(0.0)
 
 
 def test_s_final_normalized_by_90_minutes(engine: ScoringEngine) -> None:
-    stats = Stats(goals=1, minutes=90)
-    score = engine.calculate(stats, "FW")
-    # offensive = 1*4 = 4, s_final = 4 / 1 = 4.0
-    assert score.s_final == pytest.approx(4.0)
+    # 1 goal in 90 min, 1 start out of 1 match played → factor=1.0, starter_bonus=1.2
+    stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
+    score = engine.calculate(stats, "FW", total_possible_minutes=90)
+    assert score.s_final == pytest.approx(4.0 * 1.0 * 1.2)
 
 
 def test_s_final_half_minutes(engine: ScoringEngine) -> None:
-    stats = Stats(goals=1, minutes=45)
-    score = engine.calculate(stats, "FW")
-    # s_final = 4 / 0.5 = 8.0
-    assert score.s_final == pytest.approx(8.0)
+    # sub: 45 min in 1 match, total 1 match played → factor=45/90=0.5, no starter bonus
+    stats = Stats(goals=1, minutes=45, appearances=1, matches_started=0)
+    score = engine.calculate(stats, "FW", total_possible_minutes=90)
+    raw_per90 = 4.0 / (45 / 90)  # = 8.0
+    assert score.s_final == pytest.approx(raw_per90 * 0.5 * 1.0)
 
 
 def test_s_final_zero_when_no_minutes(engine: ScoringEngine) -> None:
     stats = Stats(goals=5, minutes=0)
-    score = engine.calculate(stats, "FW")
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
     assert score.s_final == pytest.approx(0.0)
+
+
+def test_s_final_legacy_no_total_matches_factor_one(engine: ScoringEngine) -> None:
+    # When total_possible_minutes=0 (legacy/unknown), factor defaults to 1.0
+    stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
+    score = engine.calculate(stats, "FW", total_possible_minutes=0)
+    assert score.s_final == pytest.approx(4.0 * 1.0 * 1.2)
+
+
+def test_playing_time_factor_dampens_low_minutes(engine: ScoringEngine) -> None:
+    # 1 match out of 10 played → factor = 90/900
+    stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    assert score.s_final == pytest.approx(4.0 * (90 / 900) * 1.2, rel=1e-4)
+
+
+def test_playing_time_factor_caps_at_one(engine: ScoringEngine) -> None:
+    # Played all available minutes → factor = 1.0
+    stats = Stats(goals=1, minutes=900, appearances=10, matches_started=10)
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    raw_per90 = 4.0 / 10
+    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.2, rel=1e-4)
+
+
+def test_starter_bonus_full_starter(engine: ScoringEngine) -> None:
+    stats = Stats(goals=1, minutes=900, appearances=10, matches_started=10)
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    raw_per90 = 4.0 / (900 / 90)
+    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.2, rel=1e-4)
+
+
+def test_starter_bonus_zero_starter(engine: ScoringEngine) -> None:
+    stats = Stats(goals=1, minutes=900, appearances=10, matches_started=0)
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    raw_per90 = 4.0 / (900 / 90)
+    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.0, rel=1e-4)
+
+
+def test_yellow_red_card_penalty(engine: ScoringEngine) -> None:
+    stats = Stats(yellow_red_cards=1, minutes=900, appearances=10, matches_started=10)
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    assert score.tactical == pytest.approx(-2.0)
+
+
+def test_direct_red_card_penalty(engine: ScoringEngine) -> None:
+    stats = Stats(direct_red_cards=1, minutes=900, appearances=10, matches_started=10)
+    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    assert score.tactical == pytest.approx(-4.0)
+
+
+def test_gk_goals_prevented_bonus(engine: ScoringEngine) -> None:
+    stats = Stats(goals_prevented=3.0, minutes=900, appearances=10, matches_started=10)
+    score = engine.calculate(stats, "GK", total_possible_minutes=900)
+    assert score.defensive == pytest.approx(3.0 * 2)
+
+
+def test_gk_goals_prevented_negative(engine: ScoringEngine) -> None:
+    stats = Stats(goals_prevented=-2.0, minutes=900, appearances=10, matches_started=10)
+    score = engine.calculate(stats, "GK", total_possible_minutes=900)
+    assert score.defensive == pytest.approx(-2.0 * 2)

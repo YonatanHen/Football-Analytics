@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.config import settings
 from app.dependencies import get_repo
 from app.infrastructure.mongo_repository import MongoRepository
+from app.infrastructure.sofascore_client import SofascoreClient
 
 if TYPE_CHECKING:
     from app.domain.models import PlayerDTO
@@ -28,10 +29,29 @@ class StatsOut(BaseModel):
     pk_taken: int
     yellow_cards: int
     red_cards: int
+    yellow_red_cards: int
+    direct_red_cards: int
     fouls_committed: float
     rating: float
     big_chances_created: int
     key_passes: int
+    appearances: int
+    matches_started: int
+    saves: int
+    saves_outside_box: int
+    goals_conceded: int
+    goals_prevented: float
+    high_claims: int
+    penalty_conceded: int
+    penalty_faced: int
+    total_shots: int
+    shots_on_target: int
+    shots_off_target: int
+    scoring_frequency: float
+    penalty_miss: int
+    headed_goals: int
+    left_foot_goals: int
+    right_foot_goals: int
 
 
 class ScoreOut(BaseModel):
@@ -49,6 +69,8 @@ class CompetitionOut(BaseModel):
     competition: str
     stats: StatsOut
     scores: ScoreOut
+    raw_stats: dict = {}
+    total_matches: int = 0
 
 
 class AggregatedScoresOut(BaseModel):
@@ -65,7 +87,7 @@ class AggregatedScoresOut(BaseModel):
 class PlayerOut(BaseModel):
     """Full player profile returned by GET /v1/players/{id} and the players list."""
 
-    sofascore_player_id: str | None
+    sofascore_player_id: str
     name: str
     season: str
     position: str
@@ -104,6 +126,8 @@ def _to_out(p: "PlayerDTO") -> PlayerOut:
                 competition=c.competition,
                 stats=StatsOut(**c.stats.__dict__),
                 scores=ScoreOut(**c.scores.__dict__),
+                raw_stats=c.raw_stats,
+                total_matches=c.total_matches,
             )
             for c in p.competitions
         ],
@@ -162,3 +186,27 @@ def get_player(
             detail={"error": {"code": "not_found", "message": "Player not found."}},
         )
     return _to_out(player)
+
+
+class BioOut(BaseModel):
+    nationality: str
+    position_exact: str
+
+
+@router.post("/players/{player_id}/refresh-bio", response_model=BioOut)
+def refresh_player_bio(
+    player_id: str,
+    repo: MongoRepository = Depends(get_repo),
+) -> BioOut:
+    """Fetch nationality and position_exact from Sofascore for a single player and persist them.
+
+    Called lazily when a player modal is opened and bio fields are empty.
+    Takes ~10s due to Chrome warm-up.
+    """
+    bio = SofascoreClient().fetch_player_bio(player_id)
+    if bio:
+        repo.upsert_player_bio(player_id, bio.get("nationality", ""), bio.get("position_exact", ""))
+    return BioOut(
+        nationality=bio.get("nationality", ""),
+        position_exact=bio.get("position_exact", ""),
+    )
