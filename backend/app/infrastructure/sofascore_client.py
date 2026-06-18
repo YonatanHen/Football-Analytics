@@ -104,6 +104,37 @@ class SofascoreClient:
     """Fetches player league stats from Sofascore via ScraperFC and normalises
     them to internal column names."""
 
+    def fetch_bios(self, competition: str, season: str) -> dict[str, dict]:
+        """Fetch player bios (position, nationality) for all players in a competition.
+
+        Calls scrape_player_details with include_career_stats=False to avoid N extra API
+        calls per player. Returns {str(player_id): {position, position_exact, nationality}}.
+        Returns {} on any failure so callers can skip gracefully.
+        """
+        from ScraperFC import Sofascore  # type: ignore[import]
+
+        try:
+            year = _season_to_sofascore_year(season)
+            players = Sofascore().scrape_player_details(year, competition, include_career_stats=False)
+            result: dict[str, dict] = {}
+            for p in players:
+                position = _POSITION_MAP.get(str(p.position or "").upper(), "MF")
+                if p.positions_detailed:
+                    position_exact = p.positions_detailed[0]
+                elif p.position:
+                    position_exact = str(p.position)
+                else:
+                    position_exact = ""
+                result[str(p.id)] = {
+                    "position": position,
+                    "position_exact": position_exact,
+                    "nationality": p.country or "",
+                }
+            return result
+        except Exception as exc:
+            logger.warning("fetch_bios failed for %s: %s", competition, exc)
+            return {}
+
     def fetch_player_bio(self, player_id: str) -> dict:
         """Fetch nationality and position_exact for a single player on demand.
 

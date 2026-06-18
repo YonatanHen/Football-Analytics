@@ -30,9 +30,14 @@ class FetchJob:
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
+_POSITION_GROUPS = ["Goalkeepers", "Defenders", "Midfielders", "Forwards"]
+
+
 def _make_tasks(competitions: list[str]) -> list[dict]:
     return [
-        {"label": comp, "status": "pending", "type": "ss", "comp": comp} for comp in competitions
+        {"label": f"{comp} — {pos}", "status": "pending", "type": "ss", "comp": comp, "positions": [pos]}
+        for comp in competitions
+        for pos in _POSITION_GROUPS
     ]
 
 
@@ -60,30 +65,33 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
     results: dict[str, list[pd.DataFrame]] = {comp: [] for comp in competitions}
     failed_comps: set[str] = set()
 
-    def _fetch_ss(task_idx: int, comp: str) -> None:
+    def _fetch_ss(task_idx: int, comp: str, positions: list[str]) -> None:
         with job.lock:
             job.tasks[task_idx]["status"] = "running"
-            job.current = comp
+            job.current = f"{comp} — {positions[0]}"
         try:
-            df = sofascore.fetch(comp, season)
+            df = sofascore.fetch(comp, season, positions=positions)
             with job.lock:
                 results[comp].append(df)
             _update_task(job, task_idx, "done")
         except Exception as exc:
-            logger.warning("Sofascore fetch failed %s: %s", comp, exc)
-            with job.lock:
-                failed_comps.add(comp)
+            logger.warning("Sofascore fetch failed %s %s: %s", comp, positions, exc)
             _update_task(job, task_idx, "failed")
 
     futures = []
     with ThreadPoolExecutor(max_workers=settings.fetch_concurrency) as executor:
         for idx, task in enumerate(tasks):
-            futures.append(executor.submit(_fetch_ss, idx, task["comp"]))
+            futures.append(executor.submit(_fetch_ss, idx, task["comp"], task["positions"]))
         for fut in as_completed(futures):
             try:
                 fut.result()
             except Exception as exc:
                 logger.error("Unexpected task error: %s", exc)
+
+    # Fetch player bios (position_exact, nationality) for each competition
+    bio_maps: dict[str, dict] = {}
+    for comp in competitions:
+        bio_maps[comp] = sofascore.fetch_bios(comp, season)
 
     # Sequential reconciling write pass (no write races)
     from app.domain.scoring_engine import ScoringEngine
@@ -161,13 +169,14 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 raw_stats=raw_stats,
                 total_matches=total_matches,
             )
+            bio = bio_maps.get(comp, {}).get(pid, {})
             meta = {
                 "sofascore_player_id": pid,
                 "name": str(row.get("name", "")),
                 "team": str(row.get("team", "")),
-                "nationality": str(row.get("nationality", "")),
-                "position": position,
-                "position_exact": str(row.get("position_exact", "")),
+                "nationality": bio.get("nationality") or str(row.get("nationality", "")),
+                "position": bio.get("position") or position,
+                "position_exact": bio.get("position_exact") or str(row.get("position_exact", "")),
                 "photo_url": "",
             }
             incoming = build_player(meta, [entry], season)
