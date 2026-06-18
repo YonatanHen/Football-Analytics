@@ -134,6 +134,7 @@ app/
 - Always take a DB snapshot before implementing a new feature
 - Build all agent with project level memory.
 - Always run python backend modules (like Pytest) via `.venv\Scripts\python`.
+- Never push from `dev/*` to `master` without PR, ask user to approve merge only if CI passed.
 
 ## Never do these
 
