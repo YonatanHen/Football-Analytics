@@ -47,7 +47,7 @@ export default function PlayerModal({ playerId, player: prefetched, onClose }: P
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-4 relative"
+        className="bg-gray-900 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
