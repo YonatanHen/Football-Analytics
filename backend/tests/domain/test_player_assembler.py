@@ -103,3 +103,44 @@ def test_merge_preserves_existing_id_when_incoming_lacks_it() -> None:
     incoming = _make_player(sofascore_id=None, comp="UEFA Champions League")
     result = merge(existing, incoming)
     assert result.sofascore_player_id == "99999"
+
+
+# ── aggregate_stats new fields ───────────────────────────────────────────────
+
+
+def _entry_new(comp: str, **kwargs) -> CompetitionEntry:
+    return CompetitionEntry(
+        competition=comp,
+        stats=Stats(**kwargs),
+        scores=Score(0, 0, 0, 0),
+    )
+
+
+def test_aggregate_sums_new_fields() -> None:
+    import pytest
+
+    entries = [
+        _entry_new("A", appearances=20, matches_started=18,
+                   saves=30, goals_conceded=10, goals_prevented=2.5,
+                   total_shots=50, shots_on_target=20, headed_goals=2,
+                   left_foot_goals=5, right_foot_goals=3,
+                   yellow_red_cards=1, direct_red_cards=0, minutes=1800),
+        _entry_new("B", appearances=5, matches_started=3,
+                   saves=8, goals_conceded=3, goals_prevented=0.5,
+                   total_shots=10, shots_on_target=5, headed_goals=1,
+                   left_foot_goals=1, right_foot_goals=2,
+                   yellow_red_cards=0, direct_red_cards=1, minutes=450),
+    ]
+    agg = aggregate_stats(entries)
+    assert agg.appearances == 25
+    assert agg.matches_started == 21
+    assert agg.saves == 38
+    assert agg.goals_conceded == 13
+    assert agg.goals_prevented == pytest.approx(3.0)
+    assert agg.total_shots == 60
+    assert agg.shots_on_target == 25
+    assert agg.headed_goals == 3
+    assert agg.left_foot_goals == 6
+    assert agg.right_foot_goals == 5
+    assert agg.yellow_red_cards == 1
+    assert agg.direct_red_cards == 1

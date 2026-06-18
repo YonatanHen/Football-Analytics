@@ -30,6 +30,25 @@ def aggregate_stats(entries: list[CompetitionEntry]) -> Stats:
         total.rating = max(total.rating, s.rating)
         total.big_chances_created += s.big_chances_created
         total.key_passes += s.key_passes
+        total.appearances += s.appearances
+        total.matches_started += s.matches_started
+        total.yellow_red_cards += s.yellow_red_cards
+        total.direct_red_cards += s.direct_red_cards
+        total.saves += s.saves
+        total.saves_outside_box += s.saves_outside_box
+        total.goals_conceded += s.goals_conceded
+        total.goals_prevented += s.goals_prevented
+        total.high_claims += s.high_claims
+        total.penalty_conceded += s.penalty_conceded
+        total.penalty_faced += s.penalty_faced
+        total.total_shots += s.total_shots
+        total.shots_on_target += s.shots_on_target
+        total.shots_off_target += s.shots_off_target
+        total.penalty_miss += s.penalty_miss
+        total.headed_goals += s.headed_goals
+        total.left_foot_goals += s.left_foot_goals
+        total.right_foot_goals += s.right_foot_goals
+    total.scoring_frequency = (total.minutes / total.goals) if total.goals > 0 else 0.0
     return total
 
 
