@@ -84,6 +84,21 @@ def trigger_fetch(
         from app.modes.fantasy import FantasyMode
 
         if isinstance(mode, FantasyMode):
+            # Enforce the once-per-window limit (Sofascore only). Cosmetic UI greying isn't enough.
+            cooldown = _cooldown_payload(mode._repo)
+            if not cooldown["allowed"]:
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "message": (
+                            f"You can fetch one league every "
+                            f"{settings.fetch_cooldown_hours} hours. "
+                            f"Next fetch allowed at {cooldown['next_allowed_at']}."
+                        ),
+                        "next_allowed_at": cooldown["next_allowed_at"],
+                        "seconds_remaining": cooldown["seconds_remaining"],
+                    },
+                )
             background_tasks.add_task(_run_fantasy_fetch, job, season, competitions, mode._repo)
             return {"job_id": job.id}
 

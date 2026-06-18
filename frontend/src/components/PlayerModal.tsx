@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getPlayer, refreshBio, type Player } from '../api/players'
+import { getPlayer, type Player } from '../api/players'
 import PlayerCard from './PlayerCard'
 
 interface PlayerModalProps {
@@ -11,7 +11,6 @@ interface PlayerModalProps {
 export default function PlayerModal({ playerId, player: prefetched, onClose }: PlayerModalProps) {
   const [player, setPlayer] = useState<Player | null>(null)
   const [loading, setLoading] = useState(false)
-  const [bioLoading, setBioLoading] = useState(false)
 
   useEffect(() => {
     if (prefetched !== undefined) {
@@ -27,16 +26,15 @@ export default function PlayerModal({ playerId, player: prefetched, onClose }: P
       .finally(() => setLoading(false))
   }, [playerId, prefetched])
 
-  // Trigger lazy bio fetch when the modal opens with missing bio fields
+  // Re-poll once after 5s if bio fields are missing (background enrichment in progress)
   useEffect(() => {
     const id = player?.sofascore_player_id
-    if (!id || (player?.nationality && player?.position_exact)) return
-    setBioLoading(true)
-    refreshBio(id)
-      .then((bio) => setPlayer((prev) => prev ? { ...prev, ...bio } : prev))
-      .catch(() => {})
-      .finally(() => setBioLoading(false))
-  }, [player?.sofascore_player_id])
+    if (!id || player?.nationality || player?.position_exact) return
+    const timer = setTimeout(() => {
+      getPlayer(id).then(setPlayer).catch(() => {})
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [player?.sofascore_player_id, player?.nationality, player?.position_exact])
 
   const open = playerId != null || prefetched != null
   if (!open) return null
@@ -47,7 +45,7 @@ export default function PlayerModal({ playerId, player: prefetched, onClose }: P
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 relative"
+        className="bg-gray-900 rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-4 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -57,7 +55,7 @@ export default function PlayerModal({ playerId, player: prefetched, onClose }: P
           ✕
         </button>
         {loading && <div className="text-gray-400 text-sm py-8 text-center">Loading…</div>}
-        {player && <PlayerCard player={player} bioLoading={bioLoading} />}
+        {player && <PlayerCard player={player} />}
       </div>
     </div>
   )

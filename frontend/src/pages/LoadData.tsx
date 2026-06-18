@@ -103,7 +103,7 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
     } catch (e) {
       setPageStatus('error')
       setResultMsg(e instanceof Error ? e.message : 'Failed to start fetch. Check server logs.')
-      refreshCooldown()
+      refreshCooldown()  // a 429 means we're already locked — reflect it
     }
   }
 
@@ -121,22 +121,22 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
     pageStatus === 'partial' ? 'text-amber-400' :
     'text-red-400'
 
-  const disabled = running
+  const disabled = running || locked
 
   return (
     <div className="max-w-md">
       <h1 className="text-xl font-bold mb-2">Load Data</h1>
 
       <p className="text-sm text-gray-400 mb-4">
-        Fetch player data from Sofascore. To avoid rate-limiting, wait at least{' '}
-        <span className="text-gray-200 font-medium">{cooldown?.cooldown_hours ?? 24} hours</span>{' '}
-        between fetches for the same league. This takes a few minutes.
+        Fetch player data for one league at a time. To avoid being rate-limited by the data source,
+        you can load <span className="text-gray-200 font-medium">one league every {cooldown?.cooldown_hours ?? 24} hours</span>.
+        This takes a few minutes.
       </p>
 
       {locked && (
         <div className="bg-amber-950/40 border border-amber-800/60 rounded-lg p-3 mb-4 text-sm">
-          <div className="text-amber-300 font-medium">⚠ Fetching again soon may trigger rate-limiting ({formatDuration(remaining)} since last fetch)</div>
-          {nextAllowed && <div className="text-amber-500/80 text-xs mt-1">Recommended wait until {nextAllowed}</div>}
+          <div className="text-amber-300 font-medium">Next league fetch available in {formatDuration(remaining)}</div>
+          {nextAllowed && <div className="text-amber-500/80 text-xs mt-1">Unlocks at {nextAllowed}</div>}
           {cooldown?.last_competition && (
             <div className="text-amber-500/80 text-xs mt-0.5">Last loaded: {cooldown.last_competition}</div>
           )}
@@ -209,7 +209,7 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
           disabled={disabled || !selected}
           className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold"
         >
-          {running ? 'Fetching…' : 'Fetch league'}
+          {running ? 'Fetching…' : locked ? 'Locked' : 'Fetch league'}
         </button>
         {resultMsg && !running && (
           <span className={`text-sm ${msgColor}`}>{resultMsg}</span>

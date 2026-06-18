@@ -93,16 +93,14 @@ app/
 ### MongoDB collections
 
 - `player_bios` — one doc per player (identity/bio: `name`, `norm_name`, `sofascore_player_id`, `position`, `nationality`, `photo_url`). Indexed on `sofascore_player_id` (sparse unique) and `norm_name`.
-- `player_stats` — one doc per `(player_bio_id, season)`. Contains `competitions[]`, `aggregated_stats`, `aggregated_scores`, `team`, `low_sample_size`. Each competition entry includes `stats`, `scores`, `raw_stats` (untyped ScraperFC columns), and `total_matches`.
+- `player_stats` — one doc per `(player_bio_id, season)`. Contains `competitions[]`, `aggregated_stats`, `aggregated_scores`, `team`, `low_sample_size`.
 - `fetch_log` — audit trail for each `fetch_data()` call.
-- `fetch_state` — singleton doc tracking `last_fetched_at` for the 24h Sofascore cooldown. (Planned migration: fold into `league_meta`.)
-- `league_meta` — one doc per `(competition, season)` tracking `total_matches` played so far. Populated at fetch time; used to compute the playing-time factor in `s_final`.
+- `fetch_state` — singleton doc tracking `last_fetched_at` for the 24h Sofascore cooldown.
 
 ### Key domain concepts
 
 - `position`: coarse (`GK|DF|MF|FW`); `position_exact`: raw string (`CB`, `RW`, etc.)
-- `s_final`: composite fantasy score, primary sort key. Formula: `raw_per90 × playing_time_factor × starter_bonus` where `playing_time_factor = min(1, minutes / (Σ total_matches × 90))` and `starter_bonus = 1 + 0.2 × (matches_started / appearances)`. See `Mathematical_Specification.md` for full details.
-- `red_cards`: stored for display only; scoring uses `yellow_red_cards` (−2) and `direct_red_cards` (−4) separately.
+- `s_final`: composite fantasy score, primary sort key
 - `sleeper_flag` / `sleeper_ratio`: `HIGH_VALUE` or `OVERPERFORMING` from `SleeperDetector.classify()`; gated on `minutes > 450`
 - `low_sample_size`: true when `aggregated_stats.minutes < 90`
 - Fetch cooldown: Sofascore league fetches are rate-limited to once per 24h per competition (configurable via `fetch_cooldown_hours` in `config.py`)
@@ -133,7 +131,6 @@ app/
 - Always open a `dev/*` branch for new features or bugfixes
 - Always take a DB snapshot before implementing a new feature
 - Build all agent with project level memory.
-- Always run python backend modules (like Pytest) via `.venv\Scripts\python`.
 
 ## Never do these
 

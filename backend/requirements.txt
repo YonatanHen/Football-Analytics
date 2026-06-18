@@ -1,7 +1,7 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
 pymongo==4.10.1
-ScraperFC @ git+https://github.com/YonatanHen/ScraperFC.git@main
+ScraperFC @ git+https://github.com/YonatanHen/ScraperFC.git@dev/sofascore-warm-session-xhr
 pandas>=2.2.0
 pyyaml==6.0.2
 pydantic-settings==2.6.1

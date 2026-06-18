@@ -27,29 +27,10 @@ def _stats_to_dict(stats: Stats) -> dict:
         "pk_taken": stats.pk_taken,
         "yellow_cards": stats.yellow_cards,
         "red_cards": stats.red_cards,
-        "yellow_red_cards": stats.yellow_red_cards,
-        "direct_red_cards": stats.direct_red_cards,
         "fouls_committed": stats.fouls_committed,
         "rating": stats.rating,
         "big_chances_created": stats.big_chances_created,
         "key_passes": stats.key_passes,
-        "appearances": stats.appearances,
-        "matches_started": stats.matches_started,
-        "saves": stats.saves,
-        "saves_outside_box": stats.saves_outside_box,
-        "goals_conceded": stats.goals_conceded,
-        "goals_prevented": stats.goals_prevented,
-        "high_claims": stats.high_claims,
-        "penalty_conceded": stats.penalty_conceded,
-        "penalty_faced": stats.penalty_faced,
-        "total_shots": stats.total_shots,
-        "shots_on_target": stats.shots_on_target,
-        "shots_off_target": stats.shots_off_target,
-        "scoring_frequency": stats.scoring_frequency,
-        "penalty_miss": stats.penalty_miss,
-        "headed_goals": stats.headed_goals,
-        "left_foot_goals": stats.left_foot_goals,
-        "right_foot_goals": stats.right_foot_goals,
     }
 
 
@@ -67,29 +48,10 @@ def _stats_from_dict(d: dict) -> Stats:
         pk_taken=d.get("pk_taken", 0),
         yellow_cards=d.get("yellow_cards", 0),
         red_cards=d.get("red_cards", 0),
-        yellow_red_cards=d.get("yellow_red_cards", 0),
-        direct_red_cards=d.get("direct_red_cards", 0),
         fouls_committed=d.get("fouls_committed", 0.0),
         rating=d.get("rating", 0.0),
         big_chances_created=d.get("big_chances_created", 0),
         key_passes=d.get("key_passes", 0),
-        appearances=d.get("appearances", 0),
-        matches_started=d.get("matches_started", 0),
-        saves=d.get("saves", 0),
-        saves_outside_box=d.get("saves_outside_box", 0),
-        goals_conceded=d.get("goals_conceded", 0),
-        goals_prevented=d.get("goals_prevented", 0.0),
-        high_claims=d.get("high_claims", 0),
-        penalty_conceded=d.get("penalty_conceded", 0),
-        penalty_faced=d.get("penalty_faced", 0),
-        total_shots=d.get("total_shots", 0),
-        shots_on_target=d.get("shots_on_target", 0),
-        shots_off_target=d.get("shots_off_target", 0),
-        scoring_frequency=d.get("scoring_frequency", 0.0),
-        penalty_miss=d.get("penalty_miss", 0),
-        headed_goals=d.get("headed_goals", 0),
-        left_foot_goals=d.get("left_foot_goals", 0),
-        right_foot_goals=d.get("right_foot_goals", 0),
     )
 
 
@@ -129,8 +91,6 @@ def _stats_doc(player: PlayerDTO, bio_id) -> dict:
                     "tactical": c.scores.tactical,
                     "s_final": c.scores.s_final,
                 },
-                "raw_stats": c.raw_stats,
-                "total_matches": c.total_matches,
             }
             for c in player.competitions
         ],
@@ -163,13 +123,11 @@ def _player_from_docs(bio: dict, stats: dict) -> PlayerDTO:
                     tactical=s["tactical"],
                     s_final=s["s_final"],
                 ),
-                raw_stats=c.get("raw_stats") or {},
-                total_matches=c.get("total_matches", 0),
             )
         )
     ag = stats["aggregated_scores"]
     return PlayerDTO(
-        sofascore_player_id=bio.get("sofascore_player_id", ""),
+        sofascore_player_id=bio.get("sofascore_player_id"),
         name=bio["name"],
         season=stats["season"],
         position=bio.get("position", "MF"),
@@ -211,7 +169,6 @@ class MongoRepository:
         self._player_stats: Collection = self._db["player_stats"]
         self._fetch_log: Collection = self._db["fetch_log"]
         self._fetch_state: Collection = self._db["fetch_state"]
-        self._league_meta: Collection = self._db["league_meta"]
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
@@ -425,23 +382,6 @@ class MongoRepository:
                     "last_season": season,
                 }
             },
-            upsert=True,
-        )
-
-    def get_league_total_matches(self, season: str) -> dict[str, int]:
-        """Return {competition: total_matches} for all known leagues in a season."""
-        return {
-            doc["competition"]: doc["total_matches"]
-            for doc in self._league_meta.find(
-                {"season": season}, {"competition": 1, "total_matches": 1}
-            )
-        }
-
-    def set_league_total_matches(self, competition: str, season: str, total_matches: int) -> None:
-        """Persist total matches played for a (competition, season) pair (upsert)."""
-        self._league_meta.update_one(
-            {"competition": competition, "season": season},
-            {"$set": {"total_matches": total_matches, "updated_at": datetime.now(UTC).isoformat()}},
             upsert=True,
         )
 

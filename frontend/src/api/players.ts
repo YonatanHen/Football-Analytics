@@ -4,15 +4,7 @@ export interface Stats {
   goals: number; assists: number; xg: number; xa: number
   minutes: number; clean_sheets: number; pk_saved: number; pk_won: number
   pk_scored: number; pk_taken: number; yellow_cards: number; red_cards: number
-  yellow_red_cards: number; direct_red_cards: number
   fouls_committed: number; rating: number; big_chances_created: number; key_passes: number
-  appearances: number; matches_started: number
-  saves: number; saves_outside_box: number
-  goals_conceded: number; goals_prevented: number
-  high_claims: number; penalty_conceded: number; penalty_faced: number
-  total_shots: number; shots_on_target: number; shots_off_target: number
-  scoring_frequency: number; penalty_miss: number
-  headed_goals: number; left_foot_goals: number; right_foot_goals: number
 }
 
 export interface Score {
@@ -21,7 +13,6 @@ export interface Score {
 
 export interface CompetitionEntry {
   competition: string; stats: Stats; scores: Score
-  raw_stats: Record<string, unknown>; total_matches: number
 }
 
 export interface AggregatedScores extends Score {
@@ -29,7 +20,7 @@ export interface AggregatedScores extends Score {
 }
 
 export interface Player {
-  sofascore_player_id: string; name: string; season: string
+  sofascore_player_id: string | null; name: string; season: string
   position: string; position_exact: string; team: string; nationality: string
   photo_url: string; competitions: CompetitionEntry[]
   aggregated_stats: Stats; aggregated_scores: AggregatedScores
@@ -63,10 +54,4 @@ export async function getPlayer(playerId: string, season?: string): Promise<Play
 export async function getScatterData(season?: string): Promise<ScatterData> {
   const qs = season ? `?season=${season}` : ''
   return apiFetch<ScatterData>(`/v1/analysis/scatter${qs}`)
-}
-
-export interface BioData { nationality: string; position_exact: string }
-
-export async function refreshBio(playerId: string): Promise<BioData> {
-  return apiFetch<BioData>(`/v1/players/${playerId}/refresh-bio`, { method: 'POST' })
 }
