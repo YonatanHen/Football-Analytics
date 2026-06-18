@@ -65,10 +65,16 @@ def test_forward_zero_defensive_score(engine: ScoringEngine) -> None:
 
 def test_tactical_full(engine: ScoringEngine) -> None:
     stats = Stats(
-        pk_won=2, pk_scored=3, pk_taken=4,
-        yellow_cards=2, yellow_red_cards=1, direct_red_cards=1,
+        pk_won=2,
+        pk_scored=3,
+        pk_taken=4,
+        yellow_cards=2,
+        yellow_red_cards=1,
+        direct_red_cards=1,
         fouls_committed=10,
-        minutes=900, appearances=10, matches_started=10,
+        minutes=900,
+        appearances=10,
+        matches_started=10,
     )
     score = engine.calculate(stats, "FW", total_possible_minutes=900)
     # pk_ratio = 3/4 * 5 = 3.75

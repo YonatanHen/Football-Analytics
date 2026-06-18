@@ -26,9 +26,7 @@ class ScoringEngine:
 
         if position == "GK":
             defensive = (
-                stats.clean_sheets * 5.0
-                + stats.pk_saved * 5.0
-                + stats.goals_prevented * 2.0
+                stats.clean_sheets * 5.0 + stats.pk_saved * 5.0 + stats.goals_prevented * 2.0
             )
         elif position == "DF":
             defensive = stats.clean_sheets * 4.0

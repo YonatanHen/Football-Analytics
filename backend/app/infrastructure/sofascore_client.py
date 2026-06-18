@@ -56,7 +56,10 @@ _COLUMN_MAP = {
 
 # Columns promoted to typed Stats fields (plus identity/bio fields)
 _TYPED_INTERNAL_NAMES: frozenset[str] = frozenset(_COLUMN_MAP.values()) | {
-    "photo_url", "nationality", "position_exact", "position",
+    "photo_url",
+    "nationality",
+    "position_exact",
+    "position",
 }
 
 _POSITION_MAP: dict[str, str] = {
@@ -86,17 +89,41 @@ _POSITION_MAP: dict[str, str] = {
 }
 
 _NUMERIC_COLS = [
-    "goals", "assists", "xg", "xa", "minutes", "clean_sheets",
-    "pk_saved", "pk_won", "pk_scored", "pk_taken",
-    "yellow_cards", "red_cards", "yellow_red_cards", "direct_red_cards",
-    "fouls_committed", "rating", "big_chances_created", "key_passes",
-    "appearances", "matches_started",
-    "saves", "saves_outside_box",
-    "goals_conceded", "goals_prevented",
-    "high_claims", "penalty_conceded", "penalty_faced",
-    "total_shots", "shots_on_target", "shots_off_target", "scoring_frequency",
+    "goals",
+    "assists",
+    "xg",
+    "xa",
+    "minutes",
+    "clean_sheets",
+    "pk_saved",
+    "pk_won",
+    "pk_scored",
+    "pk_taken",
+    "yellow_cards",
+    "red_cards",
+    "yellow_red_cards",
+    "direct_red_cards",
+    "fouls_committed",
+    "rating",
+    "big_chances_created",
+    "key_passes",
+    "appearances",
+    "matches_started",
+    "saves",
+    "saves_outside_box",
+    "goals_conceded",
+    "goals_prevented",
+    "high_claims",
+    "penalty_conceded",
+    "penalty_faced",
+    "total_shots",
+    "shots_on_target",
+    "shots_off_target",
+    "scoring_frequency",
     "penalty_miss",
-    "headed_goals", "left_foot_goals", "right_foot_goals",
+    "headed_goals",
+    "left_foot_goals",
+    "right_foot_goals",
 ]
 
 
@@ -190,8 +217,7 @@ class SofascoreClient:
                 df[col] = ""
 
         raw_cols = [
-            c for c in df.columns
-            if c not in _TYPED_INTERNAL_NAMES and not c.startswith("_")
+            c for c in df.columns if c not in _TYPED_INTERNAL_NAMES and not c.startswith("_")
         ]
         if raw_cols:
             df["_raw_stats"] = df[raw_cols].apply(

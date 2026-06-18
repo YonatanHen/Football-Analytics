@@ -42,8 +42,13 @@ _GROUP_TO_POSITION: dict[str, str] = {
 
 def _make_tasks(competitions: list[str]) -> list[dict]:
     return [
-        {"label": f"{comp} — {pos}", "status": "pending", "type": "ss",
-         "comp": comp, "positions": [pos]}
+        {
+            "label": f"{comp} — {pos}",
+            "status": "pending",
+            "type": "ss",
+            "comp": comp,
+            "positions": [pos],
+        }
         for comp in competitions
         for pos in _POSITION_GROUPS
     ]

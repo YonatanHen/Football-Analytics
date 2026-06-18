@@ -14,9 +14,9 @@ class Stats:
     pk_scored: int = 0
     pk_taken: int = 0
     yellow_cards: int = 0
-    red_cards: int = 0          # total reds (display only; not used in scoring)
-    yellow_red_cards: int = 0   # 2nd yellow → red
-    direct_red_cards: int = 0   # straight red
+    red_cards: int = 0  # total reds (display only; not used in scoring)
+    yellow_red_cards: int = 0  # 2nd yellow → red
+    direct_red_cards: int = 0  # straight red
     fouls_committed: float = 0.0
     rating: float = 0.0
     big_chances_created: int = 0

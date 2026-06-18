@@ -120,16 +120,38 @@ def test_aggregate_sums_new_fields() -> None:
     import pytest
 
     entries = [
-        _entry_new("A", appearances=20, matches_started=18,
-                   saves=30, goals_conceded=10, goals_prevented=2.5,
-                   total_shots=50, shots_on_target=20, headed_goals=2,
-                   left_foot_goals=5, right_foot_goals=3,
-                   yellow_red_cards=1, direct_red_cards=0, minutes=1800),
-        _entry_new("B", appearances=5, matches_started=3,
-                   saves=8, goals_conceded=3, goals_prevented=0.5,
-                   total_shots=10, shots_on_target=5, headed_goals=1,
-                   left_foot_goals=1, right_foot_goals=2,
-                   yellow_red_cards=0, direct_red_cards=1, minutes=450),
+        _entry_new(
+            "A",
+            appearances=20,
+            matches_started=18,
+            saves=30,
+            goals_conceded=10,
+            goals_prevented=2.5,
+            total_shots=50,
+            shots_on_target=20,
+            headed_goals=2,
+            left_foot_goals=5,
+            right_foot_goals=3,
+            yellow_red_cards=1,
+            direct_red_cards=0,
+            minutes=1800,
+        ),
+        _entry_new(
+            "B",
+            appearances=5,
+            matches_started=3,
+            saves=8,
+            goals_conceded=3,
+            goals_prevented=0.5,
+            total_shots=10,
+            shots_on_target=5,
+            headed_goals=1,
+            left_foot_goals=1,
+            right_foot_goals=2,
+            yellow_red_cards=0,
+            direct_red_cards=1,
+            minutes=450,
+        ),
     ]
     agg = aggregate_stats(entries)
     assert agg.appearances == 25
