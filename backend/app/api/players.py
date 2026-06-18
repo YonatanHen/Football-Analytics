@@ -28,10 +28,29 @@ class StatsOut(BaseModel):
     pk_taken: int
     yellow_cards: int
     red_cards: int
+    yellow_red_cards: int
+    direct_red_cards: int
     fouls_committed: float
     rating: float
     big_chances_created: int
     key_passes: int
+    appearances: int
+    matches_started: int
+    saves: int
+    saves_outside_box: int
+    goals_conceded: int
+    goals_prevented: float
+    high_claims: int
+    penalty_conceded: int
+    penalty_faced: int
+    total_shots: int
+    shots_on_target: int
+    shots_off_target: int
+    scoring_frequency: float
+    penalty_miss: int
+    headed_goals: int
+    left_foot_goals: int
+    right_foot_goals: int
 
 
 class ScoreOut(BaseModel):
@@ -49,6 +68,8 @@ class CompetitionOut(BaseModel):
     competition: str
     stats: StatsOut
     scores: ScoreOut
+    raw_stats: dict = {}
+    total_matches: int = 0
 
 
 class AggregatedScoresOut(BaseModel):
@@ -65,7 +86,7 @@ class AggregatedScoresOut(BaseModel):
 class PlayerOut(BaseModel):
     """Full player profile returned by GET /v1/players/{id} and the players list."""
 
-    sofascore_player_id: str | None
+    sofascore_player_id: str
     name: str
     season: str
     position: str
@@ -104,6 +125,8 @@ def _to_out(p: "PlayerDTO") -> PlayerOut:
                 competition=c.competition,
                 stats=StatsOut(**c.stats.__dict__),
                 scores=ScoreOut(**c.scores.__dict__),
+                raw_stats=c.raw_stats,
+                total_matches=c.total_matches,
             )
             for c in p.competitions
         ],
