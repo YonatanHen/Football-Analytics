@@ -106,7 +106,7 @@ Player data is split across two MongoDB collections:
       "competition": "Germany Bundesliga",
       "competition_type": "club",
       "total_matches": 34,
-      "stats": { "goals": 28, "assists": 8, "minutes": 2880, "xg": 24.1 },
+      "stats": { "goals": 28, "assists": 8, "minutes": 2880, "xg": 24.1, ... },
       "scores": { "offensive": 88.2, "defensive": 2.5, "tactical": 4.1, "s_final": 4.63 },
       "raw_stats": { "totwAppearances": 9 }
     }
