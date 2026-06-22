@@ -27,8 +27,8 @@ export default function Sleepers() {
     <div>
       <h1 className="text-xl font-bold mb-2">Underpredicted Picks</h1>
       <p className="text-sm text-gray-400 mb-4">
-        <strong className="text-green-300">Underpredicted</strong>: xG+xA &gt; 1.2×(G+A) with &gt;450 min — underperforming their underlying numbers.{' '}
-        <strong className="text-amber-300">Overperforming</strong>: G+A &gt; 1.25×(xG+xA) with &gt;450 min — scoring above expectation, likely to regress.
+        <strong className="text-amber-300">Underpredicted</strong>: xG+xA &gt; 1.2×(G+A) with &gt;450 min — underperforming their underlying numbers.{' '}
+        <strong className="text-green-300">Overperforming</strong>: G+A &gt; 1.25×(xG+xA) with &gt;450 min — scoring above expectation, likely to regress.
       </p>
       <div className="flex gap-2 mb-4">
         {(['HIGH_VALUE', 'OVERPERFORMING'] as const).map((f) => (

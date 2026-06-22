@@ -1,5 +1,44 @@
+import { useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
-import type { Player } from '../api/players'
+import type { Player, Stats } from '../api/players'
+
+const ALL_STATS: { key: keyof Stats; label: string; decimals?: number }[] = [
+  { key: 'appearances', label: 'Appearances' },
+  { key: 'matches_started', label: 'Matches Started' },
+  { key: 'minutes', label: 'Minutes' },
+  { key: 'goals', label: 'Goals' },
+  { key: 'assists', label: 'Assists' },
+  { key: 'xg', label: 'xG', decimals: 2 },
+  { key: 'xa', label: 'xA', decimals: 2 },
+  { key: 'key_passes', label: 'Key Passes' },
+  { key: 'big_chances_created', label: 'Big Chances Created' },
+  { key: 'total_shots', label: 'Total Shots' },
+  { key: 'shots_on_target', label: 'Shots On Target' },
+  { key: 'shots_off_target', label: 'Shots Off Target' },
+  { key: 'headed_goals', label: 'Headed Goals' },
+  { key: 'right_foot_goals', label: 'Right Foot Goals' },
+  { key: 'left_foot_goals', label: 'Left Foot Goals' },
+  { key: 'scoring_frequency', label: 'Scoring Frequency', decimals: 2 },
+  { key: 'pk_won', label: 'PK Won' },
+  { key: 'pk_scored', label: 'PK Scored' },
+  { key: 'pk_taken', label: 'PK Taken' },
+  { key: 'pk_saved', label: 'PK Saved' },
+  { key: 'penalty_miss', label: 'Penalty Miss' },
+  { key: 'penalty_faced', label: 'Penalty Faced' },
+  { key: 'penalty_conceded', label: 'Penalty Conceded' },
+  { key: 'fouls_committed', label: 'Fouls Committed' },
+  { key: 'yellow_cards', label: 'Yellow Cards' },
+  { key: 'yellow_red_cards', label: '2nd Yellow (Red)' },
+  { key: 'direct_red_cards', label: 'Direct Red' },
+  { key: 'red_cards', label: 'Red Cards (total)' },
+  { key: 'clean_sheets', label: 'Clean Sheets' },
+  { key: 'saves', label: 'Saves' },
+  { key: 'saves_outside_box', label: 'Saves Outside Box' },
+  { key: 'goals_conceded', label: 'Goals Conceded' },
+  { key: 'goals_prevented', label: 'Goals Prevented', decimals: 2 },
+  { key: 'high_claims', label: 'High Claims' },
+  { key: 'rating', label: 'Rating', decimals: 1 },
+]
 
 interface PlayerCardProps { player: Player; bioLoading?: boolean }
 
@@ -38,6 +77,7 @@ const Donut = ({ title, data }: { title: string; data: DonutDatum[] }) => {
 export default function PlayerCard({ player: p, bioLoading = false }: PlayerCardProps) {
   const s = p.aggregated_stats
   const sc = p.aggregated_scores
+  const [showAll, setShowAll] = useState(false)
 
   const totwTotal = p.competitions.reduce(
     (n, c) => n + (((c.raw_stats?.totwAppearances) as number) ?? 0), 0
@@ -76,7 +116,7 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
         <div className="flex gap-2 flex-wrap pb-1">
           {sc.underpredicted_flag && (
             <span className={`text-xs px-2 py-0.5 rounded ${
-              sc.underpredicted_flag === 'HIGH_VALUE' ? 'bg-green-800 text-green-200' : 'bg-amber-800 text-amber-200'
+              sc.underpredicted_flag === 'HIGH_VALUE' ? 'bg-amber-800 text-amber-200' : 'bg-green-800 text-green-200'
             }`}>{sc.underpredicted_flag === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'}</span>
           )}
           {totwTotal > 0 && (
@@ -100,12 +140,8 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
           <StatRow label="xG" value={s.xg.toFixed(2)} />
           <StatRow label="xA" value={s.xa.toFixed(2)} />
           <StatRow label="Minutes" value={s.minutes} />
-          {(s.yellow_red_cards > 0 || s.direct_red_cards > 0) && (
-            <>
-              <StatRow label="2nd Yellow" value={s.yellow_red_cards} />
-              <StatRow label="Direct Red" value={s.direct_red_cards} />
-            </>
-          )}
+          <StatRow label="Yellow Cards" value={s.yellow_cards} />
+          <StatRow label="Red Cards" value={s.red_cards} />
           <StatRow label="Rating" value={s.rating.toFixed(1)} />
           <StatRow label="Key Passes" value={s.key_passes} />
           <StatRow label="Big Chances" value={s.big_chances_created} />
@@ -170,6 +206,30 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
           )}
         </div>
       )}
+
+      {/* All data toggle */}
+      <div className="mt-5">
+        <button
+          onClick={() => setShowAll(v => !v)}
+          className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+        >
+          {showAll ? 'Hide full data' : 'Show all data'}
+        </button>
+        {showAll && (
+          <div className="mt-3 grid grid-cols-2 gap-x-6">
+            {ALL_STATS.map(({ key, label, decimals }) => {
+              const val = s[key] as number
+              const formatted = decimals !== undefined ? val.toFixed(decimals) : val
+              return (
+                <div key={key} className="flex justify-between py-1 border-b border-gray-800 text-sm">
+                  <span className="text-gray-400">{label}</span>
+                  <span className="font-mono">{formatted}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
