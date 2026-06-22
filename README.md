@@ -76,6 +76,53 @@ flowchart LR
 
 ---
 
+## Data Schema
+
+Player data is split across two MongoDB collections:
+
+**`player_bios`** — one doc per player (identity, stable across seasons):
+```json
+{
+  "_id": "ObjectId(...)",
+  "sofascore_player_id": "277174",
+  "name": "Harry Kane",
+  "norm_name": "harry kane",
+  "position": "FW",
+  "position_exact": "ST",
+  "nationality": "England",
+  "photo_url": "https://api.sofascore.app/api/v1/player/277174/image"
+}
+```
+
+**`player_stats`** — one doc per (player, season):
+```json
+{
+  "_id": "ObjectId(...)",
+  "player_bio_id": "ObjectId(...)",
+  "season": "2025-2026",
+  "team": "Bayern Munich",
+  "competitions": [
+    {
+      "competition": "Germany Bundesliga",
+      "competition_type": "club",
+      "total_matches": 34,
+      "stats": { "goals": 28, "assists": 8, "minutes": 2880, "xg": 24.1 },
+      "scores": { "offensive": 88.2, "defensive": 2.5, "tactical": 4.1, "s_final": 4.63 },
+      "raw_stats": { "totwAppearances": 9 }
+    }
+  ],
+  "aggregated_stats": { "goals": 28, "assists": 8, "minutes": 2880, "xg": 24.1 },
+  "aggregated_scores": {
+    "offensive": 88.2, "defensive": 2.5, "tactical": 4.1, "s_final": 4.63,
+    "underpredicted_flag": null, "underpredicted_ratio": 1.16
+  },
+  "low_sample_size": false,
+  "last_updated": "2026-06-22T10:00:00+00:00"
+}
+```
+
+`competition_type` is `"club"` for domestic leagues and cups, `"national"` for international tournaments (World Cup, European Championship, etc.). The stats-view filter on the Rankings page uses this field to let you see club-only or national-team-only aggregated scores.
+
 ## Running the Project
 
 ### Prerequisites

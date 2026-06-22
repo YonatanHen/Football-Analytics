@@ -127,7 +127,16 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
               <SectionTitle>Per Competition</SectionTitle>
               {p.competitions.map((c) => (
                 <div key={c.competition} className="text-sm py-1 flex justify-between border-b border-gray-800">
-                  <span className="text-gray-400 truncate max-w-44">{c.competition}</span>
+                  <span className="flex items-center gap-1 text-gray-400 truncate max-w-44">
+                    {c.competition}
+                    <span className={`text-xs px-1 rounded shrink-0 ${
+                      c.competition_type === 'national'
+                        ? 'bg-blue-900 text-blue-300'
+                        : 'bg-gray-700 text-gray-400'
+                    }`}>
+                      {c.competition_type === 'national' ? 'NT' : 'Club'}
+                    </span>
+                  </span>
                   <span className="font-mono text-indigo-300">{c.scores.s_final.toFixed(2)}</span>
                 </div>
               ))}

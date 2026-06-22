@@ -5,8 +5,8 @@ from importlib import resources
 
 import yaml
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel
 
+from app.api.modals.fetch_modals import FetchRequest
 from app.config import settings
 from app.dependencies import get_mode_factory, get_repo
 from app.domain.fetch_cooldown import cooldown_status
@@ -41,14 +41,6 @@ def _cooldown_payload(repo: MongoRepository) -> dict:
     }
 
 
-class FetchRequest(BaseModel):
-    """Body for POST /v1/fetch/. Omit fields to use server defaults from config."""
-
-    season: str | None = None
-    mode: str = "fantasy"
-    competitions: list[str] | None = None
-
-
 @router.get("/competitions", response_model=list[str])
 def list_competitions() -> list[str]:
     """Return all competition names supported by Sofascore fetching."""
@@ -57,13 +49,13 @@ def list_competitions() -> list[str]:
     return sorted(k for k, v in comps.items() if "SOFASCORE" in v)
 
 
-@router.get("/fetch/cooldown")
+@router.get("/cooldown")
 def get_cooldown(repo: MongoRepository = Depends(get_repo)) -> dict:
     """Report whether a Sofascore league fetch is currently allowed and when the next one is."""
     return _cooldown_payload(repo)
 
 
-@router.post("/fetch/", status_code=202)
+@router.post("/", status_code=202)
 def trigger_fetch(
     body: FetchRequest,
     background_tasks: BackgroundTasks,
@@ -92,7 +84,7 @@ def trigger_fetch(
     return {"job_id": job.id}
 
 
-@router.get("/fetch/status/{job_id}")
+@router.get("/status/{job_id}")
 def get_fetch_status(job_id: str) -> dict:
     """Poll the status of a fetch job started by POST /v1/fetch/."""
     job = _jobs.get(job_id)

@@ -30,7 +30,7 @@ export async function getFetchStatus(jobId: string): Promise<FetchJobStatus> {
 }
 
 export async function getCompetitions(): Promise<string[]> {
-  return apiFetch<string[]>('/v1/competitions')
+  return apiFetch<string[]>('/v1/fetch/competitions')
 }
 
 export interface CooldownStatus {

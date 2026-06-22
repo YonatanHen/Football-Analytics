@@ -50,6 +50,31 @@ def _norm(raw: str) -> str:
     return text
 
 
+# Matched against ScraperFC comps.yaml canonical names (case-insensitive substring).
+# Covers men's competitions only — women's leagues are out of scope for this app.
+# "concacaf" excluded: would also hit "CONCACAF Champions League" (club).
+_NATIONAL_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "world cup",  # FIFA World Cup
+        "european championship",  # UEFA European Championship
+        "copa america",  # CONMEBOL Copa America
+        "afcon",  # Africa Cup of Nations
+        "africa cup",  # alternative naming
+        "nations league",  # UEFA Nations League
+        "gold cup",  # CONCACAF Gold Cup
+        "afc asian cup",  # AFC Asian Cup
+        "olympics",  # Olympic football
+        "international friendly",  # national team friendlies (not club pre-season)
+    }
+)
+
+
+def classify_competition(name: str) -> str:
+    """Return 'national' if name is a known international men's tournament, else 'club'."""
+    lower = name.lower()
+    return "national" if any(kw in lower for kw in _NATIONAL_KEYWORDS) else "club"
+
+
 def canonical_competition(raw: str) -> str:
     """Return the canonical competition display name for any known alias.
 

@@ -128,3 +128,30 @@ def test_list_players_filter_by_name_no_match(client_with_player: TestClient) ->
     resp = client_with_player.get("/v1/players?name=Nonexistent")
     assert resp.status_code == 200
     assert resp.json()["total"] == 0
+
+
+def test_list_competitions_endpoint(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players/competitions")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "club" in body
+    assert "national" in body
+    assert "England Premier League" in body["club"]
+
+
+def test_stats_view_club_returns_player(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?stats_view=club")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_stats_view_national_returns_empty(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?stats_view=national")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 0
+
+
+def test_stats_view_all_returns_player(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?stats_view=all")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1

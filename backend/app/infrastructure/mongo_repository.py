@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.collection import Collection
 
+from app.domain.competitions import canonical_competition
 from app.domain.models import (
     AggregatedScores,
     CompetitionEntry,
@@ -122,6 +123,7 @@ def _stats_doc(player: PlayerDTO, bio_id) -> dict:
         "competitions": [
             {
                 "competition": c.competition,
+                "competition_type": c.competition_type,
                 "stats": _stats_to_dict(c.stats),
                 "scores": {
                     "offensive": c.scores.offensive,
@@ -156,6 +158,7 @@ def _player_from_docs(bio: dict, stats: dict) -> PlayerDTO:
         comps.append(
             CompetitionEntry(
                 competition=c["competition"],
+                competition_type=c.get("competition_type", "club"),
                 stats=_stats_from_dict(c["stats"]),
                 scores=Score(
                     offensive=s["offensive"],
@@ -190,6 +193,65 @@ def _player_from_docs(bio: dict, stats: dict) -> PlayerDTO:
         low_sample_size=stats["low_sample_size"],
         last_updated=stats["last_updated"],
     )
+
+
+def _apply_stats_view(players: list[PlayerDTO], stats_view: str) -> list[PlayerDTO]:
+    """Re-aggregate and re-score each player's stats for the requested competition view.
+
+    stats_view values:
+      'club'     — aggregate only club competition entries
+      'national' — aggregate only national-team competition entries
+      <name>     — aggregate only the named competition (canonical match)
+    Players with zero matching entries are dropped.
+    """
+    from app.domain.player_assembler import aggregate_stats
+    from app.domain.scoring_engine import ScoringEngine
+    from app.domain.sleeper_detector import SleeperDetector
+
+    _scoring = ScoringEngine()
+    _sleeper = SleeperDetector()
+
+    result: list[PlayerDTO] = []
+    for player in players:
+        if stats_view in ("club", "national"):
+            entries = [e for e in player.competitions if e.competition_type == stats_view]
+        else:
+            target = canonical_competition(stats_view)
+            entries = [e for e in player.competitions if e.competition == target]
+
+        if not entries:
+            continue
+
+        agg = aggregate_stats(entries)
+        total_possible = sum(e.total_matches for e in entries) * 90
+        score = _scoring.calculate(agg, player.position, total_possible)
+        result.append(
+            PlayerDTO(
+                sofascore_player_id=player.sofascore_player_id,
+                name=player.name,
+                season=player.season,
+                position=player.position,
+                position_exact=player.position_exact,
+                team=player.team,
+                nationality=player.nationality,
+                photo_url=player.photo_url,
+                competitions=player.competitions,  # always return full list for PlayerCard
+                aggregated_stats=agg,
+                aggregated_scores=AggregatedScores(
+                    offensive=score.offensive,
+                    defensive=score.defensive,
+                    tactical=score.tactical,
+                    s_final=score.s_final,
+                    underpredicted_ratio=_sleeper.get_ratio(agg.xg, agg.xa, agg.goals, agg.assists),
+                    underpredicted_flag=_sleeper.classify(
+                        agg.xg, agg.xa, agg.goals, agg.assists, agg.minutes
+                    ),
+                ),
+                low_sample_size=agg.minutes < 90,
+                last_updated=player.last_updated,
+            )
+        )
+    return result
 
 
 _FETCH_STATE_ID = "singleton"
@@ -320,6 +382,7 @@ class MongoRepository:
         nationality: str | None = None,
         underpredicted_flag: str | None = None,
         name: str | None = None,
+        stats_view: str | None = None,
         sort_by: str = "s_final",
         order: str = "desc",
         page: int = 1,
@@ -343,6 +406,25 @@ class MongoRepository:
         if underpredicted_flag:
             stats_query["aggregated_scores.sleeper_flag"] = underpredicted_flag
 
+        # When stats_view is set we re-aggregate in Python; fetch all matches and paginate later.
+        if stats_view and stats_view != "all":
+            all_stats_docs = list(self._player_stats.find(stats_query))
+            bio_ids_all = [d["player_bio_id"] for d in all_stats_docs]
+            bio_map = {d["_id"]: d for d in self._player_bios.find({"_id": {"$in": bio_ids_all}})}
+            players_all = _apply_stats_view(
+                [
+                    _player_from_docs(bio_map[s["player_bio_id"]], s)
+                    for s in all_stats_docs
+                    if s["player_bio_id"] in bio_map
+                ],
+                stats_view,
+            )
+            sort_dir = -1 if order == "desc" else 1
+            players_all.sort(key=lambda p: p.aggregated_scores.s_final * sort_dir)
+            total = len(players_all)
+            skip = (page - 1) * page_size
+            return players_all[skip : skip + page_size], total
+
         sort_field = f"aggregated_scores.{sort_by}" if sort_by == "s_final" else sort_by
         sort_dir = DESCENDING if order == "desc" else ASCENDING
         total = self._player_stats.count_documents(stats_query)
@@ -363,6 +445,27 @@ class MongoRepository:
             if bio:
                 players.append(_player_from_docs(bio, stats))
         return players, total
+
+    def get_competition_list(self, season: str) -> dict[str, list[str]]:
+        """Return distinct men's competition names grouped by type for the given season."""
+        pipeline = [
+            {"$match": {"season": season}},
+            {"$unwind": "$competitions"},
+            {
+                "$group": {
+                    "_id": {
+                        "name": "$competitions.competition",
+                        "type": {"$ifNull": ["$competitions.competition_type", "club"]},
+                    }
+                }
+            },
+            {"$sort": {"_id.name": 1}},
+        ]
+        out: dict[str, list[str]] = {"club": [], "national": []}
+        for doc in self._player_stats.aggregate(pipeline):
+            t = doc["_id"].get("type", "club")
+            out.setdefault(t, []).append(doc["_id"]["name"])
+        return out
 
     def get_player(self, player_id: str, season: str) -> PlayerDTO | None:
         bio = self._player_bios.find_one({"sofascore_player_id": player_id})
