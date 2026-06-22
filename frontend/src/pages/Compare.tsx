@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { getPlayer, type Player, type Stats } from '../api/players'
+import { useState, useEffect, useRef } from 'react'
+import { getPlayers, type Player, type Stats } from '../api/players'
 
 const STAT_LABELS: { key: keyof Stats; label: string; higherIsBetter: boolean }[] = [
   { key: 'goals', label: 'Goals', higherIsBetter: true },
@@ -30,34 +30,67 @@ function DiffCell({ a, b, higherIsBetter }: { a: number; b: number; higherIsBett
 }
 
 function SearchInput({ label, onFound }: { label: string; onFound: (p: Player) => void }) {
-  const [id, setId] = useState('')
-  const [err, setErr] = useState('')
-  const search = async () => {
-    if (!id.trim()) return
-    setErr('')
-    try {
-      onFound(await getPlayer(id.trim()))
-      setId('')
-    } catch {
-      setErr('Not found')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<Player[]>([])
+  const [loading, setLoading] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return }
+    const t = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const data = await getPlayers({ name: query.trim(), page_size: 8 })
+        setResults(data.data)
+      } catch {
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setResults([])
+      }
     }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  const pick = (p: Player) => {
+    onFound(p)
+    setQuery('')
+    setResults([])
   }
+
   return (
-    <div className="flex flex-col gap-1">
+    <div ref={containerRef} className="flex flex-col gap-1 relative">
       <span className="text-xs text-gray-400">{label}</span>
-      <div className="flex gap-2">
-        <input
-          value={id}
-          onChange={(e) => setId(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && search()}
-          placeholder="Player ID…"
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-48"
-        />
-        <button onClick={search} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm">
-          Load
-        </button>
-      </div>
-      {err && <span className="text-xs text-red-400">{err}</span>}
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search by name…"
+        className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-56"
+      />
+      {loading && <div className="text-xs text-gray-500 mt-0.5">Searching…</div>}
+      {results.length > 0 && (
+        <div className="absolute top-full mt-1 w-56 bg-gray-900 border border-gray-700 rounded shadow-lg z-10 max-h-60 overflow-y-auto">
+          {results.map(p => (
+            <button
+              key={p.sofascore_player_id}
+              onClick={() => pick(p)}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-800 border-b border-gray-800 last:border-0"
+            >
+              <div className="font-medium">{p.name}</div>
+              <div className="text-xs text-gray-400">{p.position_exact} · {p.team}</div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

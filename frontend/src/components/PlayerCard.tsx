@@ -100,12 +100,8 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
           <StatRow label="xG" value={s.xg.toFixed(2)} />
           <StatRow label="xA" value={s.xa.toFixed(2)} />
           <StatRow label="Minutes" value={s.minutes} />
-          {(s.yellow_red_cards > 0 || s.direct_red_cards > 0) && (
-            <>
-              <StatRow label="2nd Yellow" value={s.yellow_red_cards} />
-              <StatRow label="Direct Red" value={s.direct_red_cards} />
-            </>
-          )}
+          <StatRow label="Yellow Cards" value={s.yellow_cards} />
+          <StatRow label="Red Cards" value={s.red_cards} />
           <StatRow label="Rating" value={s.rating.toFixed(1)} />
           <StatRow label="Key Passes" value={s.key_passes} />
           <StatRow label="Big Chances" value={s.big_chances_created} />
