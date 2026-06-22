@@ -76,7 +76,7 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
         <div className="flex gap-2 flex-wrap pb-1">
           {sc.underpredicted_flag && (
             <span className={`text-xs px-2 py-0.5 rounded ${
-              sc.underpredicted_flag === 'HIGH_VALUE' ? 'bg-green-800 text-green-200' : 'bg-amber-800 text-amber-200'
+              sc.underpredicted_flag === 'HIGH_VALUE' ? 'bg-amber-800 text-amber-200' : 'bg-green-800 text-green-200'
             }`}>{sc.underpredicted_flag === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'}</span>
           )}
           {totwTotal > 0 && (
