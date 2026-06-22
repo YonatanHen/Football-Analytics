@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
+from app.api.modals.analysis_modals import ScatterDataOut, ScatterPoint
 from app.config import settings
 from app.dependencies import get_repo
 from app.infrastructure.mongo_repository import MongoRepository
@@ -8,23 +8,7 @@ from app.infrastructure.mongo_repository import MongoRepository
 router = APIRouter()
 
 
-class ScatterPoint(BaseModel):
-    """Single player data point for the xG+xA vs G+A scatter chart."""
-
-    sofascore_player_id: str | None
-    name: str
-    position: str
-    xg_xa: float
-    g_a: float
-
-
-class ScatterDataOut(BaseModel):
-    """Response envelope for GET /v1/analysis/scatter."""
-
-    data: list[ScatterPoint]
-
-
-@router.get("/analysis/scatter", response_model=ScatterDataOut)
+@router.get("/scatter", response_model=ScatterDataOut)
 def scatter_data(
     season: str | None = None,
     repo: MongoRepository = Depends(get_repo),

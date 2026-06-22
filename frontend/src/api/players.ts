@@ -20,9 +20,11 @@ export interface Score {
 }
 
 export interface CompetitionEntry {
-  competition: string; stats: Stats; scores: Score
+  competition: string; competition_type: string; stats: Stats; scores: Score
   raw_stats: Record<string, unknown>; total_matches: number
 }
+
+export interface CompetitionList { club: string[]; national: string[] }
 
 export interface AggregatedScores extends Score {
   underpredicted_ratio: number | null; underpredicted_flag: 'HIGH_VALUE' | 'OVERPERFORMING' | null
@@ -69,4 +71,9 @@ export interface BioData { nationality: string; position_exact: string }
 
 export async function refreshBio(playerId: string): Promise<BioData> {
   return apiFetch<BioData>(`/v1/players/${playerId}/refresh-bio`, { method: 'POST' })
+}
+
+export async function getPlayerCompetitions(season?: string): Promise<CompetitionList> {
+  const qs = season ? `?season=${season}` : ''
+  return apiFetch<CompetitionList>(`/v1/players/competitions${qs}`)
 }

@@ -31,9 +31,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(fetch.router, prefix="/v1")
-app.include_router(players.router, prefix="/v1")
-app.include_router(analysis.router, prefix="/v1")
+app.include_router(fetch.router, prefix="/v1/fetch")
+app.include_router(players.router, prefix="/v1/players")
+app.include_router(analysis.router, prefix="/v1/analysis")
 
 
 # Re-export for backward compatibility with tests that import from app.main

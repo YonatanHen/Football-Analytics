@@ -1,20 +1,25 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getPlayers, type Player, type PlayerList } from '../api/players'
+import { getPlayers, getPlayerCompetitions, type Player, type PlayerList, type CompetitionList } from '../api/players'
 import { triggerFetch } from '../api/fetch'
-import FilterBar from '../components/FilterBar'
+import FilterBar, { type Filters } from '../components/FilterBar'
 import PlayerTable from '../components/PlayerTable'
 import PlayerModal from '../components/PlayerModal'
 
-interface Filters { position: string; team: string; nationality: string; underpredicted_flag: string }
-
 export default function Rankings() {
   const [data, setData] = useState<PlayerList | null>(null)
-  const [filters, setFilters] = useState<Filters>({ position: '', team: '', nationality: '', underpredicted_flag: '' })
+  const [filters, setFilters] = useState<Filters>({
+    position: '', team: '', nationality: '', underpredicted_flag: '', stats_view: '',
+  })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [fetchMsg, setFetchMsg] = useState('')
   const [modalId, setModalId] = useState<string | null>(null)
   const [modalPlayer, setModalPlayer] = useState<Player | null>(null)
+  const [competitions, setCompetitions] = useState<CompetitionList | undefined>(undefined)
+
+  useEffect(() => {
+    getPlayerCompetitions().then(setCompetitions).catch(console.error)
+  }, [])
 
   const openPlayer = (p: Player) =>
     p.sofascore_player_id ? setModalId(p.sofascore_player_id) : setModalPlayer(p)
@@ -28,6 +33,7 @@ export default function Rankings() {
       if (filters.team) params.team = filters.team
       if (filters.nationality) params.nationality = filters.nationality
       if (filters.underpredicted_flag) params.underpredicted_flag = filters.underpredicted_flag
+      if (filters.stats_view && filters.stats_view !== 'all') params.stats_view = filters.stats_view
       setData(await getPlayers(params))
     } catch (e) {
       console.error(e)
@@ -64,7 +70,11 @@ export default function Rankings() {
         </div>
       </div>
 
-      <FilterBar filters={filters} onChange={(f) => { setFilters(f); setPage(1) }} />
+      <FilterBar
+        filters={filters}
+        onChange={(f) => { setFilters(f); setPage(1) }}
+        competitions={competitions}
+      />
 
       {loading && <div className="text-gray-400 py-8 text-center">Loading…</div>}
       {data && !loading && (

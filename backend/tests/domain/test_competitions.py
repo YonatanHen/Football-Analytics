@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.competitions import canonical_competition
+from app.domain.competitions import canonical_competition, classify_competition
 
 
 @pytest.mark.parametrize(
@@ -41,3 +41,29 @@ from app.domain.competitions import canonical_competition
 )
 def test_canonical_competition(raw: str, expected: str) -> None:
     assert canonical_competition(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("FIFA World Cup", "national"),
+        ("UEFA European Championship", "national"),
+        ("CONMEBOL Copa America", "national"),
+        ("Africa Cup of Nations", "national"),
+        ("UEFA Nations League", "national"),
+        ("CONCACAF Gold Cup", "national"),
+        ("AFC Asian Cup", "national"),
+        ("Olympics Men", "national"),
+        ("International Friendly", "national"),
+        # club competitions must NOT be mis-classified
+        ("England Premier League", "club"),
+        ("UEFA Champions League", "club"),
+        ("Germany Bundesliga", "club"),
+        ("CONCACAF Champions League", "club"),  # club cup — must not match
+        ("Spain La Liga", "club"),
+        ("Italy Serie A", "club"),
+        ("France Ligue 1", "club"),
+    ],
+)
+def test_classify_competition(name: str, expected: str) -> None:
+    assert classify_competition(name) == expected

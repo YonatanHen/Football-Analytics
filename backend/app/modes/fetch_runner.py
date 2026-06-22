@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from app.config import settings
-from app.domain.competitions import canonical_competition
+from app.domain.competitions import canonical_competition, classify_competition
 from app.domain.models import CompetitionEntry, Stats
 from app.domain.player_assembler import build_player, merge
 from app.infrastructure.sofascore_client import SofascoreClient
@@ -175,12 +175,14 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
             raw_stats = row.get("_raw_stats") or {}
             if not isinstance(raw_stats, dict):
                 raw_stats = {}
+            canon = canonical_competition(comp)
             entry = CompetitionEntry(
-                competition=canonical_competition(comp),
+                competition=canon,
                 stats=stats,
                 scores=score,
                 raw_stats=raw_stats,
                 total_matches=total_matches,
+                competition_type=classify_competition(canon),
             )
             meta = {
                 "sofascore_player_id": pid,

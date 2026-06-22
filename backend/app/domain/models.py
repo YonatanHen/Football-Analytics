@@ -59,6 +59,7 @@ class CompetitionEntry:
     scores: Score
     raw_stats: dict = field(default_factory=dict)
     total_matches: int = 0  # matches played in this competition at fetch time
+    competition_type: str = "club"  # 'club' | 'national'
 
 
 @dataclass
