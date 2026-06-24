@@ -90,7 +90,7 @@ Player data is split across two MongoDB collections:
   "position": "FW",
   "position_exact": "ST",
   "nationality": "England",
-  "photo_url": "https://api.sofascore.app/api/v1/player/277174/image"
+  "photo_url": "https://photo-url"
 }
 ```
 
