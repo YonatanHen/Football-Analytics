@@ -20,11 +20,6 @@ logger = logging.getLogger(__name__)
 
 _jobs: dict[str, FetchJob] = {}
 
-
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
-
-
 @router.get("/competitions", response_model=list[str])
 def list_competitions() -> list[str]:
     """Return all competition names supported by Sofascore fetching."""
