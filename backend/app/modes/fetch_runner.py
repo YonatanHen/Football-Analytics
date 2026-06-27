@@ -63,10 +63,10 @@ def _update_task(job: FetchJob, idx: int, status: str) -> None:
 def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> None:  # type: ignore[type-arg]
     """Execute a fetch job and upsert results.
 
-    Each competition is fetched in a single Sofascore call (all positions at once) to
-    minimise requests and avoid Cloudflare rate-limit bans. Competitions run concurrently
-    up to settings.fetch_concurrency. After all fetching, reconciles each player and
-    upserts once (no write races). pk_won comes directly from Sofascore's penaltyWon field.
+    Each competition is fetched once per position group (GK/DF/MF/FW), so four Sofascore
+    calls per competition. Tasks run concurrently up to settings.fetch_concurrency. After
+    all fetching, per-competition frames are concatenated (deduped by sofascore_player_id),
+    reconciled, and upserted sequentially (no write races).
     """
     sofascore = SofascoreClient()
 
