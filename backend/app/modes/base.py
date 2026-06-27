@@ -8,7 +8,7 @@ class AnalysisMode(ABC):
     and process player data."""
 
     @abstractmethod
-    def fetch_data(self, season: str, competitions: list[str]) -> dict:
+    def fetch_data(self, season: str, competition: str) -> dict:
         """Fetch data from sources and upsert to MongoDB. Returns fetch log entry."""
 
     @abstractmethod

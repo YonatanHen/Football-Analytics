@@ -137,7 +137,7 @@ def test_upsert_player_bio_updates_nationality(repo: MongoRepository) -> None:
 def test_log_fetch(repo: MongoRepository) -> None:
     entry = repo.log_fetch(
         season="2025-2026",
-        competitions=["England Premier League"],
+        competition="England Premier League",
         players_upserted=42,
         status="success",
     )

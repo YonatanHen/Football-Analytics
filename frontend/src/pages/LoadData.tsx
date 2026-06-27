@@ -14,7 +14,7 @@ function TaskIcon({ status }: { status: FetchTask['status'] }) {
   return <span className="text-gray-600 w-4 shrink-0">·</span>
 }
 
-type PageStatus = 'idle' | 'running' | 'done' | 'partial' | 'error'
+type PageStatus = 'idle' | 'running' | 'done' | 'error'
 
 export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
   const [competitions, setCompetitions] = useState<string[]>([])
@@ -45,7 +45,7 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
     setResultMsg('')
 
     try {
-      const { job_id } = await triggerFetch({ mode: 'fantasy', season, competitions: [selected] })
+      const { job_id } = await triggerFetch({ mode: 'fantasy', season, competition: selected })
       pollRef.current = setInterval(async () => {
         try {
           const status = await getFetchStatus(job_id)
@@ -57,8 +57,6 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
             if (status.status === 'done') {
               setResultMsg(`Done — ${status.players_upserted.toLocaleString()} players loaded for ${selected}.`)
               onDone?.()
-            } else if (status.status === 'partial') {
-              setResultMsg(`${status.players_upserted.toLocaleString()} players loaded, but some data failed — see server logs.`)
             } else {
               setResultMsg('No data loaded — the fetch failed. You can try again.')
             }
@@ -79,14 +77,11 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
   const running = pageStatus === 'running'
   const total = jobStatus?.total ?? 1
   const done = jobStatus?.completed ?? 0
-  const failed = jobStatus?.competitions_failed ?? 0
+  const failed = jobStatus?.competition_failed ?? false
   const current = jobStatus?.current ?? ''
   const progress = total > 0 ? Math.round((done / total) * 100) : 0
 
-  const msgColor =
-    pageStatus === 'done' ? 'text-green-400' :
-    pageStatus === 'partial' ? 'text-amber-400' :
-    'text-red-400'
+  const msgColor = pageStatus === 'done' ? 'text-green-400' : 'text-red-400'
 
   return (
     <div className="max-w-md">
@@ -142,8 +137,8 @@ export default function LoadData({ onDone }: { onDone?: () => void } = {}) {
               style={{ width: `${progress}%` }}
             />
           </div>
-          {failed > 0 && (
-            <p className="text-xs text-amber-400 mb-2">{failed} failed so far — see server logs.</p>
+          {failed && (
+            <p className="text-xs text-amber-400 mb-2">Fetch failed.</p>
           )}
           {jobStatus && jobStatus.tasks.length > 0 && (
             <div className="max-h-40 overflow-y-auto bg-gray-900 rounded p-2 space-y-0.5">

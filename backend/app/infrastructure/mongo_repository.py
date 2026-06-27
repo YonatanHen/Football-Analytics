@@ -549,12 +549,12 @@ class MongoRepository:
         )
 
     def log_fetch(
-        self, season: str, competitions: list[str], players_upserted: int, status: str
+        self, season: str, competition: str, players_upserted: int, status: str
     ) -> dict:
         entry: dict = {
             "fetched_at": datetime.now(UTC).isoformat(),
             "season": season,
-            "competitions_fetched": competitions,
+            "competition_fetched": competition,
             "sources": ["sofascore"],
             "status": status,
             "players_upserted": players_upserted,

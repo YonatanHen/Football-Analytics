@@ -1,6 +1,6 @@
 import { apiFetch } from './client'
 
-export interface FetchRequest { season?: string; mode?: string; competitions?: string[] }
+export interface FetchRequest { season?: string; mode?: string; competition: string }
 export interface FetchResponse { job_id: string }
 export interface FetchTask {
   label: string
@@ -9,12 +9,12 @@ export interface FetchTask {
 
 export interface FetchJobStatus {
   job_id: string
-  status: 'running' | 'done' | 'partial' | 'error'
+  status: 'running' | 'done' | 'error'
   total: number
   completed: number
   current: string
   players_upserted: number
-  competitions_failed: number
+  competition_failed: boolean
   tasks: FetchTask[]
 }
 

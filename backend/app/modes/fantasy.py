@@ -19,21 +19,21 @@ class FantasyMode(AnalysisMode):
     def get_mode_name(self) -> str:
         return "fantasy"
 
-    def fetch_data(self, season: str, competitions: list[str]) -> dict:
-        """Fetch Sofascore data for each competition using the parallel fetch runner."""
+    def fetch_data(self, season: str, competition: str) -> dict:
+        """Fetch Sofascore data for the given competition using the parallel fetch runner."""
         import uuid
 
         from app.modes.fetch_runner import FetchJob, run_fetch_job
 
-        job = FetchJob(id=str(uuid.uuid4()), total=len(competitions))
-        run_fetch_job(job, season, competitions, self._repo)
+        job = FetchJob(id=str(uuid.uuid4()))
+        run_fetch_job(job, season, competition, self._repo)
         log = self._repo.log_fetch(
             season=season,
-            competitions=competitions,
+            competition=competition,
             players_upserted=job.players_upserted,
             status="success" if job.status == "done" else job.status,
         )
-        log["competitions_failed"] = job.competitions_failed
+        log["competition_failed"] = job.status == "error"
         return log
 
     def process(self, season: str) -> list[PlayerDTO]:

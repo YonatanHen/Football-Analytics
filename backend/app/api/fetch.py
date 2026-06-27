@@ -35,7 +35,6 @@ def trigger_fetch(
 ) -> dict:
     """Start a background fetch job. Returns job_id immediately for polling."""
     season = body.season or settings.season
-    competitions = body.competitions or settings.default_competitions
     try:
         mode = mode_factory.create(body.mode)
     except ValueError as e:
@@ -48,11 +47,11 @@ def trigger_fetch(
         from app.modes.fantasy import FantasyMode
 
         if isinstance(mode, FantasyMode):
-            background_tasks.add_task(_run_fantasy_fetch, job, season, competitions, mode._repo)
+            background_tasks.add_task(_run_fantasy_fetch, job, season, body.competition, mode._repo)
             return {"job_id": job.id}
 
-    # Non-fantasy modes: fall back to sequential fetch via mode.fetch_data
-    background_tasks.add_task(_run_legacy_fetch, job, season, competitions, mode)
+    # Non-fantasy modes: fall back to fetch via mode.fetch_data
+    background_tasks.add_task(_run_legacy_fetch, job, season, body.competition, mode)
     return {"job_id": job.id}
 
 
@@ -70,43 +69,32 @@ def get_fetch_status(job_id: str) -> dict:
             "completed": job.completed,
             "current": job.current,
             "players_upserted": job.players_upserted,
-            "competitions_failed": job.competitions_failed,
+            "competition_failed": job.competition_failed,
             "tasks": list(job.tasks),
         }
 
 
 def _run_fantasy_fetch(
-    job: FetchJob, season: str, competitions: list[str], repo: MongoRepository
+    job: FetchJob, season: str, competition: str, repo: MongoRepository
 ) -> None:
-    run_fetch_job(job, season, competitions, repo)
-    # Start the cooldown only when data actually landed — a 403/failed fetch must
-    # not lock the user out.
-    if job.status in ("done", "partial"):
-        comp = competitions[0] if competitions else ""
-        repo.set_last_fetch(comp, season, datetime.now(UTC))
+    run_fetch_job(job, season, competition, repo)
+    if job.status == "done":
+        repo.set_last_fetch(competition, season, datetime.now(UTC))
 
 
 def _run_legacy_fetch(
-    job: FetchJob, season: str, competitions: list[str], mode: AnalysisMode
+    job: FetchJob, season: str, competition: str, mode: AnalysisMode
 ) -> None:
-    """Sequential fallback for non-fantasy modes."""
-    job.total = len(competitions)
-    for comp in competitions:
-        job.current = comp
-        try:
-            result = mode.fetch_data(season, [comp])
-            job.players_upserted += result.get("players_upserted", 0)
-            if result.get("competitions_failed", 0) > 0:
-                job.competitions_failed += 1
-        except Exception as exc:
-            logger.error("Fetch failed for %s: %s", comp, exc)
-            job.competitions_failed += 1
-        job.completed += 1
-
-    job.current = ""
-    if job.competitions_failed == job.total:
+    """Fallback for non-fantasy modes."""
+    job.total = 1
+    job.current = competition
+    try:
+        result = mode.fetch_data(season, competition)
+        job.players_upserted = result.get("players_upserted", 0)
+        job.status = "error" if result.get("competition_failed", False) else "done"
+    except Exception as exc:
+        logger.error("Fetch failed for %s: %s", competition, exc)
         job.status = "error"
-    elif job.competitions_failed > 0:
-        job.status = "partial"
-    else:
-        job.status = "done"
+    job.completed = 1
+    job.current = ""
+    job.competition_failed = job.status == "error"
