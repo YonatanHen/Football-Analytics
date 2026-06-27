@@ -25,35 +25,12 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def _cooldown_payload(repo: MongoRepository) -> dict:
-    """Compute the current cooldown state for the UI / enforcement."""
-    state = repo.get_last_fetch()
-    raw = state.get("last_fetched_at") if state else None
-    last = datetime.fromisoformat(raw) if raw else None
-    status = cooldown_status(last, datetime.now(UTC), settings.fetch_cooldown_hours)
-    return {
-        "allowed": status["allowed"],
-        "cooldown_hours": settings.fetch_cooldown_hours,
-        "last_fetched_at": _iso(status["last_fetched_at"]),
-        "next_allowed_at": _iso(status["next_allowed_at"]),
-        "seconds_remaining": status["seconds_remaining"],
-        "last_competition": state.get("last_competition") if state else None,
-    }
-
-
 @router.get("/competitions", response_model=list[str])
 def list_competitions() -> list[str]:
     """Return all competition names supported by Sofascore fetching."""
     data = resources.files("ScraperFC").joinpath("comps.yaml").read_text()
     comps = yaml.safe_load(data)
     return sorted(k for k, v in comps.items() if "SOFASCORE" in v)
-
-
-@router.get("/cooldown")
-def get_cooldown(repo: MongoRepository = Depends(get_repo)) -> dict:
-    """Report whether a Sofascore league fetch is currently allowed and when the next one is."""
-    return _cooldown_payload(repo)
-
 
 @router.post("/", status_code=202)
 def trigger_fetch(
