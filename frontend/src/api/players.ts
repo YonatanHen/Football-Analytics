@@ -43,7 +43,7 @@ export interface PlayerList {
 }
 
 export type SortOrder = 'asc' | 'desc'
-export type FilterOp = 'gte' | 'lte' | 'gt' | 'lt' | 'eq' | 'ne'
+export type FilterOp = 'gte' | 'lte' | 'gt' | 'lt'
 
 export interface FilterClause { field: string; op: FilterOp; value: number }
 
@@ -74,6 +74,14 @@ export const METRIC_OPTIONS: { value: string; label: string }[] = [
   { value: 'high_claims', label: 'High claims' },
   { value: 'pk_scored', label: 'Penalties scored' },
   { value: 'pk_won', label: 'Penalties won' },
+  { value: 'pk_taken', label: 'Penalties taken' },
+  { value: 'pk_saved', label: 'Penalties saved' },
+  { value: 'penalty_miss', label: 'Penalties missed' },
+  { value: 'penalty_conceded', label: 'Penalties conceded' },
+  { value: 'penalty_faced', label: 'Penalties faced' },
+  { value: 'yellow_red_cards', label: 'Second-yellow reds' },
+  { value: 'direct_red_cards', label: 'Direct reds' },
+  { value: 'scoring_frequency', label: 'Scoring frequency' },
   { value: 'headed_goals', label: 'Headed goals' },
   { value: 'left_foot_goals', label: 'Left-foot goals' },
   { value: 'right_foot_goals', label: 'Right-foot goals' },
@@ -87,8 +95,6 @@ export const FILTER_OP_OPTIONS: { value: FilterOp; label: string }[] = [
   { value: 'lte', label: '≤' },
   { value: 'gt', label: '>' },
   { value: 'lt', label: '<' },
-  { value: 'eq', label: '=' },
-  { value: 'ne', label: '≠' },
 ]
 
 // Serialize valid clauses to the JSON the backend `filters` query param expects; '' if none.

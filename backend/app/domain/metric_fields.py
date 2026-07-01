@@ -30,8 +30,6 @@ FILTER_OPS: dict[str, str] = {
     "lte": "$lte",
     "gt": "$gt",
     "lt": "$lt",
-    "eq": "$eq",
-    "ne": "$ne",
 }
 
 _PY_OPS = {
@@ -39,8 +37,6 @@ _PY_OPS = {
     "lte": operator.le,
     "gt": operator.gt,
     "lt": operator.lt,
-    "eq": operator.eq,
-    "ne": operator.ne,
 }
 
 
