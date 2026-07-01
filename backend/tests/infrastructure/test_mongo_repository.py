@@ -259,6 +259,92 @@ def _scores_to_empty() -> dict:
     }
 
 
+def _make_player_metrics(
+    player_id: str,
+    *,
+    goals: int = 0,
+    xg: float = 0.0,
+    s_final: float = 0.0,
+    competition_type: str = "club",
+) -> PlayerDTO:
+    p = _make_player(player_id)
+    p.aggregated_stats.goals = goals
+    p.aggregated_stats.xg = xg
+    p.aggregated_scores.s_final = s_final
+    p.competitions[0].competition_type = competition_type
+    p.competitions[0].stats.goals = goals
+    p.competitions[0].stats.xg = xg
+    return p
+
+
+def test_get_players_sort_by_goals_desc(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player_metrics("1", goals=3))
+    repo.upsert_player(_make_player_metrics("2", goals=9))
+    repo.upsert_player(_make_player_metrics("3", goals=1))
+    players, _ = repo.get_players(season="2025-2026", sort_by="goals", order="desc")
+    assert [p.sofascore_player_id for p in players] == ["2", "1", "3"]
+
+
+def test_get_players_sort_by_xg_asc(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player_metrics("1", xg=3.0))
+    repo.upsert_player(_make_player_metrics("2", xg=9.0))
+    repo.upsert_player(_make_player_metrics("3", xg=1.0))
+    players, _ = repo.get_players(season="2025-2026", sort_by="xg", order="asc")
+    assert [p.sofascore_player_id for p in players] == ["3", "1", "2"]
+
+
+def test_get_players_filter_gte(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player_metrics("1", goals=2))
+    repo.upsert_player(_make_player_metrics("2", goals=6))
+    players, total = repo.get_players(
+        season="2025-2026", filters=[{"field": "goals", "op": "gte", "value": 5.0}]
+    )
+    assert total == 1
+    assert players[0].sofascore_player_id == "2"
+
+
+def test_get_players_filter_stacked(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player_metrics("1", goals=6, xg=1.0))
+    repo.upsert_player(_make_player_metrics("2", goals=6, xg=8.0))
+    _, total = repo.get_players(
+        season="2025-2026",
+        filters=[
+            {"field": "goals", "op": "gte", "value": 5.0},
+            {"field": "xg", "op": "gte", "value": 5.0},
+        ],
+    )
+    assert total == 1
+
+
+def test_get_players_filter_range_same_field(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player_metrics("1", goals=2))
+    repo.upsert_player(_make_player_metrics("2", goals=6))
+    repo.upsert_player(_make_player_metrics("3", goals=12))
+    _, total = repo.get_players(
+        season="2025-2026",
+        filters=[
+            {"field": "goals", "op": "gte", "value": 5.0},
+            {"field": "goals", "op": "lte", "value": 10.0},
+        ],
+    )
+    assert total == 1
+
+
+def test_get_players_stats_view_sort_and_filter(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player_metrics("1", goals=3, competition_type="club"))
+    repo.upsert_player(_make_player_metrics("2", goals=9, competition_type="club"))
+    repo.upsert_player(_make_player_metrics("3", goals=1, competition_type="club"))
+    players, total = repo.get_players(
+        season="2025-2026",
+        stats_view="club",
+        sort_by="goals",
+        order="desc",
+        filters=[{"field": "goals", "op": "gte", "value": 2.0}],
+    )
+    assert total == 2
+    assert [p.sofascore_player_id for p in players] == ["2", "1"]
+
+
 def test_fetch_state_absent_initially(repo: MongoRepository) -> None:
     assert repo.get_last_fetch() is None
 

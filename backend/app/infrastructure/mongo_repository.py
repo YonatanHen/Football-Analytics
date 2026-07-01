@@ -4,6 +4,12 @@ from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.collection import Collection
 
 from app.domain.competitions import canonical_competition
+from app.domain.metric_fields import (
+    FILTER_OPS,
+    mongo_path,
+    python_matches,
+    python_value,
+)
 from app.domain.models import (
     AggregatedScores,
     CompetitionEntry,
@@ -385,6 +391,7 @@ class MongoRepository:
         stats_view: str | None = None,
         sort_by: str = "s_final",
         order: str = "desc",
+        filters: list[dict] | None = None,
         page: int = 1,
         page_size: int = 50,
     ) -> tuple[list[PlayerDTO], int]:
@@ -419,13 +426,23 @@ class MongoRepository:
                 ],
                 stats_view,
             )
-            sort_dir = -1 if order == "desc" else 1
-            players_all.sort(key=lambda p: p.aggregated_scores.s_final * sort_dir)
+            if filters:
+                players_all = [
+                    p
+                    for p in players_all
+                    if all(python_matches(p, f["field"], f["op"], f["value"]) for f in filters)
+                ]
+            reverse = order == "desc"
+            players_all.sort(key=lambda p: python_value(p, sort_by), reverse=reverse)
             total = len(players_all)
             skip = (page - 1) * page_size
             return players_all[skip : skip + page_size], total
 
-        sort_field = f"aggregated_scores.{sort_by}" if sort_by == "s_final" else sort_by
+        if filters:
+            for f in filters:
+                stats_query.setdefault(mongo_path(f["field"]), {})[FILTER_OPS[f["op"]]] = f["value"]
+
+        sort_field = mongo_path(sort_by)
         sort_dir = DESCENDING if order == "desc" else ASCENDING
         total = self._player_stats.count_documents(stats_query)
         skip = (page - 1) * page_size

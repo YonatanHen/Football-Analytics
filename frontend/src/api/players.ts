@@ -42,6 +42,61 @@ export interface PlayerList {
   data: Player[]; total: number; page: number; page_size: number
 }
 
+export type SortOrder = 'asc' | 'desc'
+export type FilterOp = 'gte' | 'lte' | 'gt' | 'lt' | 'eq' | 'ne'
+
+export interface FilterClause { field: string; op: FilterOp; value: number }
+
+// Allowlisted sortable/filterable metrics — mirrors backend metric_fields.METRIC_FIELDS.
+export const METRIC_OPTIONS: { value: string; label: string }[] = [
+  { value: 's_final', label: 'S_final' },
+  { value: 'goals', label: 'Goals' },
+  { value: 'assists', label: 'Assists' },
+  { value: 'xg', label: 'xG' },
+  { value: 'xa', label: 'xA' },
+  { value: 'minutes', label: 'Minutes' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'clean_sheets', label: 'Clean sheets' },
+  { value: 'key_passes', label: 'Key passes' },
+  { value: 'big_chances_created', label: 'Big chances created' },
+  { value: 'total_shots', label: 'Total shots' },
+  { value: 'shots_on_target', label: 'Shots on target' },
+  { value: 'shots_off_target', label: 'Shots off target' },
+  { value: 'appearances', label: 'Appearances' },
+  { value: 'matches_started', label: 'Matches started' },
+  { value: 'yellow_cards', label: 'Yellow cards' },
+  { value: 'red_cards', label: 'Red cards' },
+  { value: 'fouls_committed', label: 'Fouls committed' },
+  { value: 'saves', label: 'Saves' },
+  { value: 'saves_outside_box', label: 'Saves outside box' },
+  { value: 'goals_conceded', label: 'Goals conceded' },
+  { value: 'goals_prevented', label: 'Goals prevented' },
+  { value: 'high_claims', label: 'High claims' },
+  { value: 'pk_scored', label: 'Penalties scored' },
+  { value: 'pk_won', label: 'Penalties won' },
+  { value: 'headed_goals', label: 'Headed goals' },
+  { value: 'left_foot_goals', label: 'Left-foot goals' },
+  { value: 'right_foot_goals', label: 'Right-foot goals' },
+  { value: 'offensive', label: 'Offensive score' },
+  { value: 'defensive', label: 'Defensive score' },
+  { value: 'tactical', label: 'Tactical score' },
+]
+
+export const FILTER_OP_OPTIONS: { value: FilterOp; label: string }[] = [
+  { value: 'gte', label: '≥' },
+  { value: 'lte', label: '≤' },
+  { value: 'gt', label: '>' },
+  { value: 'lt', label: '<' },
+  { value: 'eq', label: '=' },
+  { value: 'ne', label: '≠' },
+]
+
+// Serialize valid clauses to the JSON the backend `filters` query param expects; '' if none.
+export function serializeFilters(clauses: FilterClause[]): string {
+  const valid = clauses.filter((c) => c.field && Number.isFinite(c.value))
+  return valid.length ? JSON.stringify(valid) : ''
+}
+
 export interface ScatterPoint {
   sofascore_player_id: string | null; name: string; position: string; xg_xa: number; g_a: number
 }
