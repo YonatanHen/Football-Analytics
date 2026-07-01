@@ -14,14 +14,18 @@ if [[ "$last_msg" == *"[docs-sync]"* ]]; then
     exit 0
 fi
 
+# Extract the actual command via JSON parsing rather than regex over the raw
+# payload: a command like `git commit -m "..." && git push` embeds escaped
+# quotes that break a naive `[^"]*` match before reaching "git push".
+cmd=$(printf '%s' "$input" | python -c "import json,sys; print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))" 2>/dev/null || true)
+
 triggered=false
 
-if grep -qE '"command"[[:space:]]*:[[:space:]]*"[^"]*gh pr create' <<<"$input"; then
-    if ! grep -qE '"command"[[:space:]]*:[[:space:]]*"[^"]*--base ' <<<"$input" \
-        || grep -qE '"command"[[:space:]]*:[[:space:]]*"[^"]*--base master' <<<"$input"; then
+if [[ "$cmd" == *"gh pr create"* ]]; then
+    if [[ "$cmd" != *"--base "* ]] || [[ "$cmd" == *"--base master"* ]]; then
         triggered=true
     fi
-elif grep -qE '"command"[[:space:]]*:[[:space:]]*"[^"]*git push' <<<"$input"; then
+elif [[ "$cmd" == *"git push"* ]]; then
     pr_info=$(gh pr view --json baseRefName,state -q '"\(.baseRefName) \(.state)"' 2>/dev/null || true)
     if [[ "$pr_info" == "master OPEN" ]]; then
         triggered=true
