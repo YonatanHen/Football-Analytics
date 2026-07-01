@@ -1,4 +1,4 @@
-import type { Player } from '../api/players'
+import type { Player, SortOrder } from '../api/players'
 
 interface PlayerTableProps {
   players: Player[]
@@ -7,10 +7,24 @@ interface PlayerTableProps {
   pageSize: number
   onPageChange: (page: number) => void
   onPlayerClick: (player: Player) => void
+  sortBy?: string
+  order?: SortOrder
+  onSortChange?: (field: string) => void
 }
 
+// Sortable metric columns in render order. `metric` is the backend field the API sorts on;
+// `label` is the terse header text this table already displays (kept unchanged).
+const SORT_COLUMNS: { metric: string; label: string }[] = [
+  { metric: 's_final', label: 'S_final' },
+  { metric: 'goals', label: 'G' },
+  { metric: 'assists', label: 'A' },
+  { metric: 'xg', label: 'xG' },
+  { metric: 'xa', label: 'xA' },
+  { metric: 'minutes', label: 'Min' },
+]
+
 export default function PlayerTable({
-  players, total, page, pageSize, onPageChange, onPlayerClick,
+  players, total, page, pageSize, onPageChange, onPlayerClick, sortBy, order, onSortChange,
 }: PlayerTableProps) {
   const totalPages = Math.ceil(total / pageSize)
 
@@ -19,6 +33,20 @@ export default function PlayerTable({
     const color = flag === 'HIGH_VALUE' ? 'bg-amber-800 text-amber-200' : 'bg-green-800 text-green-200'
     const label = flag === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'
     return <span className={`text-xs px-2 py-0.5 rounded ${color}`}>{label}</span>
+  }
+
+  const sortHeader = ({ metric, label }: { metric: string; label: string }) => {
+    if (!onSortChange) return <th key={metric} className="py-2 pr-4">{label}</th>
+    const active = sortBy === metric
+    return (
+      <th
+        key={metric}
+        onClick={() => onSortChange(metric)}
+        className={`py-2 pr-4 cursor-pointer select-none hover:text-white ${active ? 'text-white' : ''}`}
+      >
+        {label}{active ? (order === 'desc' ? ' ▼' : ' ▲') : ''}
+      </th>
+    )
   }
 
   return (
@@ -31,12 +59,7 @@ export default function PlayerTable({
               <th className="py-2 pr-4">Player</th>
               <th className="py-2 pr-4">Pos</th>
               <th className="py-2 pr-4">Team</th>
-              <th className="py-2 pr-4">S_final</th>
-              <th className="py-2 pr-4">G</th>
-              <th className="py-2 pr-4">A</th>
-              <th className="py-2 pr-4">xG</th>
-              <th className="py-2 pr-4">xA</th>
-              <th className="py-2 pr-4">Min</th>
+              {SORT_COLUMNS.map(sortHeader)}
               <th className="py-2">Flag</th>
             </tr>
           </thead>

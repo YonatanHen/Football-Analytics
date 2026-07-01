@@ -1,3 +1,4 @@
+import json
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,6 +14,7 @@ from app.api.modals.player_modals import (
 )
 from app.config import settings
 from app.dependencies import get_repo
+from app.domain.metric_fields import FILTER_OPS, METRIC_FIELDS
 from app.infrastructure.mongo_repository import MongoRepository
 from app.infrastructure.sofascore_client import SofascoreClient
 
@@ -20,6 +22,45 @@ if TYPE_CHECKING:
     from app.domain.models import PlayerDTO
 
 router = APIRouter()
+
+
+def _err(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=422,
+        detail={"error": {"code": "invalid_query", "message": message}},
+    )
+
+
+def _parse_filters(filters: str | None) -> list[dict] | None:
+    """Parse and validate the JSON-encoded ``filters`` query param.
+
+    Expects a JSON array of ``{"field", "op", "value"}`` clauses. Each field must be an
+    allowlisted metric, each op a known operator, and each value numeric. Raises 422 otherwise.
+    """
+    if not filters:
+        return None
+    try:
+        clauses = json.loads(filters)
+    except json.JSONDecodeError:
+        raise _err("filters must be valid JSON.") from None
+    if not isinstance(clauses, list):
+        raise _err("filters must be a JSON array of clauses.")
+
+    parsed: list[dict] = []
+    for c in clauses:
+        if not isinstance(c, dict):
+            raise _err("Each filter clause must be an object.")
+        field, op, value = c.get("field"), c.get("op"), c.get("value")
+        if field not in METRIC_FIELDS:
+            raise _err(f"Unknown filter field: {field!r}.")
+        if op not in FILTER_OPS:
+            raise _err(f"Unknown filter operator: {op!r}.")
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            raise _err(f"Filter value for {field!r} must be numeric.") from None
+        parsed.append({"field": field, "op": op, "value": value})
+    return parsed
 
 
 def _to_out(p: "PlayerDTO") -> PlayerOut:
@@ -71,8 +112,9 @@ def list_players(
     underpredicted_flag: str | None = Query(None, pattern="^(HIGH_VALUE|OVERPERFORMING)$"),
     season: str | None = None,
     stats_view: str | None = None,
-    sort_by: str = Query("s_final", pattern="^s_final$"),
+    sort_by: str = Query("s_final"),
     order: str = Query("desc", pattern="^(asc|desc)$"),
+    filters: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     repo: MongoRepository = Depends(get_repo),
@@ -81,7 +123,13 @@ def list_players(
 
     stats_view: 'all' | 'club' | 'national' | <competition name>
     When set, re-aggregates and re-scores each player from matching competitions only.
+
+    sort_by: any allowlisted metric (see metric_fields.METRIC_FIELDS); defaults to s_final.
+    filters: JSON array of {field, op, value} clauses over allowlisted numeric metrics.
     """
+    if sort_by not in METRIC_FIELDS:
+        raise _err(f"Unknown sort field: {sort_by!r}.")
+    parsed_filters = _parse_filters(filters)
     players, total = repo.get_players(
         season=season or settings.season,
         position=position,
@@ -92,6 +140,7 @@ def list_players(
         stats_view=stats_view if stats_view and stats_view != "all" else None,
         sort_by=sort_by,
         order=order,
+        filters=parsed_filters,
         page=page,
         page_size=page_size,
     )

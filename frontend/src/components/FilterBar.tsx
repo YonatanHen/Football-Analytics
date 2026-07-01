@@ -1,7 +1,9 @@
-import type { CompetitionList } from '../api/players'
+import type { CompetitionList, FilterClause, FilterOp } from '../api/players'
+import { FILTER_OP_OPTIONS, METRIC_OPTIONS } from '../api/players'
 
 export interface Filters {
-  position: string; team: string; nationality: string; underpredicted_flag: string; stats_view: string
+  position: string; team: string; nationality: string; underpredicted_flag: string
+  stats_view: string; clauses: FilterClause[]
 }
 
 interface FilterBarProps {
@@ -22,6 +24,14 @@ export default function FilterBar({ filters, onChange, competitions }: FilterBar
     onChange({ ...filters, [key]: e.target.value })
 
   const setView = (value: string) => onChange({ ...filters, stats_view: value })
+
+  const clauses = filters.clauses
+  const setClauses = (next: FilterClause[]) => onChange({ ...filters, clauses: next })
+  const addClause = () =>
+    setClauses([...clauses, { field: METRIC_OPTIONS[0].value, op: 'gte', value: 0 }])
+  const updateClause = (i: number, patch: Partial<FilterClause>) =>
+    setClauses(clauses.map((c, j) => (j === i ? { ...c, ...patch } : c)))
+  const removeClause = (i: number) => setClauses(clauses.filter((_, j) => j !== i))
 
   const isCompView = filters.stats_view !== '' && filters.stats_view !== 'club' && filters.stats_view !== 'national'
 
@@ -99,6 +109,47 @@ export default function FilterBar({ filters, onChange, competitions }: FilterBar
             )}
           </select>
         )}
+      </div>
+
+      {/* Metric filter builder */}
+      <div className="flex flex-col gap-2">
+        {clauses.map((c, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <select
+              value={c.field}
+              onChange={(e) => updateClause(i, { field: e.target.value })}
+              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+            >
+              {METRIC_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+            <select
+              value={c.op}
+              onChange={(e) => updateClause(i, { op: e.target.value as FilterOp })}
+              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+            >
+              {FILTER_OP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <input
+              type="number"
+              value={Number.isFinite(c.value) ? c.value : ''}
+              onChange={(e) => updateClause(i, { value: e.target.valueAsNumber })}
+              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm w-24"
+            />
+            <button
+              onClick={() => removeClause(i)}
+              className="text-gray-500 hover:text-red-400 px-1"
+              aria-label="Remove filter"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={addClause}
+          className="self-start text-xs text-indigo-400 hover:text-indigo-300"
+        >
+          + add filter
+        </button>
       </div>
     </div>
   )

@@ -155,3 +155,44 @@ def test_stats_view_all_returns_player(client_with_player: TestClient) -> None:
     resp = client_with_player.get("/v1/players?stats_view=all")
     assert resp.status_code == 200
     assert resp.json()["total"] == 1
+
+
+def test_sort_by_valid_metric(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?sort_by=goals&order=asc")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_sort_by_unknown_metric_422(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?sort_by=bogus")
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["error"]["code"] == "invalid_query"
+
+
+def test_filter_valid_clause(client_with_player: TestClient) -> None:
+    # Player has goals=5; gte 3 matches, gte 10 does not.
+    resp = client_with_player.get('/v1/players?filters=[{"field":"goals","op":"gte","value":3}]')
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+    resp = client_with_player.get('/v1/players?filters=[{"field":"goals","op":"gte","value":10}]')
+    assert resp.json()["total"] == 0
+
+
+def test_filter_malformed_json_422(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?filters=not-json")
+    assert resp.status_code == 422
+
+
+def test_filter_unknown_field_422(client_with_player: TestClient) -> None:
+    resp = client_with_player.get('/v1/players?filters=[{"field":"bogus","op":"gte","value":1}]')
+    assert resp.status_code == 422
+
+
+def test_filter_bad_op_422(client_with_player: TestClient) -> None:
+    resp = client_with_player.get('/v1/players?filters=[{"field":"goals","op":"like","value":1}]')
+    assert resp.status_code == 422
+
+
+def test_filter_non_numeric_value_422(client_with_player: TestClient) -> None:
+    resp = client_with_player.get('/v1/players?filters=[{"field":"goals","op":"gte","value":"x"}]')
+    assert resp.status_code == 422
