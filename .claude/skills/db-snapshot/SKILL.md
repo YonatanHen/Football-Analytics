@@ -5,7 +5,7 @@ description: Take a snapshot of the current MongoDB dev database state on reques
 
 # DB Snapshot
 
-Dumps `player_bios` + `player_stats` + `fetch_log` from the dev MongoDB to a local JSON file under `backend/snapshots/` (gitignored — developer-local only, preserves `_id` linkage via BSON Extended JSON).
+Dumps `player_bios` + `player_stats` + `fetch_log` from the dev MongoDB to a local JSON file under `backend/scripts/snapshots/` (the script resolves its output dir relative to its own location, `scripts/DB/../snapshots`; gitignored via the blanket `backend/scripts/*` rule — developer-local only, preserves `_id` linkage via BSON Extended JSON).
 
 ## Steps
 
@@ -36,7 +36,7 @@ Omitting `<name>.json` writes to the script's default (`cl-2025-2026.json`) — 
 
 ### 4. Report the result
 
-Show the per-collection doc counts printed by the script and the output path (`backend/snapshots/<name>.json`). Remind the user this file is gitignored (local-only) — it is not committed or pushed.
+Show the per-collection doc counts printed by the script and the output path (`backend/scripts/snapshots/<name>.json`). Remind the user this file is gitignored (local-only) — it is not committed or pushed.
 
 ## Restoring (reference only)
 
