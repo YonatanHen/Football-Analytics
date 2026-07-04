@@ -178,6 +178,8 @@ Tests use `mongomock` — no running MongoDB required.
 
 ```bash
 # From backend/ with the stack up
-python scripts/DB/snapshot_dump.py   # → backend/snapshots/cl-2025-2026.json
+python scripts/DB/snapshot_dump.py   # → backend/scripts/snapshots/cl-2025-2026.json
 python scripts/DB/snapshot_load.py   # restore
 ```
+
+Claude Code users: the `db-snapshot` skill (`.claude/skills/db-snapshot/SKILL.md`) wraps these scripts for on-demand snapshots.
