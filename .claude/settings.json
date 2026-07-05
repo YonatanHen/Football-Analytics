@@ -11,7 +11,7 @@
                     {
                         "type": "prompt",
                         "if": "Bash(gh pr create*)",
-                        "prompt": "A PR to master is about to be opened. If the code-review skill (/code-review) has NOT already been run against the current changes earlier in this conversation, respond {\"ok\": false, \"reason\": \"Run /code-review, address its findings, then retry opening the PR.\"}. Otherwise respond {\"ok\": true}."
+                        "prompt": "A PR to master is about to be opened. If the code-review skill (/code-review) has NOT already been run against the latest changes in this conversation, respond {\"ok\": false, \"reason\": \"Run /code-review, address its findings, then retry opening the PR.\"}. Otherwise respond {\"ok\": true}."
                     }
                 ]
             }
@@ -21,8 +21,9 @@
                 "matcher": "Bash",
                 "hooks": [
                     {
-                        "type": "command",
-                        "command": "bash .claude/hooks/pr-doc-check.sh"
+                        "type": "prompt",
+                        "if": "Bash(gh pr create*)",
+                        "prompt": "A PR to master was just opened. Unless the technical-writer subagent has already checked docs against this diff earlier in this conversation, respond {\"ok\": false, \"reason\": \"Invoke the technical-writer subagent (.claude/agents/technical-writer.md), make sure you document all changes in the PR summary corrrecly, as well as in the relevant .md files and docstrings in the code.\"}. Otherwise respond {\"ok\": true}."
                     }
                 ]
             }
