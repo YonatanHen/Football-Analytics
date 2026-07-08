@@ -362,3 +362,17 @@ def test_set_and_get_last_fetch_roundtrip(repo: MongoRepository) -> None:
     repo.set_last_fetch("Spain La Liga", "2025-2026", at)
     assert repo._fetch_state.count_documents({}) == 1
     assert repo.get_last_fetch()["last_competition"] == "Spain La Liga"
+
+
+def test_list_fetched_leagues_empty_initially(repo: MongoRepository) -> None:
+    assert repo.list_fetched_leagues() == []
+
+
+def test_list_fetched_leagues_returns_known_pairs(repo: MongoRepository) -> None:
+    repo.set_league_total_matches("England Premier League", "2025-2026", 38)
+    repo.set_league_total_matches("FIFA World Cup", "2026", 64)
+
+    result = repo.list_fetched_leagues()
+    pairs = {(d["competition"], d["season"]) for d in result}
+    assert pairs == {("England Premier League", "2025-2026"), ("FIFA World Cup", "2026")}
+    assert all(d["updated_at"] is not None for d in result)

@@ -557,6 +557,17 @@ class MongoRepository:
             )
         }
 
+    def list_fetched_leagues(self) -> list[dict]:
+        """Return every (competition, season) pair that has been fetched at least once."""
+        return [
+            {
+                "competition": d["competition"],
+                "season": d["season"],
+                "updated_at": d.get("updated_at"),
+            }
+            for d in self._league_meta.find({}, {"competition": 1, "season": 1, "updated_at": 1})
+        ]
+
     def set_league_total_matches(self, competition: str, season: str, total_matches: int) -> None:
         """Persist total matches played for a (competition, season) pair (upsert)."""
         self._league_meta.update_one(

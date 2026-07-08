@@ -16,6 +16,7 @@ logs/
 backend/scripts/*
 !backend/scripts/DB/
 backend/snapshots/
+tools/fetch_cli/data/
 docs/superpowers/plans/
 docs/decisions/
 CLAUDE.local.md

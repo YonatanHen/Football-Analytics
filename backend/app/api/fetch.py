@@ -11,6 +11,7 @@ from app.config import settings
 from app.dependencies import get_mode_factory, get_repo
 from app.domain.fetch_cooldown import cooldown_status
 from app.infrastructure.mongo_repository import MongoRepository
+from app.infrastructure.sofascore_client import SofascoreClient
 from app.modes.base import AnalysisMode
 from app.modes.factory import ModeFactory
 from app.modes.fetch_runner import FetchJob, run_fetch_job
@@ -47,6 +48,21 @@ def list_competitions() -> list[str]:
     data = resources.files("ScraperFC").joinpath("comps.yaml").read_text()
     comps = yaml.safe_load(data)
     return sorted(k for k, v in comps.items() if "SOFASCORE" in v)
+
+
+@router.get("/seasons")
+def get_seasons(competition: str) -> dict[str, int]:
+    """Return the valid Sofascore seasons for one competition (season_label -> season_id)."""
+    try:
+        return SofascoreClient().get_valid_seasons(competition)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/fetched")
+def get_fetched_leagues(repo: MongoRepository = Depends(get_repo)) -> list[dict]:
+    """Return every (competition, season) pair that already has data in MongoDB."""
+    return repo.list_fetched_leagues()
 
 
 @router.get("/cooldown")
