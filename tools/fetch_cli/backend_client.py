@@ -31,11 +31,6 @@ class BackendClient:
         resp.raise_for_status()
         return resp.json()
 
-    def get_cooldown(self) -> dict:
-        resp = requests.get(f"{self.base_url}/v1/fetch/cooldown", timeout=self.timeout)
-        resp.raise_for_status()
-        return resp.json()
-
     def trigger_fetch(self, season: str, competition: str) -> dict:
         resp = requests.post(
             f"{self.base_url}/v1/fetch/",

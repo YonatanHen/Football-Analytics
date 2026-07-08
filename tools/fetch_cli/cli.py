@@ -34,6 +34,23 @@ def _to_app_season(season_label: str) -> str:
     return f"{_expand_year(start)}-{_expand_year(end)}"
 
 
+def _top_n_seasons(valid: dict[str, int], n: int) -> list[tuple[str, int]]:
+    """Return the n most recent seasons (highest season_id = most recent) as (label, id) pairs."""
+    return sorted(valid.items(), key=lambda kv: kv[1], reverse=True)[:n]
+
+
+def _current_task_label(status: dict) -> str:
+    """Describe what's actually running right now.
+
+    Fetch tasks run concurrently (one per position group), so job.current — a single
+    field updated only when a task *starts* — freezes on whichever task started last
+    once all workers have picked up their tasks. List every task still "running"
+    instead, which reflects the real in-flight state.
+    """
+    running = [t["label"] for t in status.get("tasks", []) if t.get("status") == "running"]
+    return ", ".join(running) if running else status["current"] or status["status"]
+
+
 def _cmd_refresh(args: argparse.Namespace) -> None:
     client = BackendClient(args.backend_url)
 
@@ -57,11 +74,12 @@ def _cmd_refresh(args: argparse.Namespace) -> None:
         except requests.RequestException as exc:
             print(f"  ! failed to fetch seasons for {name}: {exc}")
             continue
+        top = _top_n_seasons(valid, args.seasons)
         seasons.extend(
             SeasonInfo(competition=name, season_label=label, season_id=season_id)
-            for label, season_id in valid.items()
+            for label, season_id in top
         )
-        print(f"  {name}: {len(valid)} seasons")
+        print(f"  {name}: {len(top)} seasons")
 
     repo = CatalogRepository(CATALOG_DB_PATH)
     try:
@@ -183,15 +201,6 @@ def _cmd_fetch(args: argparse.Namespace) -> None:
             print("Cancelled.")
             return
 
-    try:
-        cooldown = client.get_cooldown()
-    except requests.RequestException as exc:
-        print(f"Could not reach backend at {args.backend_url}: {exc}")
-        return
-    if not cooldown["allowed"]:
-        print(f"\nFetch is on cooldown until {cooldown['next_allowed_at']} - try again later.")
-        return
-
     print(f"\nTriggering fetch: {competition} / {season_label} ...")
     try:
         job = client.trigger_fetch(app_season, competition)
@@ -208,7 +217,7 @@ def _cmd_fetch(args: argparse.Namespace) -> None:
         except requests.RequestException as exc:
             print(f"Failed to poll fetch status: {exc}")
             return
-        current = status["current"] or status["status"]
+        current = _current_task_label(status)
         print(f"  {status['completed']}/{status['total']} tasks - {current}")
         if status["status"] in _TERMINAL_JOB_STATES:
             break
@@ -231,6 +240,12 @@ def main(argv: list[str] | None = None) -> int:
     p_refresh = sub.add_parser("refresh", help="repopulate the catalog from the backend")
     p_refresh.add_argument(
         "--only", help="only refresh this one competition (exact name), for quick testing"
+    )
+    p_refresh.add_argument(
+        "--seasons",
+        type=int,
+        default=5,
+        help="keep only the N most recent seasons per competition (default: 5)",
     )
     p_refresh.set_defaults(func=_cmd_refresh)
 

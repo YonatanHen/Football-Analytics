@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     ]
 
     fetch_concurrency: int = 4
-    fetch_cooldown_hours: int = 24  # min hours between successful Sofascore league fetches
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
