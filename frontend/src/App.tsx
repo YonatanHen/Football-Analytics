@@ -6,9 +6,8 @@ import PlayerDetail from './pages/PlayerDetail'
 import Compare from './pages/Compare'
 import Sleepers from './pages/Sleepers'
 import ScatterPage from './pages/ScatterPage'
-import LoadData from './pages/LoadData'
 
-type Tab = 'rankings' | 'detail' | 'compare' | 'sleepers' | 'scatter' | 'load'
+type Tab = 'rankings' | 'detail' | 'compare' | 'sleepers' | 'scatter'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'rankings', label: 'Rankings' },
@@ -16,7 +15,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'sleepers', label: 'Underpredicted' },
   { id: 'scatter', label: 'Scatter Plot' },
-  { id: 'load', label: 'Load Data' },
 ]
 
 export default function App() {
@@ -29,13 +27,6 @@ export default function App() {
       .then(r => setIsEmpty(r.total === 0))
       .catch(() => setDbError(true))
   }, [])
-
-  const handleSeeded = () => {
-    setTab('rankings')
-    setIsEmpty(false)
-  }
-
-  const handleLoaded = () => setIsEmpty(false)
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -68,17 +59,14 @@ export default function App() {
             Checking database…
           </div>
         )}
-        {!dbError && isEmpty === true && tab !== 'load' && (
-          <SeedPrompt onSeeded={handleSeeded} />
-        )}
-        {!dbError && (isEmpty === false || tab === 'load') && (
+        {!dbError && isEmpty === true && <SeedPrompt />}
+        {!dbError && isEmpty === false && (
           <>
             {tab === 'rankings' && <Rankings />}
             {tab === 'detail' && <PlayerDetail />}
             {tab === 'compare' && <Compare />}
             {tab === 'sleepers' && <Sleepers />}
             {tab === 'scatter' && <ScatterPage />}
-            {tab === 'load' && <LoadData onDone={handleLoaded} />}
           </>
         )}
       </main>

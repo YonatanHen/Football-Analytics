@@ -112,7 +112,8 @@ app/
 - `Compare` — side-by-side exactly 2 players
 - `Sleepers` — filtered to sleeper_flag players
 - `ScatterPage` — xG+xA vs G+A scatter plot via Recharts
-- `LoadData` — dedicated tab for triggering `POST /v1/fetch/`; shows per-task progress and competition selector
+
+Data loading is developer-driven via `tools/fetch_cli` (see its README) — the frontend has no fetch-triggering UI; when the DB is empty it just points to the CLI.
 
 ### Data-analyst subagent
 
@@ -127,7 +128,7 @@ app/
 ## Constraints
 
 - Never pick a technology or design without consulting the user first
-- No auto-fetch in the UI; all data loads are explicit user actions
+- No fetch-triggering UI in the frontend; all data loads go through `tools/fetch_cli` (developer-driven, explicit)
 - Always open a `dev/*` branch for new features or bugfixes
 - Always take a DB snapshot before implementing a new feature
 - Build all agent with project level memory.

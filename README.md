@@ -57,7 +57,7 @@ flowchart LR
     SC -- "ScraperFC / botasaurus" --> EXT
 ```
 
-**Fetch path:** user triggers a fetch in the Load Data tab → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, no fetch rate limit) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
+**Fetch path:** developer runs `tools/fetch_cli` → `POST /v1/fetch/` → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, no fetch rate limit) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
 
 **Read path:** React SPA → API routers → `MongoRepository.get_players()` → paginated and filterable by position, team, nationality, or sleeper flag.
 
@@ -147,7 +147,7 @@ docker compose up
 | Backend | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
 
-On first run the database is empty — open the **Load Data** tab and trigger a fetch.
+On first run the database is empty — use `tools/fetch_cli` (see its README) to load data, developer-driven.
 
 ### Local development (without Docker)
 
