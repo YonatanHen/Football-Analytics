@@ -31,6 +31,22 @@ def client_with_repo() -> TestClient:
     app.dependency_overrides.clear()
 
 
+def test_list_competitions_excludes_womens_leagues(client: TestClient) -> None:
+    fake_comps_yaml = """
+England Premier League:
+  SOFASCORE: 17
+England WSL:
+  SOFASCORE: 1044
+France Ligue 2:
+  TRANSFERMARKT: https://example.com/ligue-2
+"""
+    with patch("app.api.fetch.resources.files") as mock_files:
+        mock_files.return_value.joinpath.return_value.read_text.return_value = fake_comps_yaml
+        resp = client.get("/v1/fetch/competitions")
+    assert resp.status_code == 200
+    assert resp.json() == ["England Premier League"]
+
+
 def test_get_seasons_returns_season_map(client: TestClient) -> None:
     with patch(
         "app.api.fetch.SofascoreClient.get_valid_seasons",

@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from app.api.modals.fetch_modals import FetchRequest
 from app.config import settings
 from app.dependencies import get_mode_factory, get_repo
+from app.domain.competitions import is_mens_competition
 from app.infrastructure.mongo_repository import MongoRepository
 from app.infrastructure.sofascore_client import SofascoreClient
 from app.modes.base import AnalysisMode
@@ -22,10 +23,10 @@ _jobs: dict[str, FetchJob] = {}
 
 @router.get("/competitions", response_model=list[str])
 def list_competitions() -> list[str]:
-    """Return all competition names supported by Sofascore fetching."""
+    """Return all men's competition names supported by Sofascore fetching."""
     data = resources.files("ScraperFC").joinpath("comps.yaml").read_text()
     comps = yaml.safe_load(data)
-    return sorted(k for k, v in comps.items() if "SOFASCORE" in v)
+    return sorted(k for k, v in comps.items() if "SOFASCORE" in v and is_mens_competition(k))
 
 
 @router.get("/seasons")

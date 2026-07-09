@@ -7,7 +7,7 @@ import requests
 
 from .backend_client import BackendClient
 from .catalog_repository import CatalogRepository, SeasonInfo
-from .config import BACKEND_URL, CATALOG_DB_PATH, WOMENS_EXCLUDE
+from .config import BACKEND_URL, CATALOG_DB_PATH
 
 _TERMINAL_JOB_STATES = {"done", "partial", "error"}
 _CLUB_SEASON_LABEL = re.compile(r"^(\d{2})/(\d{2})$")
@@ -26,12 +26,17 @@ def _to_app_season(season_label: str) -> str:
     app (players list, etc.) already queries by. Single-year tournaments (e.g. "2026")
     pass through unchanged — there's no two-year form to expand, and
     SofascoreClient._season_to_sofascore_year() already passes those straight through.
+
+    Only the start year is century-expanded; the end year is always start + 1 (a club
+    season never spans more than one calendar-year boundary), so a label straddling the
+    century-cutoff heuristic (e.g. "30/31") can't produce a decreasing/inconsistent range.
     """
     m = _CLUB_SEASON_LABEL.match(season_label)
     if not m:
         return season_label
-    start, end = m.groups()
-    return f"{_expand_year(start)}-{_expand_year(end)}"
+    start, _end = m.groups()
+    start_year = _expand_year(start)
+    return f"{start_year}-{start_year + 1}"
 
 
 def _top_n_seasons(valid: dict[str, int], n: int) -> list[tuple[str, int]]:
@@ -60,7 +65,6 @@ def _cmd_refresh(args: argparse.Namespace) -> None:
         print(f"Could not reach backend at {args.backend_url}: {exc}")
         return
 
-    names = [n for n in names if "women" not in n.lower() and n not in WOMENS_EXCLUDE]
     if args.only:
         names = [n for n in names if n == args.only]
         if not names:
@@ -68,11 +72,13 @@ def _cmd_refresh(args: argparse.Namespace) -> None:
             return
 
     seasons: list[SeasonInfo] = []
+    failed: list[str] = []
     for name in names:
         try:
             valid = client.get_seasons(name)
         except requests.RequestException as exc:
             print(f"  ! failed to fetch seasons for {name}: {exc}")
+            failed.append(name)
             continue
         top = _top_n_seasons(valid, args.seasons)
         seasons.extend(
@@ -80,6 +86,10 @@ def _cmd_refresh(args: argparse.Namespace) -> None:
             for label, season_id in top
         )
         print(f"  {name}: {len(top)} seasons")
+
+    if args.only and failed:
+        print(f"\nFailed to refresh {args.only!r} — catalog left unchanged.")
+        return
 
     repo = CatalogRepository(CATALOG_DB_PATH)
     try:
