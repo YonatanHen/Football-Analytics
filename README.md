@@ -57,7 +57,7 @@ flowchart LR
     SC -- "ScraperFC / botasaurus" --> EXT
 ```
 
-**Fetch path:** user triggers a fetch in the Load Data tab → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, 24 h cooldown enforced server-side) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
+**Fetch path:** developer runs `tools/fetch_cli` → `POST /v1/fetch/` → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, no fetch rate limit) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
 
 **Read path:** React SPA → API routers → `MongoRepository.get_players()` → paginated and filterable by position, team, nationality, or sleeper flag.
 
@@ -71,7 +71,7 @@ flowchart LR
 - **Player Detail** — per-competition stat breakdown and aggregated scores for any player, including those without a linked external ID
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions
 - **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) across the full dataset
-- **Fetch Cooldown** — 24 h rate-limit per league enforced at the API layer; real-time per-competition progress streamed to the UI
+- **Developer Data Loading** — `tools/fetch_cli`, a standalone CLI for browsing available competitions/seasons and loading data into MongoDB, with live per-task fetch progress
 - **DB Snapshots** — JSON dump/restore scripts (`backend/scripts/DB/`) for safe local dev iteration
 
 ---
@@ -147,7 +147,7 @@ docker compose up
 | Backend | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
 
-On first run the database is empty — open the **Load Data** tab and trigger a fetch.
+On first run the database is empty — use `tools/fetch_cli` (see its README) to load data, developer-driven.
 
 ### Local development (without Docker)
 
@@ -173,6 +173,24 @@ pytest tests/domain/test_scoring_engine.py::test_name
 ```
 
 Tests use `mongomock` — no running MongoDB required.
+
+### Loading Data
+
+The app has no fetch-triggering UI — data loading is developer-driven via
+`tools/fetch_cli`, a standalone CLI (its own lightweight venv, separate from
+`backend/`) that talks to the running backend over HTTP:
+
+```bash
+cd tools
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt
+
+.venv/Scripts/python -m fetch_cli.cli refresh   # pull the competition/season catalog
+.venv/Scripts/python -m fetch_cli.cli browse    # see what's available
+.venv/Scripts/python -m fetch_cli.cli fetch     # pick a league + season, load it into MongoDB
+```
+
+See `tools/fetch_cli/README.md` for full details.
 
 ### DB Snapshots
 

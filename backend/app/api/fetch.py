@@ -1,6 +1,5 @@
 import logging
 import uuid
-from datetime import UTC, datetime
 from importlib import resources
 
 import yaml
@@ -9,8 +8,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from app.api.modals.fetch_modals import FetchRequest
 from app.config import settings
 from app.dependencies import get_mode_factory, get_repo
-from app.domain.fetch_cooldown import cooldown_status
+from app.domain.competitions import is_mens_competition
 from app.infrastructure.mongo_repository import MongoRepository
+from app.infrastructure.sofascore_client import SofascoreClient
 from app.modes.base import AnalysisMode
 from app.modes.factory import ModeFactory
 from app.modes.fetch_runner import FetchJob, run_fetch_job
@@ -21,38 +21,27 @@ logger = logging.getLogger(__name__)
 _jobs: dict[str, FetchJob] = {}
 
 
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
-
-
-def _cooldown_payload(repo: MongoRepository) -> dict:
-    """Compute the current cooldown state for the UI / enforcement."""
-    state = repo.get_last_fetch()
-    raw = state.get("last_fetched_at") if state else None
-    last = datetime.fromisoformat(raw) if raw else None
-    status = cooldown_status(last, datetime.now(UTC), settings.fetch_cooldown_hours)
-    return {
-        "allowed": status["allowed"],
-        "cooldown_hours": settings.fetch_cooldown_hours,
-        "last_fetched_at": _iso(status["last_fetched_at"]),
-        "next_allowed_at": _iso(status["next_allowed_at"]),
-        "seconds_remaining": status["seconds_remaining"],
-        "last_competition": state.get("last_competition") if state else None,
-    }
-
-
 @router.get("/competitions", response_model=list[str])
 def list_competitions() -> list[str]:
-    """Return all competition names supported by Sofascore fetching."""
+    """Return all men's competition names supported by Sofascore fetching."""
     data = resources.files("ScraperFC").joinpath("comps.yaml").read_text()
     comps = yaml.safe_load(data)
-    return sorted(k for k, v in comps.items() if "SOFASCORE" in v)
+    return sorted(k for k, v in comps.items() if "SOFASCORE" in v and is_mens_competition(k))
 
 
-@router.get("/cooldown")
-def get_cooldown(repo: MongoRepository = Depends(get_repo)) -> dict:
-    """Report whether a Sofascore league fetch is currently allowed and when the next one is."""
-    return _cooldown_payload(repo)
+@router.get("/seasons")
+def get_seasons(competition: str) -> dict[str, int]:
+    """Return the valid Sofascore seasons for one competition (season_label -> season_id)."""
+    try:
+        return SofascoreClient().get_valid_seasons(competition)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/fetched")
+def get_fetched_leagues(repo: MongoRepository = Depends(get_repo)) -> list[dict]:
+    """Return every (competition, season) pair that already has data in MongoDB."""
+    return repo.list_fetched_leagues()
 
 
 @router.post("/", status_code=202)
@@ -107,11 +96,6 @@ def _run_fantasy_fetch(
     job: FetchJob, season: str, competitions: list[str], repo: MongoRepository
 ) -> None:
     run_fetch_job(job, season, competitions, repo)
-    # Start the cooldown only when data actually landed — a 403/failed fetch must
-    # not lock the user out.
-    if job.status in ("done", "partial"):
-        comp = competitions[0] if competitions else ""
-        repo.set_last_fetch(comp, season, datetime.now(UTC))
 
 
 def _run_legacy_fetch(

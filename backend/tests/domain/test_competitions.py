@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.competitions import canonical_competition, classify_competition
+from app.domain.competitions import canonical_competition, classify_competition, is_mens_competition
 
 
 @pytest.mark.parametrize(
@@ -67,3 +67,18 @@ def test_canonical_competition(raw: str, expected: str) -> None:
 )
 def test_classify_competition(name: str, expected: str) -> None:
     assert classify_competition(name) == expected
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("England Premier League", True),
+        ("FIFA World Cup", True),
+        ("England WSL", False),
+        ("England WSL 2", False),
+        ("FIFA Womens World Cup", False),
+        ("UEFA Womens Champions League", False),
+    ],
+)
+def test_is_mens_competition(name: str, expected: bool) -> None:
+    assert is_mens_competition(name) is expected

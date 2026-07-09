@@ -260,9 +260,6 @@ def _apply_stats_view(players: list[PlayerDTO], stats_view: str) -> list[PlayerD
     return result
 
 
-_FETCH_STATE_ID = "singleton"
-
-
 class MongoRepository:
     """All MongoDB I/O for the application.
 
@@ -270,7 +267,6 @@ class MongoRepository:
     - player_bios: one doc per player (sofascore_player_id or norm_name key);
       holds identity/bio fields.
     - player_stats: one doc per (player_bio_id, season); holds seasonal stats and scores.
-    - fetch_state: single doc tracking the last successful Sofascore fetch (for the cooldown limit).
     """
 
     def __init__(self, client: MongoClient) -> None:
@@ -278,7 +274,6 @@ class MongoRepository:
         self._player_bios: Collection = self._db["player_bios"]
         self._player_stats: Collection = self._db["player_stats"]
         self._fetch_log: Collection = self._db["fetch_log"]
-        self._fetch_state: Collection = self._db["fetch_state"]
         self._league_meta: Collection = self._db["league_meta"]
         self._ensure_indexes()
 
@@ -527,27 +522,6 @@ class MongoRepository:
             )
         return result
 
-    def get_last_fetch(self) -> dict | None:
-        """Return the singleton fetch-state doc, or None if no fetch has succeeded yet."""
-        return self._fetch_state.find_one({"_id": _FETCH_STATE_ID})
-
-    def set_last_fetch(self, competition: str, season: str, at: datetime) -> None:
-        """Record the most recent successful Sofascore fetch (upserts the singleton doc).
-
-        Stores the timestamp as an ISO string to keep timezone info across pymongo round-trips.
-        """
-        self._fetch_state.update_one(
-            {"_id": _FETCH_STATE_ID},
-            {
-                "$set": {
-                    "last_fetched_at": at.isoformat(),
-                    "last_competition": competition,
-                    "last_season": season,
-                }
-            },
-            upsert=True,
-        )
-
     def get_league_total_matches(self, season: str) -> dict[str, int]:
         """Return {competition: total_matches} for all known leagues in a season."""
         return {
@@ -556,6 +530,17 @@ class MongoRepository:
                 {"season": season}, {"competition": 1, "total_matches": 1}
             )
         }
+
+    def list_fetched_leagues(self) -> list[dict]:
+        """Return every (competition, season) pair that has been fetched at least once."""
+        return [
+            {
+                "competition": d["competition"],
+                "season": d["season"],
+                "updated_at": d.get("updated_at"),
+            }
+            for d in self._league_meta.find({}, {"competition": 1, "season": 1, "updated_at": 1})
+        ]
 
     def set_league_total_matches(self, competition: str, season: str, total_matches: int) -> None:
         """Persist total matches played for a (competition, season) pair (upsert)."""

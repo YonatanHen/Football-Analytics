@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 
 import pandas as pd
@@ -153,6 +154,19 @@ class SofascoreClient:
             logger.warning("fetch_player_bio: player %s failed: %s", player_id, exc)
             return {}
 
+    def get_valid_seasons(self, competition: str) -> dict[str, int]:
+        """Return {season_label: season_id} for one competition, straight from Sofascore.
+
+        Raises ValueError if the competition name isn't a known Sofascore league.
+        """
+        from ScraperFC import Sofascore  # type: ignore[import]  # lazy: triggers network on import
+        from ScraperFC.scraperfc_exceptions import InvalidLeagueException  # type: ignore[import]
+
+        try:
+            return Sofascore().get_valid_seasons(competition)
+        except InvalidLeagueException as exc:
+            raise ValueError(str(exc)) from exc
+
     def fetch(
         self,
         competition: str,
@@ -229,7 +243,18 @@ class SofascoreClient:
         return df
 
 
+_APP_SEASON_FORMAT = re.compile(r"^\d{4}-\d{4}$")
+
+
 def _season_to_sofascore_year(season: str) -> str:
-    """Convert "2025-2026" → "25/26" for ScraperFC Sofascore year format."""
-    parts = season.split("-")
-    return f"{parts[0][2:]}/{parts[1][2:]}"
+    """Convert the app's "2025-2026" season identifier to ScraperFC's "25/26" year format.
+
+    Seasons already in ScraperFC's native format (e.g. "25/26" for club leagues, "2026"
+    for single-year tournaments like the World Cup — as returned by the catalog's
+    GET /v1/fetch/seasons) pass through unchanged; only the app-default "YYYY-YYYY"
+    identifier gets converted.
+    """
+    if not _APP_SEASON_FORMAT.match(season):
+        return season
+    start, end = season.split("-")
+    return f"{start[2:]}/{end[2:]}"

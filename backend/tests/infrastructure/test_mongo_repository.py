@@ -345,20 +345,15 @@ def test_get_players_stats_view_sort_and_filter(repo: MongoRepository) -> None:
     assert [p.sofascore_player_id for p in players] == ["2", "1"]
 
 
-def test_fetch_state_absent_initially(repo: MongoRepository) -> None:
-    assert repo.get_last_fetch() is None
+def test_list_fetched_leagues_empty_initially(repo: MongoRepository) -> None:
+    assert repo.list_fetched_leagues() == []
 
 
-def test_set_and_get_last_fetch_roundtrip(repo: MongoRepository) -> None:
-    at = datetime(2026, 6, 12, 9, 30, tzinfo=UTC)
-    repo.set_last_fetch("England Premier League", "2025-2026", at)
+def test_list_fetched_leagues_returns_known_pairs(repo: MongoRepository) -> None:
+    repo.set_league_total_matches("England Premier League", "2025-2026", 38)
+    repo.set_league_total_matches("FIFA World Cup", "2026", 64)
 
-    state = repo.get_last_fetch()
-    assert state is not None
-    assert state["last_competition"] == "England Premier League"
-    assert state["last_season"] == "2025-2026"
-    assert datetime.fromisoformat(state["last_fetched_at"]) == at
-    # Singleton: a second write updates rather than inserts a new doc.
-    repo.set_last_fetch("Spain La Liga", "2025-2026", at)
-    assert repo._fetch_state.count_documents({}) == 1
-    assert repo.get_last_fetch()["last_competition"] == "Spain La Liga"
+    result = repo.list_fetched_leagues()
+    pairs = {(d["competition"], d["season"]) for d in result}
+    assert pairs == {("England Premier League", "2025-2026"), ("FIFA World Cup", "2026")}
+    assert all(d["updated_at"] is not None for d in result)

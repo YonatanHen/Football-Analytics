@@ -75,6 +75,16 @@ def classify_competition(name: str) -> str:
     return "national" if any(kw in lower for kw in _NATIONAL_KEYWORDS) else "club"
 
 
+# comps.yaml only tags a couple of women's competitions with a Sofascore id;
+# "women" doesn't appear in "WSL" so those two need an explicit name.
+_WOMENS_EXCLUDE: frozenset[str] = frozenset({"England WSL", "England WSL 2"})
+
+
+def is_mens_competition(name: str) -> bool:
+    """Return False for known women's competitions — app covers men's football only."""
+    return "women" not in name.lower() and name not in _WOMENS_EXCLUDE
+
+
 def canonical_competition(raw: str) -> str:
     """Return the canonical competition display name for any known alias.
 
