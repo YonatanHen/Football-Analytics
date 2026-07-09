@@ -1,6 +1,6 @@
 ---
 name: pre-pr-lint
-description: Run Ruff lint + format check on the backend before opening a PR. Fix any errors, then open the PR.
+description: Run Ruff lint + format check on the backend once, only before opening a PR. Fix any errors, then open the PR.
 ---
 
 # Pre-PR Lint Check
