@@ -8,7 +8,9 @@ HTTP at `http://localhost:8000` (configurable via `FETCH_CLI_BACKEND_URL` or
 `--backend-url`).
 
 Three commands:
-- `refresh` — repopulate the local catalog from the backend
+- `refresh` — repopulate the local catalog from the backend. Keeps only the N most
+  recent seasons per competition (`--seasons N`, default 5) to keep it fast; use
+  `--only "<competition>"` to refresh a single competition for quick testing.
 - `browse` — list competitions / seasons from the local SQLite catalog
 - `fetch` — interactive: pick a competition, pick a season (both shown with
   `[fetched: ...]` / `[already fetched]` markers sourced from MongoDB's
@@ -38,7 +40,8 @@ From `tools/`, with the venv activated (or by calling `.venv/Scripts/python` dir
 
 ```bash
 .venv/Scripts/python -m fetch_cli.cli refresh --only "England Premier League"   # quick single-competition test
-.venv/Scripts/python -m fetch_cli.cli refresh                                   # full catalog (all competitions, slower)
+.venv/Scripts/python -m fetch_cli.cli refresh                                   # full catalog, 5 most recent seasons each
+.venv/Scripts/python -m fetch_cli.cli refresh --seasons 10                      # full catalog, 10 most recent seasons each
 .venv/Scripts/python -m fetch_cli.cli browse                                    # list all competitions
 .venv/Scripts/python -m fetch_cli.cli browse "England Premier League"           # list seasons for one competition
 .venv/Scripts/python -m fetch_cli.cli fetch                                     # interactive: pick league + season, load into MongoDB

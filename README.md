@@ -71,7 +71,7 @@ flowchart LR
 - **Player Detail** — per-competition stat breakdown and aggregated scores for any player, including those without a linked external ID
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions
 - **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) across the full dataset
-- **Fetch Progress** — real-time per-competition progress streamed to the UI
+- **Developer Data Loading** — `tools/fetch_cli`, a standalone CLI for browsing available competitions/seasons and loading data into MongoDB, with live per-task fetch progress
 - **DB Snapshots** — JSON dump/restore scripts (`backend/scripts/DB/`) for safe local dev iteration
 
 ---
@@ -173,6 +173,24 @@ pytest tests/domain/test_scoring_engine.py::test_name
 ```
 
 Tests use `mongomock` — no running MongoDB required.
+
+### Loading Data
+
+The app has no fetch-triggering UI — data loading is developer-driven via
+`tools/fetch_cli`, a standalone CLI (its own lightweight venv, separate from
+`backend/`) that talks to the running backend over HTTP:
+
+```bash
+cd tools
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt
+
+.venv/Scripts/python -m fetch_cli.cli refresh   # pull the competition/season catalog
+.venv/Scripts/python -m fetch_cli.cli browse    # see what's available
+.venv/Scripts/python -m fetch_cli.cli fetch     # pick a league + season, load it into MongoDB
+```
+
+See `tools/fetch_cli/README.md` for full details.
 
 ### DB Snapshots
 

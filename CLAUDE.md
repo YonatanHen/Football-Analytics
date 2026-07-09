@@ -24,6 +24,8 @@ npm run dev
 
 Required env file: `secrets.env` in project root (loaded by Docker). Backend also reads `.env` for local dev. Key variables: `MONGO_URI`, `CORS_ORIGINS`.
 
+Data loading is done via the `tools/fetch_cli` developer CLI, not the UI — see `tools/fetch_cli/README.md`.
+
 ## Tests
 
 ```bash
@@ -40,6 +42,11 @@ pytest tests/domain/test_scoring_engine.py::test_name
 Tests use `mongomock` — no real MongoDB needed. Fixtures are in `backend/tests/conftest.py`.
 
 No frontend tests currently.
+
+```bash
+# tools/fetch_cli tests (from tools/, using its own venv)
+.venv/Scripts/python -m pytest fetch_cli/tests
+```
 
 ## DB snapshots
 
@@ -59,7 +66,8 @@ Always take a snapshot before implementing a new feature.
 ```
 app/
   api/          # FastAPI routers — thin HTTP layer only
-    fetch.py    # POST /v1/fetch/ — triggers data fetch; GET /v1/fetch/status
+    fetch.py    # POST /v1/fetch/ — triggers data fetch; GET /v1/fetch/status/{job_id}
+                # GET /v1/fetch/competitions, /seasons, /fetched — catalog + fetched-state reads for tools/fetch_cli
     players.py  # GET /v1/players, GET /v1/players/{id}
     analysis.py # GET /v1/analysis/scatter
   modes/        # Strategy pattern
@@ -114,6 +122,18 @@ app/
 - `ScatterPage` — xG+xA vs G+A scatter plot via Recharts
 
 Data loading is developer-driven via `tools/fetch_cli` (see its README) — the frontend has no fetch-triggering UI; when the DB is empty it just points to the CLI.
+
+### tools/fetch_cli
+
+A standalone developer CLI, deliberately outside `backend/` — not part of the shipped
+service, with its own lightweight venv (`tools/.venv`, `requests` only). It never
+imports backend code or talks to ScraperFC/Sofascore directly; it only calls the
+running backend's HTTP API (`http://localhost:8000` by default). Three commands:
+`refresh` (repopulate a local SQLite competition/season catalog via
+`GET /v1/fetch/competitions` + `/seasons`), `browse` (read that local catalog), and
+`fetch` (interactive: pick competition + season, shows `[fetched: ...]` markers from
+`GET /v1/fetch/fetched`, triggers `POST /v1/fetch/`, polls
+`GET /v1/fetch/status/{job_id}`). See `tools/fetch_cli/README.md` for setup and usage.
 
 ### Data-analyst subagent
 
