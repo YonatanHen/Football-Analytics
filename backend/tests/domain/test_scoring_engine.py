@@ -138,17 +138,23 @@ def test_starter_bonus_clamped_when_starts_exceed_estimated_appearances(
     assert score.s_final == pytest.approx(4.0 * 1.2 * 0.15 + _bonus(1, 90), rel=1e-4)
 
 
-def test_confidence_tiers(engine: ScoringEngine) -> None:
-    def sfinal(apps: int) -> float:
-        return engine.calculate(
-            Stats(goals=1, minutes=apps * 90, appearances=apps, matches_started=apps), "FW"
-        ).s_final
+@pytest.mark.parametrize(("apps", "confidence"), [(2, 0.15), (5, 0.50), (15, 0.80), (20, 1.00)])
+def test_confidence_tiers(engine: ScoringEngine, apps: int, confidence: float) -> None:
+    # Minutes held constant so only the tier varies; the expected value pins the constant.
+    # (Scaling minutes with apps lets playing_time_bonus carry the assertion instead.)
+    stats = Stats(goals=1, minutes=1800, appearances=apps)
+    score = engine.calculate(stats, "FW")
+    raw_per90 = 4.0 / 20  # FW: 1 goal x weight 4, over 1800 minutes
+    expected = raw_per90 * 1.0 * confidence + _bonus(apps, 1800 / apps)
+    assert score.s_final == pytest.approx(expected, rel=1e-4)
 
-    assert sfinal(2) < sfinal(5)  # 0.15 → 0.50
-    assert sfinal(5) < sfinal(15)  # 0.50 → 0.80
-    assert sfinal(15) < sfinal(20)  # 0.80 → 1.00
-    # past 20 apps confidence is capped at 1.0; s_final still grows via playing_time_bonus
-    assert sfinal(20) < sfinal(30)
+
+def test_confidence_capped_at_one_past_twenty_apps(engine: ScoringEngine) -> None:
+    at_20 = engine.calculate(Stats(goals=1, minutes=1800, appearances=20), "FW")
+    at_30 = engine.calculate(Stats(goals=1, minutes=1800, appearances=30), "FW")
+    raw_per90 = 4.0 / 20
+    assert at_20.s_final == pytest.approx(raw_per90 + _bonus(20, 90.0), rel=1e-4)
+    assert at_30.s_final == pytest.approx(raw_per90 + _bonus(30, 60.0), rel=1e-4)
 
 
 def test_s_final_late_minutes_bonus_higher(engine: ScoringEngine) -> None:
