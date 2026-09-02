@@ -115,11 +115,27 @@ def test_s_final_zero_when_no_minutes(engine: ScoringEngine) -> None:
     assert score.s_final == pytest.approx(0.0)
 
 
-def test_s_final_zero_when_no_appearances(engine: ScoringEngine) -> None:
-    # Legacy/partial records carry minutes but no appearance count; confidence is undefined.
+def test_missing_appearances_estimated_from_minutes(engine: ScoringEngine) -> None:
+    # Legacy record: 900 min, no appearance count -> apps estimated as 10, confidence 0.50
     stats = Stats(goals=5, minutes=900, appearances=0)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(0.0)
+    assert score.s_final == pytest.approx(2.0 * 1.0 * 0.50 + _bonus(10, 90), rel=1e-4)
+
+
+def test_missing_appearances_estimate_is_at_least_one(engine: ScoringEngine) -> None:
+    # 20 min rounds to 0 appearances; the floor of 1 keeps the division safe.
+    stats = Stats(goals=1, minutes=20, appearances=0)
+    score = engine.calculate(stats, "FW")
+    assert score.s_final > 0.0
+
+
+def test_starter_bonus_clamped_when_starts_exceed_estimated_appearances(
+    engine: ScoringEngine,
+) -> None:
+    # matches_started can exceed an estimated apps count; the ratio must not exceed 1.
+    stats = Stats(goals=1, minutes=90, appearances=0, matches_started=5)
+    score = engine.calculate(stats, "FW")
+    assert score.s_final == pytest.approx(4.0 * 1.2 * 0.15 + _bonus(1, 90), rel=1e-4)
 
 
 def test_confidence_tiers(engine: ScoringEngine) -> None:

@@ -15,7 +15,8 @@ class ScoringEngine:
         s_final = raw_per90 * starter_bonus * confidence + playing_time_bonus
         playing_time_bonus splits minutes at the 60th using minutes/appearances as a
         proxy, paying 0.001/min early and 0.0015/min late. Only s_final is zeroed when
-        minutes or appearances is 0; the three pillars are still computed.
+        minutes is 0; the three pillars are still computed. A missing appearance count
+        is estimated as minutes/90 so legacy records still rank.
         """
         weights = _POSITION_WEIGHTS[position]
 
@@ -46,19 +47,21 @@ class ScoringEngine:
         )
 
         minutes_per_90 = stats.minutes / 90
-        if minutes_per_90 <= 0 or stats.appearances <= 0:
+        if minutes_per_90 <= 0:
             return Score(offensive=offensive, defensive=defensive, tactical=tactical, s_final=0.0)
 
         raw_per90 = (offensive + defensive + tactical) / minutes_per_90
 
-        starter_bonus = 1.0 + 0.2 * (stats.matches_started / stats.appearances)
+        # Legacy/partial records carry minutes but no appearance count; estimate from minutes.
+        apps = stats.appearances or max(1, round(stats.minutes / 90))
 
-        avg_mins = stats.minutes / stats.appearances
-        early_mins = min(avg_mins, 59.0) * stats.appearances
-        late_mins = max(0.0, min(avg_mins, 90.0) - 59.0) * stats.appearances
+        starter_bonus = 1.0 + 0.2 * min(1.0, stats.matches_started / apps)
+
+        avg_mins = stats.minutes / apps
+        early_mins = min(avg_mins, 59.0) * apps
+        late_mins = max(0.0, min(avg_mins, 90.0) - 59.0) * apps
         playing_time_bonus = early_mins * 0.001 + late_mins * 0.0015
 
-        apps = stats.appearances
         if apps < 5:
             confidence = 0.15
         elif apps < 15:

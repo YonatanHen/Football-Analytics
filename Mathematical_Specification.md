@@ -10,7 +10,7 @@ $$S_{final} = \frac{Offensive + Defensive + Tactical}{Minutes / 90} \times B_{st
 
 Where:
 
-$$B_{starter} = 1 + 0.2 \times \frac{MatchesStarted}{Appearances} \quad (\text{1.0 if } Appearances = 0)$$
+$$B_{starter} = 1 + 0.2 \times \min\!\left(1,\ \frac{MatchesStarted}{Appearances}\right)$$
 
 $$C_{apps} = \begin{cases} 0.15 & \text{if } Appearances < 5 \\ 0.50 & \text{if } 5 \leq Appearances < 15 \\ 0.80 & \text{if } 15 \leq Appearances < 20 \\ 1.00 & \text{if } Appearances \geq 20 \end{cases}$$
 
@@ -23,7 +23,8 @@ $$M_{late} = \max\!\left(0,\ \min\!\left(\frac{Minutes}{Appearances},\ 90\right)
 - $C_{apps}$: appearance-based confidence multiplier. Dampens inflated per-90 rates for low-game-count players; reaches full weight at 20+ appearances. Team-specific match tracking is a planned improvement.
 - $M_{early}$ / $M_{late}$: estimated playing minutes split at the 60th minute, using average minutes per appearance as a proxy (per-match breakdowns unavailable). Extra time not counted.
 - $B_{time}$ rewards playing time: minutes 60–90 earn 50% more per minute than early minutes.
-- If $Minutes = 0$ or $Appearances = 0$, $S_{final} = 0$.
+- If $Minutes = 0$, $S_{final} = 0$. The three pillars are still computed.
+- If $Appearances = 0$ but $Minutes > 0$ (legacy or partially scraped records), $Appearances$ is estimated as $\max(1,\ \text{round}(Minutes / 90))$ so the record still ranks instead of silently scoring 0. The $\min$ in $B_{starter}$ guards the case where $MatchesStarted$ exceeds that estimate.
 
 ---
 
