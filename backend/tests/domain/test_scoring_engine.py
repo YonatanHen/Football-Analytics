@@ -109,7 +109,15 @@ def test_s_final_sub_low_apps(engine: ScoringEngine) -> None:
 
 
 def test_s_final_zero_when_no_minutes(engine: ScoringEngine) -> None:
-    stats = Stats(goals=5, minutes=0, appearances=0)
+    # appearances > 0 so this exercises the minutes guard, not the appearances one
+    stats = Stats(goals=5, minutes=0, appearances=3)
+    score = engine.calculate(stats, "FW")
+    assert score.s_final == pytest.approx(0.0)
+
+
+def test_s_final_zero_when_no_appearances(engine: ScoringEngine) -> None:
+    # Legacy/partial records carry minutes but no appearance count; confidence is undefined.
+    stats = Stats(goals=5, minutes=900, appearances=0)
     score = engine.calculate(stats, "FW")
     assert score.s_final == pytest.approx(0.0)
 

@@ -12,9 +12,9 @@ class ScoringEngine:
     def calculate(self, stats: Stats, position: str) -> Score:
         """Compute offensive/defensive/tactical scores and s_final.
 
-        s_final = raw_per90 * starter_bonus + playing_time_bonus
-        playing_time_bonus rewards minutes played: 0.01/min up to the 59th minute
-        per appearance, 0.015/min from the 60th to 90th minute per appearance.
+        s_final = raw_per90 * starter_bonus * confidence + playing_time_bonus
+        playing_time_bonus pays 0.001/min up to the 59th minute per appearance and
+        0.0015/min from the 60th to the 90th. Returns 0.0 when minutes or appearances is 0.
         """
         weights = _POSITION_WEIGHTS[position]
 
