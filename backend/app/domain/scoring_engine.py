@@ -9,11 +9,12 @@ _POSITION_WEIGHTS: dict[str, dict[str, int]] = {
 
 
 class ScoringEngine:
-    def calculate(self, stats: Stats, position: str, total_possible_minutes: float = 0.0) -> Score:
+    def calculate(self, stats: Stats, position: str) -> Score:
         """Compute offensive/defensive/tactical scores and s_final.
 
-        total_possible_minutes: sum of (total_matches × 90) across all competitions
-            the player appeared in. When 0 (legacy/unknown), playing_time_factor = 1.0.
+        s_final = raw_per90 * starter_bonus + playing_time_bonus
+        playing_time_bonus rewards minutes played: 0.01/min up to the 59th minute
+        per appearance, 0.015/min from the 60th to 90th minute per appearance.
         """
         weights = _POSITION_WEIGHTS[position]
 
@@ -44,21 +45,28 @@ class ScoringEngine:
         )
 
         minutes_per_90 = stats.minutes / 90
-        if minutes_per_90 <= 0:
+        if minutes_per_90 <= 0 or stats.appearances <= 0:
             return Score(offensive=offensive, defensive=defensive, tactical=tactical, s_final=0.0)
 
         raw_per90 = (offensive + defensive + tactical) / minutes_per_90
 
-        if total_possible_minutes > 0:
-            playing_time_factor = min(1.0, stats.minutes / total_possible_minutes)
-        else:
-            playing_time_factor = 1.0  # fallback for legacy records without league_meta
+        starter_bonus = 1.0 + 0.2 * (stats.matches_started / stats.appearances)
 
-        if stats.appearances > 0:
-            starter_bonus = 1.0 + 0.2 * (stats.matches_started / stats.appearances)
-        else:
-            starter_bonus = 1.0
+        avg_mins = stats.minutes / stats.appearances
+        early_mins = min(avg_mins, 59.0) * stats.appearances
+        late_mins = max(0.0, min(avg_mins, 90.0) - 59.0) * stats.appearances
+        playing_time_bonus = early_mins * 0.001 + late_mins * 0.0015
 
-        s_final = raw_per90 * playing_time_factor * starter_bonus
+        apps = stats.appearances
+        if apps < 5:
+            confidence = 0.15
+        elif apps < 15:
+            confidence = 0.50
+        elif apps < 20:
+            confidence = 0.80
+        else:
+            confidence = 1.00
+
+        s_final = raw_per90 * starter_bonus * confidence + playing_time_bonus
 
         return Score(offensive=offensive, defensive=defensive, tactical=tactical, s_final=s_final)

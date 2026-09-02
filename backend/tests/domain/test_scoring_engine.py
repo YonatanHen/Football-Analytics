@@ -76,7 +76,7 @@ def test_tactical_full(engine: ScoringEngine) -> None:
         appearances=10,
         matches_started=10,
     )
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    score = engine.calculate(stats, "FW")
     # pk_ratio = 3/4 * 5 = 3.75
     # tactical = 2*2 + 3.75 - 2 - 1*2 - 1*4 - 10*0.2 = 4 + 3.75 - 2 - 2 - 4 - 2 = -2.25
     assert score.tactical == pytest.approx(-2.25)
@@ -84,86 +84,92 @@ def test_tactical_full(engine: ScoringEngine) -> None:
 
 def test_tactical_pk_ratio_zero_when_no_pk_taken(engine: ScoringEngine) -> None:
     stats = Stats(pk_scored=0, pk_taken=0, minutes=900)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    score = engine.calculate(stats, "FW")
     assert score.tactical == pytest.approx(0.0)
 
 
-def test_s_final_normalized_by_90_minutes(engine: ScoringEngine) -> None:
-    # 1 goal in 90 min, 1 start out of 1 match played → factor=1.0, starter_bonus=1.2
+def _bonus(apps: int, avg_mins: float) -> float:
+    early = min(avg_mins, 59.0) * apps
+    late = max(0.0, min(avg_mins, 90.0) - 59.0) * apps
+    return early * 0.001 + late * 0.0015
+
+
+def test_s_final_low_apps_confidence(engine: ScoringEngine) -> None:
+    # 1 app → confidence=0.15; raw_per90=4.0, starter_bonus=1.2
     stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
-    score = engine.calculate(stats, "FW", total_possible_minutes=90)
-    assert score.s_final == pytest.approx(4.0 * 1.0 * 1.2)
+    score = engine.calculate(stats, "FW")
+    assert score.s_final == pytest.approx(4.0 * 1.2 * 0.15 + _bonus(1, 90), rel=1e-4)
 
 
-def test_s_final_half_minutes(engine: ScoringEngine) -> None:
-    # sub: 45 min in 1 match, total 1 match played → factor=45/90=0.5, no starter bonus
+def test_s_final_sub_low_apps(engine: ScoringEngine) -> None:
+    # 1 sub app (45 min) → confidence=0.15; raw_per90=8.0, starter_bonus=1.0
     stats = Stats(goals=1, minutes=45, appearances=1, matches_started=0)
-    score = engine.calculate(stats, "FW", total_possible_minutes=90)
-    raw_per90 = 4.0 / (45 / 90)  # = 8.0
-    assert score.s_final == pytest.approx(raw_per90 * 0.5 * 1.0)
+    score = engine.calculate(stats, "FW")
+    assert score.s_final == pytest.approx(8.0 * 1.0 * 0.15 + _bonus(1, 45), rel=1e-4)
 
 
 def test_s_final_zero_when_no_minutes(engine: ScoringEngine) -> None:
-    stats = Stats(goals=5, minutes=0)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    stats = Stats(goals=5, minutes=0, appearances=0)
+    score = engine.calculate(stats, "FW")
     assert score.s_final == pytest.approx(0.0)
 
 
-def test_s_final_legacy_no_total_matches_factor_one(engine: ScoringEngine) -> None:
-    # When total_possible_minutes=0 (legacy/unknown), factor defaults to 1.0
-    stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
-    score = engine.calculate(stats, "FW", total_possible_minutes=0)
-    assert score.s_final == pytest.approx(4.0 * 1.0 * 1.2)
+def test_confidence_tiers(engine: ScoringEngine) -> None:
+    def sfinal(apps: int) -> float:
+        return engine.calculate(
+            Stats(goals=1, minutes=apps * 90, appearances=apps, matches_started=apps), "FW"
+        ).s_final
+
+    assert sfinal(2) < sfinal(5)  # 0.15 → 0.50
+    assert sfinal(5) < sfinal(15)  # 0.50 → 0.80
+    assert sfinal(15) < sfinal(20)  # 0.80 → 1.00
+    # past 20 apps confidence is capped at 1.0; s_final still grows via playing_time_bonus
+    assert sfinal(20) < sfinal(30)
 
 
-def test_playing_time_factor_dampens_low_minutes(engine: ScoringEngine) -> None:
-    # 1 match out of 10 played → factor = 90/900
-    stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
-    assert score.s_final == pytest.approx(4.0 * (90 / 900) * 1.2, rel=1e-4)
-
-
-def test_playing_time_factor_caps_at_one(engine: ScoringEngine) -> None:
-    # Played all available minutes → factor = 1.0
-    stats = Stats(goals=1, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
-    raw_per90 = 4.0 / 10
-    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.2, rel=1e-4)
+def test_s_final_late_minutes_bonus_higher(engine: ScoringEngine) -> None:
+    # With 0 goals, raw_per90=0, so s_final == playing_time_bonus only.
+    # Full games (90 min avg) earn late-minute bonus; short stints (59 min avg) do not.
+    full = Stats(goals=0, minutes=1800, appearances=20, matches_started=20)  # avg=90
+    short = Stats(goals=0, minutes=1180, appearances=20, matches_started=20)  # avg=59
+    assert engine.calculate(full, "FW").s_final > engine.calculate(short, "FW").s_final
 
 
 def test_starter_bonus_full_starter(engine: ScoringEngine) -> None:
-    stats = Stats(goals=1, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
-    raw_per90 = 4.0 / (900 / 90)
-    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.2, rel=1e-4)
+    # 20 full-game starts → confidence=1.0, starter_bonus=1.2
+    stats = Stats(goals=1, minutes=1800, appearances=20, matches_started=20)
+    score = engine.calculate(stats, "FW")
+    raw_per90 = 4.0 / (1800 / 90)
+    assert score.s_final == pytest.approx(raw_per90 * 1.2 * 1.0 + _bonus(20, 90), rel=1e-4)
 
 
-def test_starter_bonus_zero_starter(engine: ScoringEngine) -> None:
-    stats = Stats(goals=1, minutes=900, appearances=10, matches_started=0)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
-    raw_per90 = 4.0 / (900 / 90)
-    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.0, rel=1e-4)
+def test_starter_bonus_zero_starters(engine: ScoringEngine) -> None:
+    # 20 sub appearances → confidence=1.0, starter_bonus=1.0
+    stats = Stats(goals=1, minutes=1800, appearances=20, matches_started=0)
+    score = engine.calculate(stats, "FW")
+    raw_per90 = 4.0 / (1800 / 90)
+    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.0 + _bonus(20, 90), rel=1e-4)
 
 
 def test_yellow_red_card_penalty(engine: ScoringEngine) -> None:
     stats = Stats(yellow_red_cards=1, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    score = engine.calculate(stats, "FW")
     assert score.tactical == pytest.approx(-2.0)
 
 
 def test_direct_red_card_penalty(engine: ScoringEngine) -> None:
     stats = Stats(direct_red_cards=1, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "FW", total_possible_minutes=900)
+    score = engine.calculate(stats, "FW")
     assert score.tactical == pytest.approx(-4.0)
 
 
 def test_gk_goals_prevented_bonus(engine: ScoringEngine) -> None:
     stats = Stats(goals_prevented=3.0, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "GK", total_possible_minutes=900)
+    score = engine.calculate(stats, "GK")
     assert score.defensive == pytest.approx(3.0 * 2)
 
 
 def test_gk_goals_prevented_negative(engine: ScoringEngine) -> None:
     stats = Stats(goals_prevented=-2.0, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "GK", total_possible_minutes=900)
+    score = engine.calculate(stats, "GK")
     assert score.defensive == pytest.approx(-2.0 * 2)
