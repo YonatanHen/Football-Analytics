@@ -24,7 +24,7 @@ $$M_{late} = \max\!\left(0,\ \min\!\left(\frac{Minutes}{Appearances},\ 90\right)
 - $M_{early}$ / $M_{late}$: estimated playing minutes split at the 60th minute, using average minutes per appearance as a proxy (per-match breakdowns unavailable). Extra time not counted.
 - $B_{time}$ rewards playing time: minutes 60–90 earn 50% more per minute than early minutes.
 - If $Minutes = 0$, $S_{final} = 0$. The three pillars are still computed.
-- If $Appearances \leq 0$ but $Minutes > 0$ (legacy, corrupt, or partially scraped records), $Appearances$ is estimated as $\lceil Minutes / 90 \rceil$ so the record still ranks instead of silently scoring 0. Ceiling, not rounding: it is monotonic and has no ties. The $\min$ in $B_{starter}$ bounds it to $[1.0, 1.2]$ even when $MatchesStarted$ exceeds the estimate.
+- If $Appearances \leq 0$ but $Minutes > 0$ (legacy, corrupt, or partially scraped records), $Appearances$ is estimated as $\lceil Minutes / 90 \rceil$ so the record still ranks instead of silently scoring 0. Ceiling, not rounding: rounding can imply more than 90 minutes per appearance (1300 minutes rounds to 14, i.e. 92.9 min each), which the $\min(avg,90)$ split would then silently truncate. The $\min$ in $B_{starter}$ bounds it to $[1.0, 1.2]$ even when $MatchesStarted$ exceeds the estimate.
 - An estimated count assumes full 90-minute appearances, so it yields the largest $B_{time}$ reachable for those minutes. A record with missing appearance data can therefore out-score an otherwise identical record that shows real rotation.
 
 ---

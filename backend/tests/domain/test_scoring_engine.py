@@ -123,7 +123,7 @@ def test_missing_appearances_estimated_from_minutes(engine: ScoringEngine) -> No
 
 
 def test_missing_appearances_estimate_is_at_least_one(engine: ScoringEngine) -> None:
-    # 20 min rounds to 0 appearances; the floor of 1 keeps the division safe.
+    # ceil(20/90) == 1, so a sub-90-minute record still gets a usable estimate.
     stats = Stats(goals=1, minutes=20, appearances=0)
     score = engine.calculate(stats, "FW")
     assert score.s_final > 0.0
@@ -203,3 +203,11 @@ def test_gk_goals_prevented_negative(engine: ScoringEngine) -> None:
     stats = Stats(goals_prevented=-2.0, minutes=900, appearances=10, matches_started=10)
     score = engine.calculate(stats, "GK")
     assert score.defensive == pytest.approx(-2.0 * 2)
+
+
+def test_negative_appearances_treated_as_missing(engine: ScoringEngine) -> None:
+    # A negative count must not reach the arithmetic: it would make avg_mins negative and
+    # min(-300, 59) * -3 a positive bonus, i.e. a silently wrong score.
+    corrupt = engine.calculate(Stats(goals=5, minutes=900, appearances=-3), "FW")
+    missing = engine.calculate(Stats(goals=5, minutes=900, appearances=0), "FW")
+    assert corrupt.s_final == pytest.approx(missing.s_final, rel=1e-9)

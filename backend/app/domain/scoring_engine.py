@@ -17,8 +17,8 @@ class ScoringEngine:
         s_final = raw_per90 * starter_bonus * confidence + playing_time_bonus
         playing_time_bonus splits minutes at the 60th using minutes/appearances as a
         proxy, paying 0.001/min early and 0.0015/min late. Only s_final is zeroed when
-        minutes is 0; the three pillars are still computed. A missing appearance count
-        is estimated as minutes/90 so legacy records still rank.
+        minutes is 0; the three pillars are still computed. A missing or non-positive
+        appearance count is estimated as ceil(minutes/90) so legacy records still rank.
         """
         weights = _POSITION_WEIGHTS[position]
 
@@ -55,7 +55,7 @@ class ScoringEngine:
         raw_per90 = (offensive + defensive + tactical) / minutes_per_90
 
         # Legacy/partial records carry minutes but no appearance count; estimate from minutes.
-        # ceil, not round: monotonic and tie-free (round() is banker's rounding).
+        # ceil, not round: round can imply >90 min per appearance (1300 min -> 14 apps).
         apps = stats.appearances if stats.appearances > 0 else math.ceil(stats.minutes / 90)
 
         starter_bonus = 1.0 + 0.2 * min(1.0, stats.matches_started / apps)
