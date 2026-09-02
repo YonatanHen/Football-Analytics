@@ -22,3 +22,4 @@ docs/decisions/
 CLAUDE.local.md
 .superpowers
 settings.local.json
+.remember/
