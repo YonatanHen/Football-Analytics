@@ -13,8 +13,9 @@ class ScoringEngine:
         """Compute offensive/defensive/tactical scores and s_final.
 
         s_final = raw_per90 * starter_bonus * confidence + playing_time_bonus
-        playing_time_bonus pays 0.001/min up to the 59th minute per appearance and
-        0.0015/min from the 60th to the 90th. Returns 0.0 when minutes or appearances is 0.
+        playing_time_bonus splits minutes at the 60th using minutes/appearances as a
+        proxy, paying 0.001/min early and 0.0015/min late. Only s_final is zeroed when
+        minutes or appearances is 0; the three pillars are still computed.
         """
         weights = _POSITION_WEIGHTS[position]
 
