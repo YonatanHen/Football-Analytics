@@ -229,8 +229,7 @@ def _apply_stats_view(players: list[PlayerDTO], stats_view: str) -> list[PlayerD
             continue
 
         agg = aggregate_stats(entries)
-        total_possible = sum(e.total_matches for e in entries) * 90
-        score = _scoring.calculate(agg, player.position, total_possible)
+        score = _scoring.calculate(agg, player.position)
         result.append(
             PlayerDTO(
                 sofascore_player_id=player.sofascore_player_id,

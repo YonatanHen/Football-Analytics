@@ -59,8 +59,7 @@ def build_player(
 ) -> PlayerDTO:
     """Construct a fully scored PlayerDTO from raw meta + competition entries."""
     agg_stats = aggregate_stats(entries)
-    total_possible_minutes = sum(e.total_matches for e in entries) * 90
-    agg_score = _scoring.calculate(agg_stats, meta["position"], total_possible_minutes)
+    agg_score = _scoring.calculate(agg_stats, meta["position"])
     return PlayerDTO(
         sofascore_player_id=meta.get("sofascore_player_id"),
         name=meta["name"],

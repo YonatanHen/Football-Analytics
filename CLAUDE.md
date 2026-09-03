@@ -102,12 +102,12 @@ app/
 - `player_bios` — one doc per player (identity/bio: `name`, `norm_name`, `sofascore_player_id`, `position`, `nationality`, `photo_url`). Indexed on `sofascore_player_id` (sparse unique) and `norm_name`.
 - `player_stats` — one doc per `(player_bio_id, season)`. Contains `competitions[]`, `aggregated_stats`, `aggregated_scores`, `team`, `low_sample_size`. Each competition entry includes `stats`, `scores`, `raw_stats` (untyped ScraperFC columns), and `total_matches`.
 - `fetch_log` — audit trail for each `fetch_data()` call.
-- `league_meta` — one doc per `(competition, season)` tracking `total_matches` played so far. Populated at fetch time; used to compute the playing-time factor in `s_final`.
+- `league_meta` — one doc per `(competition, season)` tracking `total_matches` played so far. Populated at fetch time; stored per competition entry and exposed by the API. No longer feeds `s_final`.
 
 ### Key domain concepts
 
 - `position`: coarse (`GK|DF|MF|FW`); `position_exact`: raw string (`CB`, `RW`, etc.)
-- `s_final`: composite fantasy score, primary sort key. Formula: `raw_per90 × playing_time_factor × starter_bonus` where `playing_time_factor = min(1, minutes / (Σ total_matches × 90))` and `starter_bonus = 1 + 0.2 × (matches_started / appearances)`. See `Mathematical_Specification.md` for full details.
+- `s_final`: composite fantasy score, primary sort key. Formula: `raw_per90 × starter_bonus × confidence + playing_time_bonus` where `starter_bonus = 1 + 0.2 × min(1, matches_started / appearances)`, `confidence` is an appearance tier (`<5`→0.15, `5-14`→0.50, `15-19`→0.80, `20+`→1.00), and `playing_time_bonus` splits minutes at the 60th using `minutes / appearances` as a proxy, paying 0.001/min early and 0.0015/min late. A missing or non-positive appearance count is estimated as `ceil(minutes / 90)`. See `Mathematical_Specification.md` for full details.
 - `red_cards`: stored for display only; scoring uses `yellow_red_cards` (−2) and `direct_red_cards` (−4) separately.
 - `sleeper_flag` / `sleeper_ratio`: `HIGH_VALUE` or `OVERPERFORMING` from `SleeperDetector.classify()`; gated on `minutes > 450`
 - `low_sample_size`: true when `aggregated_stats.minutes < 90`
