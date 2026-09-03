@@ -188,8 +188,10 @@ size of `METRIC_FIELDS`. Each metric appears in exactly one family.
 
 > **Note on `defending`.** `Stats` has no outfield defending metrics — no tackles,
 > interceptions or clearances are collected from Sofascore today. The family is therefore
-> limited to the three fields above, and its `GUIDANCE` says so plainly, so the model
-> answers "that data is not collected" instead of substituting a different metric. If
+> limited to the three fields above, and its `GUIDANCE` says so plainly. Asked for tackles,
+> the model must **not** substitute a different metric and must **not** write a refusal — it
+> returns nothing, which is a genuine miss, so the web fallback (§8) answers and labels the
+> source. Substituting `clean_sheets` for "tackles" is the failure to design against. If
 > defensive fields are added later (see the defender-representation design), they join this
 > family and nothing else changes.
 
@@ -224,12 +226,65 @@ can never drift from the tools that are actually bound. It contains:
 1. Role: a football analytics assistant for this specific database.
 2. Scope: men's football only; the seasons and competitions actually loaded.
 3. One paragraph per tool, taken verbatim from that package's `prompts.GUIDANCE`.
-4. Chaining guidance: resolve identity first, then read metrics; call several tools before
-   answering when the question needs it.
-5. Answer policy: answer from tool results; never invent numbers; if no tool covers the
-   question, say so plainly in the final message rather than guessing.
+4. Call budget: **default to the fewest calls that answer the question — usually one.**
+   Do not resolve identity separately when a metric tool's `player_name` argument already
+   does it. Escalate to more calls only on the structural triggers in §7.1.
+5. Answer policy: answer from tool results; never invent numbers. When the tools do not
+   cover the question, do not refuse — hand off to the web fallback (§8).
 6. The output ban: never reveal reasoning, tool names, arguments, or raw rows. Give the
    answer only.
+
+### 7.1 Call budget — cheap by default, precise on demand
+
+The agent cannot reliably judge its own answer as "imprecise", and asking it to costs a
+model turn to produce a self-assessment worth little. Escalation is therefore driven by
+**structural signals in the tool results**, which are cheap and objective:
+
+| Trigger | Response |
+|---|---|
+| A call returned zero rows | Retry once with the filters relaxed, then fall back (§8) |
+| The question names two players or teams | One call per entity — a comparison needs both sides |
+| The question spans two metric families ("creating vs finishing") | One call per family |
+| A name matched several players | One `identity` call to disambiguate before reading metrics |
+| None of the above | **Stop at one call.** |
+
+The 8-iteration cap is the backstop, not the target. A single-entity, single-metric
+question ("who has the most assists?") must cost exactly one tool call.
+
+## 7.2 Measuring answer correctness
+
+There is no trustworthy runtime correctness score, and none is built. Asking the model to
+grade its own answer costs a turn and mostly restates its own confidence. Three layers of
+real verification replace it, strongest first.
+
+**1. Groundedness by construction.** Every figure in a DB-backed answer comes from a tool
+row; the model is never asked to recall a statistic. This narrows the failure surface from
+"wrong number" to "wrong rows fetched" or "right rows, wrong reading".
+
+**2. Numeric-citation check (runtime, no extra model call).** After the graph returns,
+extract every number from the answer text and confirm each appears in the tool rows for
+that turn. A figure present in neither is fabricated. On a mismatch, log the answer and the
+rows at `WARNING` and return the answer flagged `degraded`. This catches the worst failure —
+a confident invented statistic — for near-zero cost.
+
+**3. Offline eval set with computed ground truth (the real measurement).** For analytical
+questions the correct answer *is* a direct Mongo query, so ground truth is computable rather
+than judged. A fixed question set lives in `backend/tests/agent/eval/`, each entry pairing a
+natural-language question with the repository call that produces its true answer:
+
+```
+"top 5 forwards by goals"  ->  get_players(position="FW", sort_by="goals", page_size=5)
+```
+
+The harness runs the agent, extracts the named players, and diffs against that result. It
+reports a pass rate, is skipped by default in CI (it needs a live model and a populated DB),
+and runs on demand when a prompt, tool or model changes. This is what catches a regression
+that the unit tests cannot see.
+
+**What is not measurable.** Open-ended judgement questions ("is he creating more than he is
+finishing?") have no ground truth. Layer 2 is the honest ceiling there: the cited numbers
+are real and the comparison follows from them. The eval set therefore covers analytical
+questions only, and that limit is stated rather than papered over.
 
 ## 8. Web-search fallback
 
@@ -242,6 +297,23 @@ The flow: after the graph returns, inspect the final state. If no `ToolMessage` 
 usable rows — the model called nothing, or every call came back empty — make **one**
 grounded Gemini call with the original question and return that answer instead. Otherwise
 return the graph's answer untouched.
+
+**The agent never refuses.** "That is not in my data" is not an acceptable answer. When the
+database cannot answer, the user still gets an answer — from the web — with its origin
+stated plainly, so they always know which source they are reading:
+
+> *Not from the app's data — from a web search:* …
+
+This is a labelling rule, not a hedge: the sentence names the source and then answers. The
+label is prepended by `web_fallback.py`, not left to the model, so it cannot be forgotten or
+reworded. `SYSTEM_PROMPT` correspondingly forbids the model from writing its own "I don't
+have that" refusal — an empty-handed turn is what *triggers* the fallback, so refusing would
+pre-empt it.
+
+**Cost note.** Because a miss now always reaches the web rather than stopping, grounded
+calls will be more frequent than in a refuse-by-default design. The offsetting control is
+that the fallback still fires only on a genuine miss (zero usable rows), and the §7.1 call
+budget keeps DB-answerable questions from ever getting there.
 
 *Build-time verification:* whether `ChatGoogleGenerativeAI` exposes Google Search grounding
 directly, or whether this call goes through the `google-genai` client (already installed as
