@@ -155,6 +155,7 @@ running backend's HTTP API (`http://localhost:8000` by default). Three commands:
 - Always run python backend modules (like Pytest) via `.venv\Scripts\python`.
 - Never push from `dev/*` to `master` without PR, ask user to approve merge only if CI passed. 
 - Delete the feature branch right after the changes were merge to the master branch.
+- Advise only on free-tier technologies, this project should not cost any money.
 
 ## Never do these
 
