@@ -13,6 +13,11 @@ export interface Stats {
   total_shots: number; shots_on_target: number; shots_off_target: number
   scoring_frequency: number; penalty_miss: number
   headed_goals: number; left_foot_goals: number; right_foot_goals: number
+  tackles: number; tackles_won: number; tackles_won_pct: number
+  interceptions: number; clearances: number; blocks: number
+  aerial_duels_won: number; aerial_lost: number; aerial_duels_won_pct: number
+  ball_recoveries: number; dribbled_past: number
+  errors_lead_to_goal: number; errors_lead_to_shot: number
 }
 
 export interface Score {
@@ -85,6 +90,19 @@ export const METRIC_OPTIONS: { value: string; label: string }[] = [
   { value: 'headed_goals', label: 'Headed goals' },
   { value: 'left_foot_goals', label: 'Left-foot goals' },
   { value: 'right_foot_goals', label: 'Right-foot goals' },
+  { value: 'tackles', label: 'Tackles' },
+  { value: 'tackles_won', label: 'Tackles won' },
+  { value: 'tackles_won_pct', label: 'Tackle success %' },
+  { value: 'interceptions', label: 'Interceptions' },
+  { value: 'clearances', label: 'Clearances' },
+  { value: 'blocks', label: 'Blocks' },
+  { value: 'aerial_duels_won', label: 'Aerial duels won' },
+  { value: 'aerial_lost', label: 'Aerial duels lost' },
+  { value: 'aerial_duels_won_pct', label: 'Aerial duel success %' },
+  { value: 'ball_recoveries', label: 'Ball recoveries' },
+  { value: 'dribbled_past', label: 'Dribbled past' },
+  { value: 'errors_lead_to_goal', label: 'Errors leading to a goal' },
+  { value: 'errors_lead_to_shot', label: 'Errors leading to a shot' },
   { value: 'offensive', label: 'Offensive score' },
   { value: 'defensive', label: 'Defensive score' },
   { value: 'tactical', label: 'Tactical score' },

@@ -26,6 +26,8 @@ jobs:
             backend:
               - 'backend/**'
               - '.github/workflows/ci.yml'
+              # mirrored against METRIC_FIELDS by tests/domain/test_defensive_stats.py
+              - 'frontend/src/api/players.ts'
             frontend:
               - 'frontend/**'
               - '.github/workflows/ci.yml'
