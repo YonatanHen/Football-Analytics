@@ -7,6 +7,7 @@ import pandas as pd
 
 from app.config import settings
 from app.domain.competitions import canonical_competition, classify_competition
+from app.domain.defensive_stats import apply_defensive_raw
 from app.domain.models import CompetitionEntry, Stats
 from app.domain.player_assembler import build_player, merge
 from app.infrastructure.sofascore_client import SofascoreClient
@@ -170,11 +171,13 @@ def run_fetch_job(job: FetchJob, season: str, competitions: list[str], repo) -> 
                 left_foot_goals=int(row.get("left_foot_goals", 0)),
                 right_foot_goals=int(row.get("right_foot_goals", 0)),
             )
-            position = str(row.get("_position_group") or row.get("position", "MF"))
-            score = _scoring.calculate(stats, position)
             raw_stats = row.get("_raw_stats") or {}
             if not isinstance(raw_stats, dict):
                 raw_stats = {}
+            apply_defensive_raw(stats, raw_stats)
+
+            position = str(row.get("_position_group") or row.get("position", "MF"))
+            score = _scoring.calculate(stats, position)
             canon = canonical_competition(comp)
             entry = CompetitionEntry(
                 competition=canon,

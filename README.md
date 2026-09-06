@@ -37,7 +37,7 @@ flowchart LR
         FE["React SPA\nVite :5173"]
         subgraph Backend["FastAPI :8000"]
             API["API Routers"]
-            SE["Scoring Engine\nS_final = (Off + Def + Tac) / (min/90)"]
+            SE["Scoring Engine\nS_final = raw/90 x starter x confidence + bonus"]
             PA["Player Assembler\nbuild · merge · aggregate"]
             SC["Stats Client\nScraperFC + Chrome"]
             MR["Mongo Repository"]
@@ -65,8 +65,9 @@ flowchart LR
 
 ## Core Features
 
-- **Fantasy Scoring** — composite score `S_final = (Offensive + Defensive + Tactical) / (minutes / 90)` with position-specific goal/assist weights; GK goals worth 10 pts, FW goals worth 4 pts
+- **Fantasy Scoring** — composite score `S_final = raw_per90 x starter_bonus x confidence + playing_time_bonus`, where `raw_per90` is `(Offensive + Defensive + Tactical) / (minutes / 90)` with position-specific goal/assist weights (GK goals worth 10 pts, FW goals worth 4 pts). `starter_bonus` rewards regular starters and `confidence` discounts small appearance counts — see `Mathematical_Specification.md`
 - **Rankings** — paginated player table sorted by `S_final`; filterable by position, team, nationality, and sleeper flag
+- **Defensive Metrics** — tackles, interceptions, clearances, blocks, aerial duels, ball recoveries, and errors leading to a shot/goal are tracked per player and sortable/filterable in Rankings; not yet part of `S_final` scoring
 - **Sleeper Detection** — `HIGH_VALUE` flags players where xG+xA significantly exceeds G+A; `OVERPERFORMING` flags the inverse; gated on `minutes > 450`
 - **Player Detail** — per-competition stat breakdown and aggregated scores for any player, including those without a linked external ID
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions

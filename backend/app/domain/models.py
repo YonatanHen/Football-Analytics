@@ -42,6 +42,21 @@ class Stats:
     headed_goals: int = 0
     left_foot_goals: int = 0
     right_foot_goals: int = 0
+    # Defending (promoted from raw_stats; see defensive_stats.py)
+    tackles: int = 0
+    tackles_won: int = 0
+    interceptions: int = 0
+    clearances: int = 0
+    blocks: int = 0
+    aerial_duels_won: int = 0
+    aerial_lost: int = 0
+    ball_recoveries: int = 0
+    dribbled_past: int = 0
+    errors_lead_to_goal: int = 0
+    errors_lead_to_shot: int = 0
+    # Rates recomputed from summed counts, never averaged across competitions
+    tackles_won_pct: float = 0.0
+    aerial_duels_won_pct: float = 0.0
 
 
 @dataclass
