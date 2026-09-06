@@ -34,6 +34,8 @@ def _row(player, metric: str) -> dict:
         metric: python_value(player, metric),
         "s_final": round(player.aggregated_scores.s_final, 2),
         "minutes": player.aggregated_stats.minutes,
+        "sleeper_flag": player.aggregated_scores.underpredicted_flag,
+        "low_sample_size": player.low_sample_size,
     }
 
 
