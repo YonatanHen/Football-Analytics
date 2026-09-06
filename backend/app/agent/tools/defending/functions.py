@@ -7,6 +7,19 @@ METRICS = [
     "clean_sheets",
     "goals_conceded",
     "penalty_conceded",
+    "tackles",
+    "tackles_won",
+    "tackles_won_pct",
+    "interceptions",
+    "clearances",
+    "blocks",
+    "aerial_duels_won",
+    "aerial_lost",
+    "aerial_duels_won_pct",
+    "ball_recoveries",
+    "dribbled_past",
+    "errors_lead_to_goal",
+    "errors_lead_to_shot",
 ]
 
 
