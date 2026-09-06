@@ -13,6 +13,11 @@ export interface Stats {
   total_shots: number; shots_on_target: number; shots_off_target: number
   scoring_frequency: number; penalty_miss: number
   headed_goals: number; left_foot_goals: number; right_foot_goals: number
+  tackles: number; tackles_won: number; tackles_won_pct: number
+  interceptions: number; clearances: number; blocks: number
+  aerial_duels_won: number; aerial_lost: number; aerial_duels_won_pct: number
+  ball_recoveries: number; dribbled_past: number
+  errors_lead_to_goal: number; errors_lead_to_shot: number
 }
 
 export interface Score {
@@ -78,6 +83,18 @@ export const METRIC_OPTIONS: { value: string; label: string }[] = [
   { value: 'pk_saved', label: 'Penalties saved' },
   { value: 'penalty_miss', label: 'Penalties missed' },
   { value: 'penalty_conceded', label: 'Penalties conceded' },
+  { value: 'tackles', label: 'Tackles' },
+  { value: 'tackles_won', label: 'Tackles won' },
+  { value: 'tackles_won_pct', label: 'Tackle success %' },
+  { value: 'interceptions', label: 'Interceptions' },
+  { value: 'clearances', label: 'Clearances' },
+  { value: 'blocks', label: 'Blocks' },
+  { value: 'aerial_duels_won', label: 'Aerial duels won' },
+  { value: 'aerial_duels_won_pct', label: 'Aerial duel success %' },
+  { value: 'ball_recoveries', label: 'Ball recoveries' },
+  { value: 'dribbled_past', label: 'Dribbled past' },
+  { value: 'errors_lead_to_goal', label: 'Errors leading to a goal' },
+  { value: 'errors_lead_to_shot', label: 'Errors leading to a shot' },
   { value: 'penalty_faced', label: 'Penalties faced' },
   { value: 'yellow_red_cards', label: 'Second-yellow reds' },
   { value: 'direct_red_cards', label: 'Direct reds' },

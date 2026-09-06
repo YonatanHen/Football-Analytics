@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from app.domain.competitions import canonical_competition
+from app.domain.defensive_stats import recompute_rates
 from app.domain.models import AggregatedScores, CompetitionEntry, PlayerDTO, Stats
 from app.domain.scoring_engine import ScoringEngine
 from app.domain.sleeper_detector import SleeperDetector
@@ -48,7 +49,19 @@ def aggregate_stats(entries: list[CompetitionEntry]) -> Stats:
         total.headed_goals += s.headed_goals
         total.left_foot_goals += s.left_foot_goals
         total.right_foot_goals += s.right_foot_goals
+        total.tackles += s.tackles
+        total.tackles_won += s.tackles_won
+        total.interceptions += s.interceptions
+        total.clearances += s.clearances
+        total.blocks += s.blocks
+        total.aerial_duels_won += s.aerial_duels_won
+        total.aerial_lost += s.aerial_lost
+        total.ball_recoveries += s.ball_recoveries
+        total.dribbled_past += s.dribbled_past
+        total.errors_lead_to_goal += s.errors_lead_to_goal
+        total.errors_lead_to_shot += s.errors_lead_to_shot
     total.scoring_frequency = (total.minutes / total.goals) if total.goals > 0 else 0.0
+    recompute_rates(total)
     return total
 
 
