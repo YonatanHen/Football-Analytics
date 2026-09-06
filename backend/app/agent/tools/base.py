@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class MetricQuery(BaseModel):
-    operation: Literal["rank", "filter", "player_value"] = "rank"
     metric: str
     position: Literal["GK", "DF", "MF", "FW"] | None = None
     team: str | None = None

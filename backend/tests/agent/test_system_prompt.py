@@ -2,9 +2,11 @@ from app.agent.system_prompt import SYSTEM_PROMPT, build_system_prompt
 from app.agent.tools import FAMILIES
 
 
-def test_prompt_includes_every_family_guidance():
+def test_prompt_does_not_duplicate_tool_descriptions():
+    # Tool descriptions are sent with every request as part of the tool schemas.
+    # Repeating them here would cost the same tokens twice on every turn.
     for family in FAMILIES:
-        assert family.prompts.GUIDANCE in SYSTEM_PROMPT
+        assert family.prompts.DESCRIPTION not in SYSTEM_PROMPT
 
 
 def test_prompt_states_the_scope_and_the_answer_policy():
@@ -41,8 +43,7 @@ def test_prompt_requires_flagging_unreliable_rows():
     assert "low_sample_size" in SYSTEM_PROMPT
 
 
-def test_prompt_is_rebuilt_from_the_registry_not_hardcoded():
-    # A new family must reach the prompt without anyone editing it by hand.
+def test_prompt_stays_small_because_it_is_sent_every_turn():
     rebuilt = build_system_prompt()
     assert rebuilt == SYSTEM_PROMPT
-    assert rebuilt.count("- ") >= len(FAMILIES)
+    assert len(SYSTEM_PROMPT) < 2200, "system prompt grew; it is sent on every request"

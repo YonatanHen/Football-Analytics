@@ -39,7 +39,7 @@ def _repo(players):
 
 def test_rank_returns_rows_with_the_requested_metric():
     repo = _repo([_player(goals=10), _player("Player B", goals=7)])
-    rows = run_metric_query(repo, FAMILY, MetricQuery(operation="rank", metric="goals"))
+    rows = run_metric_query(repo, FAMILY, MetricQuery(metric="goals"))
     assert [r["name"] for r in rows] == ["Player A", "Player B"]
     assert rows[0]["goals"] == 10
     assert rows[0]["s_final"] == 5.5
@@ -55,9 +55,7 @@ def test_unknown_metric_is_rejected_before_reaching_mongo():
 
 def test_filter_translates_min_max_into_allowlisted_clauses():
     repo = _repo([_player()])
-    run_metric_query(
-        repo, FAMILY, MetricQuery(operation="filter", metric="goals", min_value=5, max_value=20)
-    )
+    run_metric_query(repo, FAMILY, MetricQuery(metric="goals", min_value=5, max_value=20))
     filters = repo.get_players.call_args.kwargs["filters"]
     assert {"field": "goals", "op": "gte", "value": 5.0} in filters
     assert {"field": "goals", "op": "lte", "value": 20.0} in filters

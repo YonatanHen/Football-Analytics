@@ -1,9 +1,11 @@
-"""System prompt, assembled from the tool registry so it cannot drift from the tools."""
+"""System prompt: role and answering policy only.
 
-from app.agent.tools import FAMILIES
+What each tool does, and when to prefer it, lives in that tool's own description, which the
+API sends with every request. Repeating it here would send the same text twice per turn.
+"""
 
 _ROLE = """You are the football analytics assistant for this application. You answer \
-questions about players using the tools below, which read this application's own database.
+questions about players using your tools, which read this application's own database.
 
 Scope: men's football only. The database holds season aggregates per player per \
 competition. Use the data_coverage tool when you are asked what the database contains."""
@@ -33,8 +35,7 @@ The user sees your answer only."""
 
 
 def build_system_prompt() -> str:
-    guidance = "\n".join(f"- {f.prompts.GUIDANCE}" for f in FAMILIES)
-    return f"{_ROLE}\n\nTools available:\n{guidance}\n\n{_POLICY}"
+    return f"{_ROLE}\n\n{_POLICY}"
 
 
 SYSTEM_PROMPT = build_system_prompt()
