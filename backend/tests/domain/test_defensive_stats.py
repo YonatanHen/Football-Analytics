@@ -162,3 +162,19 @@ def test_stats_out_exposes_every_stats_field():
 
     missing = set(Stats().__dict__) - set(StatsOut.model_fields)
     assert not missing, f"StatsOut silently drops: {sorted(missing)}"
+
+
+def test_frontend_metric_options_mirror_the_backend_allowlist():
+    # players.ts claims to mirror METRIC_FIELDS. aerial_lost was typed and allowlisted
+    # but had no dropdown entry, so it could not be filtered from the UI.
+    import re
+    from pathlib import Path
+
+    players_ts = Path(__file__).resolve().parents[2].parent / "frontend/src/api/players.ts"
+    after = players_ts.read_text(encoding="utf-8").split("METRIC_OPTIONS")[1]
+    block = after[: after.index("\n]")]
+    options = set(re.findall(r"\{ value: '([a-z_]+)'", block))
+    assert options == set(METRIC_FIELDS), (
+        f"only in backend: {sorted(set(METRIC_FIELDS) - options)}; "
+        f"only in frontend: {sorted(options - set(METRIC_FIELDS))}"
+    )

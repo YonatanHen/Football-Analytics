@@ -8,6 +8,9 @@ backend/ with Mongo reachable:
     python scripts/DB/backfill_defensive_stats.py --dry-run  # report only
 
 Scores are left untouched: ScoringEngine does not read these fields.
+
+Stop any running fetch job first: this rewrites each doc's whole competitions array, so a
+concurrent fetch writing between the read and the write would be overwritten.
 """
 
 import os
@@ -70,9 +73,10 @@ def main() -> None:
             entry["stats"] = asdict(stats)
             updated_entries.append(entry)
 
-        if not doc_changed:
-            continue
-
+        # Write every doc, not only changed ones. A doc left without the new keys is not
+        # merely stale: Mongo's $gte does not match a missing field, so those players
+        # disappear from defensive filters, while the stats_view path (which defaults them
+        # to 0 in Python) still returns them. Same query, two answers.
         agg = _stats_from_dict(doc.get("aggregated_stats"))
         totals = _aggregate(updated_entries)
         for field in list(DEFENSIVE_RAW_MAP.values()) + [
@@ -81,16 +85,17 @@ def main() -> None:
         ]:
             setattr(agg, field, getattr(totals, field))
 
-        changed += 1
+        changed += 1 if doc_changed else 0
         if not dry_run:
             db.player_stats.update_one(
                 {"_id": doc["_id"]},
                 {"$set": {"competitions": updated_entries, "aggregated_stats": asdict(agg)}},
             )
 
-    verb = "would update" if dry_run else "updated"
+    verb = "would change" if dry_run else "changed"
     print(f"scanned {scanned} player_stats docs")
     print(f"{verb} {changed} docs across {entries_touched} competition entries")
+    print("every scanned doc was written, so no doc is left without the new keys")
     print(f"entries with no raw_stats: {no_raw}")
 
 
