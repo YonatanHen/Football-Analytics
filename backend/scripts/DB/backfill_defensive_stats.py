@@ -52,7 +52,7 @@ def main() -> None:
     dry_run = "--dry-run" in sys.argv
     db = MongoClient(_mongo_uri())[DB_NAME]
 
-    scanned = changed = entries_touched = no_raw = 0
+    scanned = changed = written = entries_touched = no_raw = 0
 
     for doc in db.player_stats.find({}):
         scanned += 1
@@ -87,6 +87,7 @@ def main() -> None:
 
         changed += 1 if doc_changed else 0
         if not dry_run:
+            written += 1
             db.player_stats.update_one(
                 {"_id": doc["_id"]},
                 {"$set": {"competitions": updated_entries, "aggregated_stats": asdict(agg)}},
@@ -95,7 +96,10 @@ def main() -> None:
     verb = "would change" if dry_run else "changed"
     print(f"scanned {scanned} player_stats docs")
     print(f"{verb} {changed} docs across {entries_touched} competition entries")
-    print("every scanned doc was written, so no doc is left without the new keys")
+    if dry_run:
+        print(f"would write all {scanned} docs (nothing was written: --dry-run)")
+    else:
+        print(f"wrote {written} docs, so none is left without the new keys")
     print(f"entries with no raw_stats: {no_raw}")
 
 

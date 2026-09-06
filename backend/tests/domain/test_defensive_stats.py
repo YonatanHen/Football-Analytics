@@ -171,9 +171,12 @@ def test_frontend_metric_options_mirror_the_backend_allowlist():
     from pathlib import Path
 
     players_ts = Path(__file__).resolve().parents[2].parent / "frontend/src/api/players.ts"
+    if not players_ts.is_file():
+        pytest.skip("frontend not present (backend-only checkout or container)")
     after = players_ts.read_text(encoding="utf-8").split("METRIC_OPTIONS")[1]
     block = after[: after.index("\n]")]
-    options = set(re.findall(r"\{ value: '([a-z_]+)'", block))
+    options = set(re.findall(r"\{ value: '([a-z_0-9]+)'", block))
+    assert options, "could not parse METRIC_OPTIONS; the extractor needs updating"
     assert options == set(METRIC_FIELDS), (
         f"only in backend: {sorted(set(METRIC_FIELDS) - options)}; "
         f"only in frontend: {sorted(options - set(METRIC_FIELDS))}"
