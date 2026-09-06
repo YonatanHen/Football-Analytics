@@ -6,6 +6,7 @@ from app.agent.tools import (
     defending,
     discipline,
     goalkeeping,
+    identity,
     playing_time,
     shots,
 )
@@ -18,6 +19,7 @@ FAMILIES = [
     discipline,
     playing_time,
     composite_scores,
+    identity,
 ]
 
 
