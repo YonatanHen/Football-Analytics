@@ -17,6 +17,14 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # --- chatbot agent ---
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_fallback_model: str = "gemini-2.0-flash"
+    agent_max_tool_iterations: int = 8
+    agent_max_rows: int = 25
+    checkpoint_collection: str = "chat_checkpoints"
+
     model_config = {"env_file": ".env"}
 
 
