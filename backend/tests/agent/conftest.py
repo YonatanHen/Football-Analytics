@@ -1,13 +1,21 @@
 from collections.abc import Sequence
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 from app.domain.models import AggregatedScores, PlayerDTO, Stats
+
+
+@pytest.fixture(autouse=True)
+def no_web_fallback():
+    """Keep the fallback off by default so results never depend on GEMINI_API_KEY."""
+    with patch("app.agent.agent.web_answer", AsyncMock(return_value=None)):
+        yield
 
 
 class FakeToolCallingModel(BaseChatModel):

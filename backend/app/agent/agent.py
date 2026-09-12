@@ -12,6 +12,7 @@ from app.agent.constants import GENERIC_ERROR, MAX_TOOL_ITERATIONS
 from app.agent.llm import build_chat_model
 from app.agent.system_prompt import SYSTEM_PROMPT
 from app.agent.tools import build_tools
+from app.agent.web_fallback import web_answer
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class ChatAgent:
             "recursion_limit": MAX_TOOL_ITERATIONS * 2,
         }
 
-    async def answer(self, message: str, session_id: str) -> ChatResult:
+    async def answer(self, message: str, session_id: str, allow_web: bool = True) -> ChatResult:
         try:
             state = await self._graph.ainvoke(
                 {"messages": [HumanMessage(content=message)]}, config=self._config(session_id)
@@ -51,6 +52,14 @@ class ChatAgent:
         messages = state["messages"]
         used_tools = any(isinstance(m, ToolMessage) for m in messages)
         answer = messages[-1].content if messages else ""
+
+        # No tool produced data, so the answer is ungrounded. Prefer a labelled web answer
+        # over the model's own guess; degraded marks it as not from the app's data.
+        if allow_web and not used_tools:
+            grounded = await web_answer(message)
+            if grounded:
+                return ChatResult(answer=grounded, used_tools=False, degraded=True)
+
         return ChatResult(
             answer=answer or GENERIC_ERROR, used_tools=used_tools, degraded=not answer
         )
