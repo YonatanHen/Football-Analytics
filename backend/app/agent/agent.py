@@ -7,7 +7,9 @@ from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.mongodb import MongoDBSaver
+from pydantic import TypeAdapter, ValidationError
 
+from app.agent.answer_check import uncited_numbers
 from app.agent.constants import GENERIC_ERROR, MAX_TOOL_ITERATIONS
 from app.agent.llm import build_chat_model
 from app.agent.system_prompt import SYSTEM_PROMPT
@@ -60,6 +62,19 @@ class ChatAgent:
             if grounded:
                 return ChatResult(answer=grounded, used_tools=False, degraded=True)
 
+        if used_tools and answer:
+            rows = _tool_rows(messages)
+            uncited = uncited_numbers(answer, rows) if rows is not None else []
+            if uncited:
+                # A signal, not a gate: withholding the answer would be worse than flagging it.
+                logger.warning(
+                    "Ungrounded figures %s in answer for session %s; rows=%s",
+                    uncited,
+                    session_id,
+                    rows,
+                )
+                return ChatResult(answer=answer, used_tools=True, degraded=True)
+
         return ChatResult(
             answer=answer or GENERIC_ERROR, used_tools=used_tools, degraded=not answer
         )
@@ -81,6 +96,25 @@ class ChatAgent:
 
     def clear(self, session_id: str) -> None:
         self._graph.checkpointer.delete_thread(session_id)
+
+
+# Rows are heterogeneous by design: a metric row, an identity profile, a coverage object or
+# an error row. Validate the shape, not a schema.
+_ToolPayload = TypeAdapter(list[dict] | dict)
+
+
+def _tool_rows(messages) -> list[dict] | None:
+    """Rows every tool returned this turn, or None if any output could not be read."""
+    rows: list[dict] = []
+    for m in messages:
+        if not isinstance(m, ToolMessage):
+            continue
+        try:
+            payload = _ToolPayload.validate_json(m.content)
+        except ValidationError:
+            return None  # unreadable rows would look like missing citations
+        rows.extend(payload if isinstance(payload, list) else [payload])
+    return rows
 
 
 def build_agent(repo, mongo_client) -> ChatAgent:
