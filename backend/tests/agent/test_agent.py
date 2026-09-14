@@ -124,6 +124,67 @@ async def test_fallback_model_answers_when_the_primary_fails():
 
 
 @pytest.mark.asyncio
+async def test_a_turn_is_saved_once_not_after_every_step():
+    scripted = [
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "attacking", "args": {"metric": "goals"}, "id": "c1"}],
+        ),
+        AIMessage(content="Player A leads."),
+    ]
+    saver = InMemorySaver()
+    agent = ChatAgent(
+        model=FakeToolCallingModel(responses=scripted),
+        repo=fake_repo(rows=[fake_player()]),
+        checkpointer=saver,
+    )
+    await agent.answer("top scorer?", session_id="d1")
+    assert len(list(saver.list({"configurable": {"thread_id": "d1"}}))) == 1
+
+
+@pytest.mark.asyncio
+async def test_prune_runs_once_after_a_successful_turn():
+    pruned = []
+    agent = ChatAgent(
+        model=FakeToolCallingModel(responses=[AIMessage(content="ok")]),
+        repo=fake_repo(),
+        checkpointer=InMemorySaver(),
+        prune=pruned.append,
+    )
+    await agent.answer("hi", session_id="pr1")
+    assert pruned == ["pr1"]
+
+
+@pytest.mark.asyncio
+async def test_prune_is_skipped_when_the_turn_fails():
+    pruned = []
+    agent = ChatAgent(
+        model=FakeToolCallingModel(responses=[]),
+        repo=fake_repo(),
+        checkpointer=InMemorySaver(),
+        prune=pruned.append,
+    )
+    await agent.answer("hi", session_id="pr2")
+    assert pruned == []
+
+
+@pytest.mark.asyncio
+async def test_a_prune_failure_does_not_lose_the_answer():
+    def broken(session_id):
+        raise RuntimeError("mongo down")
+
+    agent = ChatAgent(
+        model=FakeToolCallingModel(responses=[AIMessage(content="ok")]),
+        repo=fake_repo(),
+        checkpointer=InMemorySaver(),
+        prune=broken,
+    )
+    res = await agent.answer("hi", session_id="pr3")
+    assert res.answer == "ok"
+    assert res.degraded is False
+
+
+@pytest.mark.asyncio
 async def test_clear_drops_the_thread():
     agent = _agent([AIMessage(content="ok")])
     await agent.answer("remember this", session_id="s8")

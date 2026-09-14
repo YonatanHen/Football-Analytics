@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     agent_max_tool_iterations: int = 8
     agent_max_rows: int = 25
     checkpoint_collection: str = "chat_checkpoints"
+    chat_session_ttl_seconds: int = 7 * 24 * 60 * 60
 
     model_config = {"env_file": ".env"}
 

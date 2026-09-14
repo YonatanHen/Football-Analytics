@@ -1,22 +1,24 @@
 """The chatbot agent: a LangGraph tool-calling loop over the database tools."""
 
+import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelFallbackMiddleware
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-from langgraph.checkpoint.mongodb import MongoDBSaver
 from pydantic import TypeAdapter, ValidationError
 
 from app.agent.answer_check import uncited_numbers
+from app.agent.checkpoints import build_checkpointer, keep_latest_checkpoint
 from app.agent.constants import GENERIC_ERROR, MAX_TOOL_ITERATIONS
 from app.agent.llm import build_chat_model, build_fallback_model
 from app.agent.system_prompt import SYSTEM_PROMPT
 from app.agent.tools import build_tools
 from app.agent.web_fallback import web_answer
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,9 @@ class ChatAgent:
         repo,
         checkpointer,
         fallback_models: list[BaseChatModel] | None = None,
+        prune: Callable[[str], None] | None = None,
     ) -> None:
+        self._prune = prune
         self._graph = create_agent(
             model=model,
             tools=build_tools(repo),
@@ -52,12 +56,16 @@ class ChatAgent:
 
     async def answer(self, message: str, session_id: str, allow_web: bool = True) -> ChatResult:
         try:
+            # "exit" saves one checkpoint when the turn ends, not one per graph step.
             state = await self._graph.ainvoke(
-                {"messages": [HumanMessage(content=message)]}, config=self._config(session_id)
+                {"messages": [HumanMessage(content=message)]},
+                config=self._config(session_id),
+                durability="exit",
             )
         except Exception:
             logger.exception("Agent failed for session %s", session_id)
             return ChatResult(answer=GENERIC_ERROR, used_tools=False, degraded=True)
+        await self._prune_session(session_id)
 
         messages = state["messages"]
         used_tools = any(isinstance(m, ToolMessage) for m in messages)
@@ -86,6 +94,15 @@ class ChatAgent:
         return ChatResult(
             answer=answer or GENERIC_ERROR, used_tools=used_tools, degraded=not answer
         )
+
+    async def _prune_session(self, session_id: str) -> None:
+        if self._prune is None:
+            return
+        try:
+            await asyncio.to_thread(self._prune, session_id)
+        except Exception:
+            # Old checkpoints only cost storage, and the TTL removes them anyway.
+            logger.exception("Could not prune checkpoints for session %s", session_id)
 
     def history(self, session_id: str) -> list[dict]:
         """Replay the thread as {role, content} turns. Tool messages are never exposed."""
@@ -126,14 +143,11 @@ def _tool_rows(messages) -> list[dict] | None:
 
 
 def build_agent(repo, mongo_client) -> ChatAgent:
-    checkpointer = MongoDBSaver(
-        mongo_client,
-        db_name="football_analytics",
-        checkpoint_collection_name=settings.checkpoint_collection,
-    )
+    checkpointer = build_checkpointer(mongo_client)
     return ChatAgent(
         model=build_chat_model(),
         repo=repo,
         checkpointer=checkpointer,
         fallback_models=[build_fallback_model()],
+        prune=partial(keep_latest_checkpoint, checkpointer),
     )
