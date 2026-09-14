@@ -85,6 +85,45 @@ async def test_model_failure_returns_the_generic_message():
 
 
 @pytest.mark.asyncio
+async def test_list_of_content_parts_is_returned_as_plain_text():
+    # Gemini 3.x returns content as parts, not a string.
+    parts = [{"type": "text", "text": "Ronaldo plays "}, {"type": "text", "text": "as a forward."}]
+    agent = _agent([AIMessage(content=parts)])
+    res = await agent.answer("position?", session_id="p1")
+    assert res.answer == "Ronaldo plays as a forward."
+    assert agent.history("p1")[1]["content"] == "Ronaldo plays as a forward."
+
+
+@pytest.mark.asyncio
+async def test_citation_check_reads_content_parts():
+    scripted = [
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "attacking", "args": {"metric": "goals"}, "id": "c1"}],
+        ),
+        AIMessage(content=[{"type": "text", "text": "Player A scored 41 goals."}]),
+    ]
+    res = await _agent(scripted, fake_repo(rows=[fake_player(goals=10)])).answer(
+        "top scorer?", session_id="p2"
+    )
+    assert res.answer == "Player A scored 41 goals."
+    assert res.degraded is True
+
+
+@pytest.mark.asyncio
+async def test_fallback_model_answers_when_the_primary_fails():
+    agent = ChatAgent(
+        model=FakeToolCallingModel(responses=[]),  # raises on first call
+        repo=fake_repo(),
+        checkpointer=InMemorySaver(),
+        fallback_models=[FakeToolCallingModel(responses=[AIMessage(content="from fallback")])],
+    )
+    res = await agent.answer("anything", session_id="f1")
+    assert res.answer == "from fallback"
+    assert res.degraded is False
+
+
+@pytest.mark.asyncio
 async def test_clear_drops_the_thread():
     agent = _agent([AIMessage(content="ok")])
     await agent.answer("remember this", session_id="s8")

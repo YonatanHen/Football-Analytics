@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 
 from langchain.agents import create_agent
+from langchain.agents.middleware import ModelFallbackMiddleware
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.mongodb import MongoDBSaver
@@ -11,7 +12,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.agent.answer_check import uncited_numbers
 from app.agent.constants import GENERIC_ERROR, MAX_TOOL_ITERATIONS
-from app.agent.llm import build_chat_model
+from app.agent.llm import build_chat_model, build_fallback_model
 from app.agent.system_prompt import SYSTEM_PROMPT
 from app.agent.tools import build_tools
 from app.agent.web_fallback import web_answer
@@ -28,12 +29,19 @@ class ChatResult:
 
 
 class ChatAgent:
-    def __init__(self, model: BaseChatModel, repo, checkpointer) -> None:
+    def __init__(
+        self,
+        model: BaseChatModel,
+        repo,
+        checkpointer,
+        fallback_models: list[BaseChatModel] | None = None,
+    ) -> None:
         self._graph = create_agent(
             model=model,
             tools=build_tools(repo),
             system_prompt=SYSTEM_PROMPT,
             checkpointer=checkpointer,
+            middleware=[ModelFallbackMiddleware(*fallback_models)] if fallback_models else [],
         )
 
     def _config(self, session_id: str) -> dict:
@@ -53,7 +61,7 @@ class ChatAgent:
 
         messages = state["messages"]
         used_tools = any(isinstance(m, ToolMessage) for m in messages)
-        answer = messages[-1].content if messages else ""
+        answer = messages[-1].text if messages else ""
 
         # No tool produced data, so the answer is ungrounded. Prefer a labelled web answer
         # over the model's own guess; degraded marks it as not from the app's data.
@@ -89,9 +97,9 @@ class ChatAgent:
         turns = []
         for m in (state.values or {}).get("messages", []):
             if isinstance(m, HumanMessage):
-                turns.append({"role": "user", "content": m.content})
-            elif isinstance(m, AIMessage) and m.content:
-                turns.append({"role": "assistant", "content": m.content})
+                turns.append({"role": "user", "content": m.text})
+            elif isinstance(m, AIMessage) and m.text:
+                turns.append({"role": "assistant", "content": m.text})
         return turns
 
     def clear(self, session_id: str) -> None:
@@ -123,4 +131,9 @@ def build_agent(repo, mongo_client) -> ChatAgent:
         db_name="football_analytics",
         checkpoint_collection_name=settings.checkpoint_collection,
     )
-    return ChatAgent(model=build_chat_model(), repo=repo, checkpointer=checkpointer)
+    return ChatAgent(
+        model=build_chat_model(),
+        repo=repo,
+        checkpointer=checkpointer,
+        fallback_models=[build_fallback_model()],
+    )

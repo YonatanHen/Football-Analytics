@@ -68,25 +68,72 @@ async def test_a_web_answer_is_marked_degraded_so_it_is_not_mistaken_for_app_dat
     assert res.degraded is True
 
 
+class _GroundedModel:
+    """Stands in for a Gemini model with grounding bound; fails when reply is an exception."""
+
+    def __init__(self, reply):
+        self.reply = reply
+
+    def bind_tools(self, tools):
+        return self
+
+    def with_fallbacks(self, fallbacks):
+        from langchain_core.runnables import RunnableLambda
+
+        async def _call(q):
+            for model in [self, *fallbacks]:
+                try:
+                    return await model.ainvoke(q)
+                except Exception:
+                    continue
+            raise RuntimeError("all failed")
+
+        return RunnableLambda(_call)
+
+    async def ainvoke(self, q):
+        if isinstance(self.reply, Exception):
+            raise self.reply
+        return AIMessage(content=self.reply)
+
+
+def _patch_models(primary, fallback):
+    return (
+        patch("app.agent.llm.build_chat_model", return_value=primary),
+        patch("app.agent.llm.build_fallback_model", return_value=fallback),
+    )
+
+
 @pytest.mark.asyncio
 async def test_web_answer_labels_its_source():
     # The label is prepended by the module, never left to the model (spec 8).
     from app.agent.web_fallback import WEB_LABEL, web_answer
 
-    class _Res:
-        content = "Rodri won it in 2024."
-
-    class _Model:
-        def bind_tools(self, tools):
-            return self
-
-        async def ainvoke(self, q):
-            return _Res()
-
-    with patch("app.agent.llm.build_chat_model", return_value=_Model()):
+    p, f = _patch_models(_GroundedModel("Rodri won it in 2024."), _GroundedModel("unused"))
+    with p, f:
         out = await web_answer("who won the ballon d'or?")
     assert out.startswith(WEB_LABEL)
     assert "Rodri" in out
+
+
+@pytest.mark.asyncio
+async def test_web_answer_reads_content_parts():
+    from app.agent.web_fallback import WEB_LABEL, web_answer
+
+    parts = [{"type": "text", "text": "Rodri won it in 2024."}]
+    p, f = _patch_models(_GroundedModel(parts), _GroundedModel("unused"))
+    with p, f:
+        out = await web_answer("who won the ballon d'or?")
+    assert out == f"{WEB_LABEL} Rodri won it in 2024."
+
+
+@pytest.mark.asyncio
+async def test_web_answer_uses_the_fallback_model_when_the_primary_fails():
+    from app.agent.web_fallback import web_answer
+
+    p, f = _patch_models(_GroundedModel(RuntimeError("503")), _GroundedModel("From fallback."))
+    with p, f:
+        out = await web_answer("anything")
+    assert out.endswith("From fallback.")
 
 
 @pytest.mark.asyncio
@@ -102,17 +149,8 @@ async def test_web_answer_returns_none_on_an_empty_reply():
     # An empty grounded answer must not become a bare label with nothing after it.
     from app.agent.web_fallback import web_answer
 
-    class _Res:
-        content = "   "
-
-    class _Model:
-        def bind_tools(self, tools):
-            return self
-
-        async def ainvoke(self, q):
-            return _Res()
-
-    with patch("app.agent.llm.build_chat_model", return_value=_Model()):
+    p, f = _patch_models(_GroundedModel("   "), _GroundedModel("   "))
+    with p, f:
         assert await web_answer("anything") is None
 
 

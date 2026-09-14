@@ -6,7 +6,7 @@ import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agent.agent import ChatAgent
-from app.agent.llm import build_chat_model
+from app.agent.llm import build_chat_model, build_fallback_model
 from app.agent.web_fallback import WEB_LABEL
 from app.infrastructure.text_utils import normalize_text
 
@@ -49,7 +49,12 @@ def results():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
 async def test_eval_case(case: EvalCase, live_repo, results):
-    agent = ChatAgent(model=build_chat_model(), repo=live_repo, checkpointer=InMemorySaver())
+    agent = ChatAgent(
+        model=build_chat_model(),
+        repo=live_repo,
+        checkpointer=InMemorySaver(),
+        fallback_models=[build_fallback_model()],
+    )
     res = await agent.answer(case.question, session_id=f"eval-{case.id}")
     verdict, detail = grade(case, res.answer, live_repo)
     results.append((case.id, verdict, detail))

@@ -1,11 +1,7 @@
 from unittest.mock import patch
 
-from app.agent.llm import FALLBACK_CHAIN, build_chat_model
+from app.agent.llm import build_chat_model, build_fallback_model
 from app.config import settings
-
-
-def test_fallback_chain_is_primary_then_fallback():
-    assert FALLBACK_CHAIN == [settings.gemini_model, settings.gemini_fallback_model]
 
 
 def test_build_chat_model_uses_the_configured_model_and_key():
@@ -22,10 +18,22 @@ def test_build_chat_model_accepts_an_explicit_model():
     assert ctor.call_args.kwargs["model"] == "some-other-model"
 
 
-def test_temperature_is_zero_so_the_same_question_routes_the_same_way():
+def test_fallback_model_uses_the_configured_fallback():
+    with patch("app.agent.llm.ChatGoogleGenerativeAI") as ctor:
+        build_fallback_model()
+    assert ctor.call_args.kwargs["model"] == settings.gemini_fallback_model
+
+
+def test_fallback_is_a_different_model_from_the_primary():
+    # A fallback on the same model fails for the same reason (retired, 503, quota).
+    assert settings.gemini_fallback_model != settings.gemini_model
+
+
+def test_temperature_is_not_sent():
+    # Gemini 3.x uses fixed sampling: temperature is ignored and logs a warning per call.
     with patch("app.agent.llm.ChatGoogleGenerativeAI") as ctor:
         build_chat_model()
-    assert ctor.call_args.kwargs["temperature"] == 0
+    assert "temperature" not in ctor.call_args.kwargs
 
 
 def test_an_unset_api_key_is_passed_as_none_not_empty_string():
@@ -60,6 +68,6 @@ def test_the_installed_gemini_class_accepts_every_kwarg_we_pass():
     from langchain_google_genai import ChatGoogleGenerativeAI
 
     accepted = set(ChatGoogleGenerativeAI.model_fields)
-    assert {"model", "google_api_key", "temperature", "max_retries"} <= accepted
+    assert {"model", "google_api_key", "max_retries"} <= accepted
     assert issubclass(ChatGoogleGenerativeAI, BaseChatModel)
     assert callable(ChatGoogleGenerativeAI.bind_tools)

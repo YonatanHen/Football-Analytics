@@ -17,11 +17,12 @@ WEB_LABEL = "Not from the app's data — from a web search:"
 async def web_answer(question: str) -> str | None:
     """Return a labelled grounded answer, or None if grounding is unavailable or fails."""
     try:
-        from app.agent.llm import build_chat_model
+        from app.agent.llm import build_chat_model, build_fallback_model
 
         model = build_chat_model().bind_tools([_GROUNDING_TOOL])
+        model = model.with_fallbacks([build_fallback_model().bind_tools([_GROUNDING_TOOL])])
         result = await model.ainvoke(question)
-        text = (result.content or "").strip()
+        text = result.text.strip()
         return f"{WEB_LABEL} {text}" if text else None
     except Exception:
         logger.exception("Web fallback failed")

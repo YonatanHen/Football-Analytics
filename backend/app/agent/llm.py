@@ -9,14 +9,17 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.config import settings
 
-FALLBACK_CHAIN = [settings.gemini_model, settings.gemini_fallback_model]
-
 
 def build_chat_model(model: str | None = None) -> BaseChatModel:
     """Build the chat model. max_retries covers 429s with the SDK's own backoff."""
+    # No temperature: Gemini 3.x uses fixed sampling and ignores it.
     return ChatGoogleGenerativeAI(
         model=model or settings.gemini_model,
         google_api_key=settings.gemini_api_key or None,
-        temperature=0,
         max_retries=3,
     )
+
+
+def build_fallback_model() -> BaseChatModel:
+    """Build the model used when the primary fails (retired, overloaded or out of quota)."""
+    return build_chat_model(settings.gemini_fallback_model)
