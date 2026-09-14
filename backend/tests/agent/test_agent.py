@@ -185,6 +185,44 @@ async def test_a_prune_failure_does_not_lose_the_answer():
 
 
 @pytest.mark.asyncio
+async def test_a_tool_from_an_earlier_turn_does_not_count_for_this_turn():
+    from unittest.mock import AsyncMock, patch
+
+    scripted = [
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "attacking", "args": {"metric": "goals"}, "id": "c1"}],
+        ),
+        AIMessage(content="Player A leads."),
+        AIMessage(content="France won it."),  # second turn: no tool
+    ]
+    agent = _agent(scripted, fake_repo(rows=[fake_player()]))
+    await agent.answer("top scorer?", session_id="x1")
+    with patch("app.agent.agent.web_answer", AsyncMock(return_value="From the web.")) as web:
+        res = await agent.answer("who won the 2018 world cup?", session_id="x1")
+    web.assert_awaited_once()
+    assert res.used_tools is False
+
+
+@pytest.mark.asyncio
+async def test_rows_from_an_earlier_turn_do_not_support_this_answer():
+    call = {"name": "attacking", "args": {"metric": "goals"}, "id": "c1"}
+    scripted = [
+        AIMessage(content="", tool_calls=[call]),
+        AIMessage(content="Player A has 41 goals."),
+        AIMessage(content="", tool_calls=[{**call, "id": "c2"}]),
+        AIMessage(content="Player A has 41 goals."),
+    ]
+    repo = fake_repo(rows=[fake_player(goals=41)])
+    agent = _agent(scripted, repo)
+    first = await agent.answer("top scorer?", session_id="x2")
+    assert first.degraded is False
+    repo.get_players.return_value = ([fake_player(goals=10)], 1)
+    second = await agent.answer("and now?", session_id="x2")
+    assert second.degraded is True  # 41 is only in the first turn's rows
+
+
+@pytest.mark.asyncio
 async def test_clear_drops_the_thread():
     agent = _agent([AIMessage(content="ok")])
     await agent.answer("remember this", session_id="s8")

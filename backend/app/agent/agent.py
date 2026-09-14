@@ -67,7 +67,7 @@ class ChatAgent:
             return ChatResult(answer=GENERIC_ERROR, used_tools=False, degraded=True)
         await self._prune_session(session_id)
 
-        messages = state["messages"]
+        messages = _current_turn(state["messages"])
         used_tools = any(isinstance(m, ToolMessage) for m in messages)
         answer = messages[-1].text if messages else ""
 
@@ -121,6 +121,14 @@ class ChatAgent:
 
     def clear(self, session_id: str) -> None:
         self._graph.checkpointer.delete_thread(session_id)
+
+
+def _current_turn(messages: list) -> list:
+    """Messages after the latest user message; the state holds the whole thread."""
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            return messages[i + 1 :]
+    return messages
 
 
 # Rows are heterogeneous by design: a metric row, an identity profile, a coverage object or
