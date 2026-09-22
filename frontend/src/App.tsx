@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getPlayers } from './api/players'
+import ChatWidget from './components/ChatWidget'
 import SeedPrompt from './components/SeedPrompt'
 import Rankings from './pages/Rankings'
 import PlayerDetail from './pages/PlayerDetail'
@@ -70,6 +71,8 @@ export default function App() {
           </>
         )}
       </main>
+
+      {!dbError && isEmpty === false && <ChatWidget />}
     </div>
   )
 }
