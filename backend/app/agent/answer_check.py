@@ -2,7 +2,8 @@
 
 import re
 
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# Thousand separators included: "3,380" is one number, not 3 and 380.
+_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 
 # Integers this small describe the query ("top 5", "the 3 players"), not a statistic.
 _SMALL_COUNT_MAX = 10
@@ -14,12 +15,13 @@ def uncited_numbers(answer: str, tool_rows: list[dict]) -> list[str]:
 
     uncited: list[str] = []
     for token in _NUMBER.findall(answer or ""):
-        if any(token in text for text in texts):
+        plain = token.replace(",", "")
+        if any(plain in text or token in text for text in texts):
             continue
-        number = float(token)
+        number = float(plain)
         if number.is_integer() and number <= _SMALL_COUNT_MAX:
             continue
-        if any(_is_rendering_of(token, number, value) for value in values):
+        if any(_is_rendering_of(plain, number, value) for value in values):
             continue
         uncited.append(token)
     return uncited

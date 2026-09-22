@@ -101,3 +101,14 @@ def test_unreadable_tool_output_skips_the_check_rather_than_guessing():
     from app.agent.agent import _tool_rows
 
     assert _tool_rows([ToolMessage(content="not json", tool_call_id="c1")]) is None
+
+
+def test_thousand_separators_are_read_as_one_number():
+    # The model writes "3,380 minutes"; naive splitting reads 3 and 380 and flags the answer.
+    rows = [{"name": "Player A", "minutes": 3380, "tackles": 103}]
+    assert uncited_numbers("He played 3,380 minutes and made 103 tackles.", rows) == []
+
+
+def test_a_separated_number_that_no_row_supports_is_still_flagged():
+    rows = [{"name": "Player A", "minutes": 3380}]
+    assert uncited_numbers("He played 9,999 minutes.", rows) == ["9,999"]
