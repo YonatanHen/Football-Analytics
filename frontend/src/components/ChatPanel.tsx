@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { clearSession, getSession, getSessionId, sendChat, type ChatTurn } from '../api/chat'
 
 interface Turn extends ChatTurn {
@@ -101,15 +103,42 @@ function Bubble({ turn }: { turn: Turn }) {
   return (
     <div className={mine ? 'flex justify-end' : 'flex justify-start'}>
       <div
-        className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed ${
+        className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
           mine ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-100'
         }`}
       >
-        {turn.content}
+        {mine ? (
+          <span className="whitespace-pre-wrap">{turn.content}</span>
+        ) : (
+          <Answer text={turn.content} />
+        )}
         {turn.degraded && (
           <div className="mt-1 text-xs text-amber-400/80">Not verified against the app's data.</div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Answers come back as markdown. react-markdown escapes HTML, so no raw html is rendered.
+const MARKDOWN_STYLES = [
+  '[&_p]:mb-2 [&_p:last-child]:mb-0',
+  '[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li]:mb-1',
+  '[&_strong]:font-semibold [&_code]:text-xs [&_code]:bg-black/30 [&_code]:px-1 [&_code]:rounded',
+  '[&_table]:w-full [&_th]:text-left [&_th]:pr-3 [&_td]:pr-3 [&_a]:underline',
+].join(' ')
+
+function Answer({ text }: { text: string }) {
+  return (
+    <div className={MARKDOWN_STYLES}>
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: (props) => <a {...props} target="_blank" rel="noreferrer" />,
+        }}
+      >
+        {text}
+      </Markdown>
     </div>
   )
 }
