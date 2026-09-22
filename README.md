@@ -18,8 +18,9 @@ This project is a **free, open-source, educational tool** built for football ent
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 · TypeScript · Vite · Tailwind CSS · Recharts |
+| Frontend | React 18 · TypeScript · Vite · Tailwind CSS · Recharts · react-markdown |
 | Backend | FastAPI · Python 3.12 · PyMongo · Pydantic Settings |
+| Chatbot Agent | LangChain · LangGraph (`create_agent`), configurable LLM provider (Gemini free tier by default) |
 | Database | MongoDB 7 |
 | Data Fetching | ScraperFC · botasaurus · Chromium |
 | Infrastructure | Docker Compose |
@@ -41,18 +42,23 @@ flowchart LR
             PA["Player Assembler\nbuild · merge · aggregate"]
             SC["Stats Client\nScraperFC + Chrome"]
             MR["Mongo Repository"]
+            CA["Chat Agent\nLangGraph tool loop"]
         end
         DB[("MongoDB 7\n:27017")]
     end
 
     EXT["Live Football\nData Source"]
+    LLM["LLM Provider"]
 
     User --> FE
     FE -- REST --> API
     API --> SE
     API --> PA
+    API --> CA
     PA --> SC
     PA --> MR
+    CA --> MR
+    CA -- "chat tools" --> LLM
     MR --> DB
     SC -- "ScraperFC / botasaurus" --> EXT
 ```
@@ -60,6 +66,8 @@ flowchart LR
 **Fetch path:** developer runs `tools/fetch_cli` → `POST /v1/fetch/` → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, no fetch rate limit) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
 
 **Read path:** React SPA → API routers → `MongoRepository.get_players()` → paginated and filterable by position, team, nationality, or sleeper flag.
+
+**Chat path:** floating chat widget (or `?chat=1` full-screen view) → `POST /v1/chat` → `ChatAgent` (LangGraph `create_agent` loop over per-metric-family DB query tools) → answer built from the rows those tools returned. Session history is a MongoDB checkpoint per thread, expiring 7 days after the last message.
 
 ---
 
@@ -72,6 +80,7 @@ flowchart LR
 - **Player Detail** — per-competition stat breakdown and aggregated scores for any player, including those without a linked external ID
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions
 - **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) across the full dataset
+- **Chat Agent** — floating widget on every tab (also a full-screen view at `?chat=1`) answers natural-language questions about players and metrics from live DB tool calls; figures with no supporting row are flagged, and questions the database cannot answer are answered from the model's own knowledge and labelled as such; no navbar tab by design
 - **Developer Data Loading** — `tools/fetch_cli`, a standalone CLI for browsing available competitions/seasons and loading data into MongoDB, with live per-task fetch progress
 - **DB Snapshots** — JSON dump/restore scripts (`backend/scripts/DB/`) for safe local dev iteration
 
@@ -134,12 +143,22 @@ Player data is split across two MongoDB collections:
 ```env
 MONGO_URI=mongodb://mongodb:27017/football_analytics
 CORS_ORIGINS=["http://localhost:5173"]
+GEMINI_API_KEY=your-key-here
 ```
+
+`GEMINI_API_KEY` powers the chat agent (default provider, free tier). Without it the rest of the API still starts — the agent is just disabled and `/v1/chat` returns a degraded response. See [Chat Agent Configuration](#chat-agent-configuration) below for other providers.
 
 ### Full stack
 
 ```bash
 docker compose up
+```
+
+After pulling changes to the backend or frontend dependencies, rebuild:
+
+```bash
+docker compose build backend
+docker compose up -d --force-recreate --renew-anon-volumes frontend  # node_modules lives in an anonymous volume
 ```
 
 | Service | URL |
@@ -173,7 +192,28 @@ pytest tests/domain/test_scoring_engine.py
 pytest tests/domain/test_scoring_engine.py::test_name
 ```
 
-Tests use `mongomock` — no running MongoDB required.
+Tests use `mongomock` — no running MongoDB required. Agent tests live in `backend/tests/agent/`; the offline eval under `backend/tests/agent/eval/` is skipped by default and needs `AGENT_EVAL=1`, a live model, and a populated DB:
+
+```bash
+AGENT_EVAL=1 pytest tests/agent/eval -v -s
+```
+
+### Chat Agent Configuration
+
+Set in `secrets.env` / `.env`:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `LLM_PROVIDER` | `gemini` | `gemini`, `openai`, or `anthropic` |
+| `LLM_MODEL` | provider default | `openai`/`anthropic` have no default — must be set explicitly |
+| `LLM_API_KEY` | unset | falls back to the provider SDK's own env var (e.g. `GEMINI_API_KEY`) |
+| `LLM_FALLBACK_MODEL` | unset | model to retry with on failure; empty means no fallback |
+| `AGENT_MAX_TOOL_ITERATIONS` | `8` | tool-call loop limit per turn |
+| `AGENT_MAX_ROWS` | `25` | max rows a DB query tool can return |
+| `CHECKPOINT_COLLECTION` | `chat_checkpoints` | MongoDB collection for session state |
+| `CHAT_SESSION_TTL_SECONDS` | `604800` (7 days) | session expiry after the last message |
+
+`openai` and `anthropic` require installing their LangChain package (`langchain-openai` / `langchain-anthropic`) and setting `LLM_MODEL` explicitly.
 
 ### Loading Data
 
