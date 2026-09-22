@@ -22,7 +22,10 @@ class MetricQuery(BaseModel):
     player_name: str | None = None
     min_value: float | None = None
     max_value: float | None = None
-    limit: int = 10
+    order: Literal["desc", "asc"] = Field(
+        "desc", description="desc ranks highest first; asc for 'fewest' or 'least' questions."
+    )
+    limit: int = Field(10, ge=1, description="How many rows to return.")
 
 
 def _row(player, metric: str) -> dict:
@@ -57,7 +60,7 @@ def run_metric_query(repo, family: set[str], q: MetricQuery) -> list[dict]:
             name=q.player_name,
             stats_view=q.competition,
             sort_by=q.metric,
-            order="desc",
+            order=q.order,
             filters=filters or None,
             page=1,
             page_size=min(q.limit, MAX_ROWS),

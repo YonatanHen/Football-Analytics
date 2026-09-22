@@ -17,7 +17,8 @@ export default function ChatPanel({ fullScreen = false }: { fullScreen?: boolean
 
   useEffect(() => {
     getSession(getSessionId())
-      .then(setTurns)
+      // Keep whatever the user sent while this was still loading.
+      .then((stored) => setTurns((current) => (current.length ? current : stored)))
       .catch(() => {})
   }, [])
 

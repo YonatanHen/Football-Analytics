@@ -22,7 +22,7 @@ async def test_plain_answer_is_returned_without_tools():
     )
     assert res.answer == "Ronaldo plays as a forward."
     assert res.used_tools is False
-    assert res.degraded is False
+    assert res.degraded is True  # no tool backed it, so it is not from the app's data
 
 
 @pytest.mark.asyncio
@@ -120,7 +120,6 @@ async def test_fallback_model_answers_when_the_primary_fails():
     )
     res = await agent.answer("anything", session_id="f1")
     assert res.answer == "from fallback"
-    assert res.degraded is False
 
 
 @pytest.mark.asyncio
@@ -181,7 +180,6 @@ async def test_a_prune_failure_does_not_lose_the_answer():
     )
     res = await agent.answer("hi", session_id="pr3")
     assert res.answer == "ok"
-    assert res.degraded is False
 
 
 @pytest.mark.asyncio
@@ -226,3 +224,37 @@ async def test_clear_drops_the_thread():
     assert agent.history("s8")
     agent.clear("s8")
     assert agent.history("s8") == []
+
+
+@pytest.mark.asyncio
+async def test_an_answer_with_no_tool_behind_it_is_marked_unverified():
+    # The prompt lets the model answer outside questions from its own knowledge.
+    res = await _agent([AIMessage(content="Not from the app's data: France won in 2018.")]).answer(
+        "who won the 2018 world cup?", session_id="u1"
+    )
+    assert res.used_tools is False
+    assert res.degraded is True
+
+
+@pytest.mark.asyncio
+async def test_history_hides_text_that_came_with_a_tool_call():
+    # Such text is the model's preamble; the live view never showed it.
+    scripted = [
+        AIMessage(
+            content="Let me check the attacking tool.",
+            tool_calls=[{"name": "attacking", "args": {"metric": "goals"}, "id": "c1"}],
+        ),
+        AIMessage(content="Player A leads."),
+    ]
+    agent = _agent(scripted, fake_repo(rows=[fake_player()]))
+    await agent.answer("top scorer?", session_id="h1")
+    assert [t["content"] for t in agent.history("h1")] == ["top scorer?", "Player A leads."]
+
+
+def test_clearing_a_session_survives_a_storage_failure():
+    checkpointer = InMemorySaver()
+    checkpointer.delete_thread = lambda session_id: (_ for _ in ()).throw(RuntimeError("mongo"))
+    agent = ChatAgent(
+        model=FakeToolCallingModel(responses=[]), repo=fake_repo(), checkpointer=checkpointer
+    )
+    agent.clear("gone")  # must not raise: the API returns 204 either way

@@ -1,5 +1,8 @@
 from unittest.mock import MagicMock
 
+import pytest
+from pydantic import ValidationError
+
 from app.agent.tools.base import MetricQuery, build_metric_tool, run_metric_query
 from app.domain.models import AggregatedScores, PlayerDTO, Stats
 
@@ -77,3 +80,29 @@ def test_built_tool_exposes_only_its_family_metrics():
     schema = tool.args_schema.model_json_schema()
     allowed = schema["properties"]["metric"]["enum"]
     assert set(allowed) == {"goals", "assists"}
+
+
+def test_limit_cannot_disable_the_row_cap():
+    # Mongo reads limit(0) as "no limit", which would dump the whole collection.
+    for bad in (0, -1):
+        with pytest.raises(ValidationError):
+            MetricQuery(metric="goals", limit=bad)
+
+
+def test_lowest_first_questions_can_be_answered():
+    # goals_conceded, dribbled_past and errors_lead_to_goal are "lower is better".
+    repo = _repo([_player()])
+    run_metric_query(repo, FAMILY, MetricQuery(metric="goals", order="asc"))
+    assert repo.get_players.call_args.kwargs["order"] == "asc"
+
+
+def test_sorting_is_highest_first_unless_asked_otherwise():
+    repo = _repo([_player()])
+    run_metric_query(repo, FAMILY, MetricQuery(metric="goals"))
+    assert repo.get_players.call_args.kwargs["order"] == "desc"
+
+
+def test_the_built_tool_offers_both_sort_directions():
+    tool = build_metric_tool(_repo([]), name="attacking", description="d", metrics=["goals"])
+    schema = tool.args_schema.model_json_schema()
+    assert set(schema["properties"]["order"]["enum"]) == {"asc", "desc"}

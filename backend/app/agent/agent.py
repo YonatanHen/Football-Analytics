@@ -83,8 +83,11 @@ class ChatAgent:
                 )
                 return ChatResult(answer=answer, used_tools=True, degraded=True)
 
+        # No tool behind the answer means it is the model's own knowledge, not this app's data.
         return ChatResult(
-            answer=answer or GENERIC_ERROR, used_tools=used_tools, degraded=not answer
+            answer=answer or GENERIC_ERROR,
+            used_tools=used_tools,
+            degraded=not (answer and used_tools),
         )
 
     async def _prune_session(self, session_id: str) -> None:
@@ -107,12 +110,17 @@ class ChatAgent:
         for m in (state.values or {}).get("messages", []):
             if isinstance(m, HumanMessage):
                 turns.append({"role": "user", "content": m.text})
-            elif isinstance(m, AIMessage) and m.text:
+            # Text sent alongside a tool call is the model's preamble; it was never shown.
+            elif isinstance(m, AIMessage) and m.text and not m.tool_calls:
                 turns.append({"role": "assistant", "content": m.text})
         return turns
 
     def clear(self, session_id: str) -> None:
-        self._graph.checkpointer.delete_thread(session_id)
+        try:
+            self._graph.checkpointer.delete_thread(session_id)
+        except Exception:
+            # The caller gets 204 either way; the TTL removes the thread later.
+            logger.exception("Could not clear session %s", session_id)
 
 
 def _current_turn(messages: list) -> list:

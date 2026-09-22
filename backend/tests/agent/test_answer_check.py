@@ -112,3 +112,21 @@ def test_thousand_separators_are_read_as_one_number():
 def test_a_separated_number_that_no_row_supports_is_still_flagged():
     rows = [{"name": "Player A", "minutes": 3380}]
     assert uncited_numbers("He played 9,999 minutes.", rows) == ["9,999"]
+
+
+def test_values_inside_lists_count_as_cited():
+    # data_coverage returns lists only; ignoring them flagged every coverage answer.
+    rows = [{"seasons": ["2025-2026"], "club_competitions": ["England Premier League"]}]
+    assert uncited_numbers("I have 2025-2026 data for the England Premier League.", rows) == []
+
+
+def test_values_inside_nested_dicts_count_as_cited():
+    rows = [{"totals": {"minutes": 3380}}]
+    assert uncited_numbers("He played 3380 minutes.", rows) == []
+
+
+def test_ordered_list_markers_are_not_statistics():
+    # "11. Player Name" is markdown, not a figure the tools had to return.
+    rows = [{"name": "Player A", "goals": 12}]
+    answer = "1. Player A - 12 goals\n11. Player B\n12. Player C"
+    assert uncited_numbers(answer, rows) == []

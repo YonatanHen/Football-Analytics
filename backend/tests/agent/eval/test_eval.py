@@ -49,7 +49,7 @@ async def test_eval_case(case: EvalCase, live_repo, results):
         model=build_chat_model(),
         repo=live_repo,
         checkpointer=InMemorySaver(),
-        fallback_models=[build_fallback_model()],
+        fallback_models=[m for m in [build_fallback_model()] if m],
     )
     res = await agent.answer(case.question, session_id=f"eval-{case.id}")
     verdict, detail = grade(case, res.answer, live_repo)

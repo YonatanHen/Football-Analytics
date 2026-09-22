@@ -1,3 +1,4 @@
+import dataclasses
 from datetime import UTC, datetime
 
 from app.domain.models import (
@@ -357,3 +358,12 @@ def test_list_fetched_leagues_returns_known_pairs(repo: MongoRepository) -> None
     pairs = {(d["competition"], d["season"]) for d in result}
     assert pairs == {("England Premier League", "2025-2026"), ("FIFA World Cup", "2026")}
     assert all(d["updated_at"] is not None for d in result)
+
+
+def test_a_name_filter_is_matched_literally_not_as_a_regex(repo: MongoRepository) -> None:
+    # The name comes from user text (API query or chatbot tool), so "." must not match all.
+    first = dataclasses.replace(_make_player("1"), name="Nico O'Reilly")
+    repo.upsert_player(first)
+    repo.upsert_player(dataclasses.replace(_make_player("2"), name="Adrien Truffert"))
+    assert repo.get_players(season="2025-2026", name=".")[1] == 0
+    assert repo.get_players(season="2025-2026", name="O'Reilly")[1] == 1
