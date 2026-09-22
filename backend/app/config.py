@@ -17,6 +17,18 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # --- chatbot agent ---
+    # Provider and model are configurable; the defaults are Gemini's free tier.
+    llm_provider: str = "gemini"
+    llm_model: str = ""  # empty means the provider's default model
+    llm_api_key: str = ""  # empty means the provider SDK reads its own env var
+    llm_fallback_model: str = ""  # empty means no fallback
+    gemini_api_key: str = ""
+    agent_max_tool_iterations: int = 8
+    agent_max_rows: int = 25
+    checkpoint_collection: str = "chat_checkpoints"
+    chat_session_ttl_seconds: int = 7 * 24 * 60 * 60
+
     model_config = {"env_file": ".env"}
 
 

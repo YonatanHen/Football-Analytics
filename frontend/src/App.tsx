@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getPlayers } from './api/players'
+import ChatWidget from './components/ChatWidget'
+import ChatFullScreen from './pages/ChatFullScreen'
 import SeedPrompt from './components/SeedPrompt'
 import Rankings from './pages/Rankings'
 import PlayerDetail from './pages/PlayerDetail'
@@ -17,7 +19,14 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'scatter', label: 'Scatter Plot' },
 ]
 
+// One query param does not justify adding a router. The chat has no navbar tab by design.
+const fullScreenChat = new URLSearchParams(window.location.search).get('chat') === '1'
+
 export default function App() {
+  return fullScreenChat ? <ChatFullScreen /> : <Dashboard />
+}
+
+function Dashboard() {
   const [tab, setTab] = useState<Tab>('rankings')
   const [isEmpty, setIsEmpty] = useState<boolean | null>(null)
   const [dbError, setDbError] = useState(false)
@@ -70,6 +79,8 @@ export default function App() {
           </>
         )}
       </main>
+
+      {!dbError && isEmpty === false && <ChatWidget />}
     </div>
   )
 }

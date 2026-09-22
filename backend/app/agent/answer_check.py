@@ -1,0 +1,62 @@
+"""Flag figures in an answer that no tool row supports. No extra model call."""
+
+import re
+
+# Thousand separators included: "3,380" is one number, not 3 and 380.
+_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
+
+# Integers this small describe the query ("top 5", "the 3 players"), not a statistic.
+_SMALL_COUNT_MAX = 10
+
+
+# "1. ", "12. " at the start of a line are markdown list markers, not figures.
+_LIST_MARKER = re.compile(r"^\s*\d+[.)]\s", re.MULTILINE)
+
+
+def uncited_numbers(answer: str, tool_rows: list[dict]) -> list[str]:
+    """Return numeric tokens in the answer that appear in no row. Empty means grounded."""
+    values, texts = _row_contents(tool_rows)
+    answer = _LIST_MARKER.sub("", answer or "")
+
+    uncited: list[str] = []
+    for token in _NUMBER.findall(answer or ""):
+        plain = token.replace(",", "")
+        if any(plain in text or token in text for text in texts):
+            continue
+        number = float(plain)
+        if number.is_integer() and number <= _SMALL_COUNT_MAX:
+            continue
+        if any(_is_rendering_of(plain, number, value) for value in values):
+            continue
+        uncited.append(token)
+    return uncited
+
+
+def _row_contents(tool_rows: list[dict]) -> tuple[list[float], list[str]]:
+    """Every number and string in the rows, however deeply nested."""
+    values: list[float] = []
+    texts: list[str] = []
+
+    def walk(value) -> None:
+        if isinstance(value, bool):
+            return
+        if isinstance(value, int | float):
+            values.append(float(value))
+        elif isinstance(value, str):
+            texts.append(value)
+        elif isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list | tuple):
+            for item in value:
+                walk(item)
+
+    walk(list(tool_rows or []))
+    return values, texts
+
+
+def _is_rendering_of(token: str, number: float, value: float) -> bool:
+    """True when the token could be `value` written to the token's own precision."""
+    decimals = len(token.split(".")[1]) if "." in token else 0
+    tolerance = 0.5 * (10**-decimals)
+    return abs(value - number) <= tolerance

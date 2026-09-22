@@ -1,3 +1,4 @@
+import re
 from dataclasses import asdict, fields
 from datetime import UTC, datetime
 
@@ -327,7 +328,8 @@ class MongoRepository:
         if nationality:
             bio_query["nationality"] = nationality
         if name:
-            bio_query["name"] = {"$regex": name, "$options": "i"}
+            # The name is user text: escape it so "." cannot match every player.
+            bio_query["name"] = {"$regex": re.escape(name), "$options": "i"}
 
         stats_query: dict = {"season": season}
         if bio_query:
