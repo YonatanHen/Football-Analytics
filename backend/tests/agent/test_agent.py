@@ -186,8 +186,6 @@ async def test_a_prune_failure_does_not_lose_the_answer():
 
 @pytest.mark.asyncio
 async def test_a_tool_from_an_earlier_turn_does_not_count_for_this_turn():
-    from unittest.mock import AsyncMock, patch
-
     scripted = [
         AIMessage(
             content="",
@@ -198,10 +196,9 @@ async def test_a_tool_from_an_earlier_turn_does_not_count_for_this_turn():
     ]
     agent = _agent(scripted, fake_repo(rows=[fake_player()]))
     await agent.answer("top scorer?", session_id="x1")
-    with patch("app.agent.agent.web_answer", AsyncMock(return_value="From the web.")) as web:
-        res = await agent.answer("who won the 2018 world cup?", session_id="x1")
-    web.assert_awaited_once()
+    res = await agent.answer("who won the 2018 world cup?", session_id="x1")
     assert res.used_tools is False
+    assert res.answer == "France won it."
 
 
 @pytest.mark.asyncio

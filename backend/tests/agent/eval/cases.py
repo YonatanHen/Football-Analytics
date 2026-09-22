@@ -10,8 +10,7 @@ from app.config import settings
 class EvalCase:
     id: str
     question: str
-    # repo -> player names the answer must mention; None means the answer must be a web answer
-    expected: Callable[..., list[str]] | None = field(default=None, repr=False)
+    expected: Callable[..., list[str]] = field(repr=False)  # repo -> names the answer must name
 
 
 def _top(repo, metric: str, n: int, **filters) -> list[str]:
@@ -58,7 +57,9 @@ CASES = [
         expected=lambda repo: _first_match(repo, "Salah") + _first_match(repo, "Saka"),
     ),
     EvalCase(
+        # Outside the database: the model must answer from its own knowledge, not refuse.
         id="outside-data",
         question="Which country won the 2018 FIFA World Cup?",
+        expected=lambda repo: ["France"],
     ),
 ]

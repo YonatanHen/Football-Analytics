@@ -7,7 +7,6 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agent.agent import ChatAgent
 from app.agent.llm import build_chat_model, build_fallback_model
-from app.agent.web_fallback import WEB_LABEL
 from app.infrastructure.text_utils import normalize_text
 
 from .cases import CASES, EvalCase
@@ -24,9 +23,6 @@ def mentions(answer: str, name: str) -> bool:
 
 def grade(case: EvalCase, answer: str, repo) -> tuple[str, str]:
     """Return (verdict, detail); verdict is pass, fail or no-truth."""
-    if case.expected is None:
-        ok = answer.startswith(WEB_LABEL)
-        return ("pass" if ok else "fail"), "" if ok else "expected a labelled web answer"
     names = case.expected(repo)
     if not names:
         return "no-truth", "the DB has no rows for this question"

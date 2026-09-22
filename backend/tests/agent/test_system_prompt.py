@@ -29,7 +29,7 @@ def test_prompt_sets_a_one_call_default():
 
 def test_prompt_forbids_refusing():
     lowered = SYSTEM_PROMPT.lower()
-    assert "do not write a refusal" in lowered
+    assert "never refuse" in lowered
 
 
 def test_prompt_tells_the_model_not_to_resolve_names_with_identity_first():

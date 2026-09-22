@@ -6,16 +6,10 @@ from app.config import settings
 from app.infrastructure.mongo_repository import MongoRepository
 
 
-@pytest.fixture(autouse=True)
-def no_web_fallback():
-    """Override the agent suite's patch: the eval measures the real web fallback."""
-    yield
-
-
 @pytest.fixture(scope="module")
 def live_repo() -> MongoRepository:
-    if not settings.gemini_api_key:
-        pytest.fail("GEMINI_API_KEY is not set; the eval needs a live model.")
+    if not (settings.gemini_api_key or settings.llm_api_key):
+        pytest.fail("No API key is set; the eval needs a live model.")
     client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=3000)
     try:
         client.admin.command("ping")

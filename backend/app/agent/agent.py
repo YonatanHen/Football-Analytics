@@ -18,7 +18,6 @@ from app.agent.constants import GENERIC_ERROR, MAX_TOOL_ITERATIONS
 from app.agent.llm import build_chat_model, build_fallback_model
 from app.agent.system_prompt import SYSTEM_PROMPT
 from app.agent.tools import build_tools
-from app.agent.web_fallback import web_answer
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ class ChatAgent:
             "recursion_limit": MAX_TOOL_ITERATIONS * 2,
         }
 
-    async def answer(self, message: str, session_id: str, allow_web: bool = True) -> ChatResult:
+    async def answer(self, message: str, session_id: str) -> ChatResult:
         try:
             # "exit" saves one checkpoint when the turn ends, not one per graph step.
             state = await self._graph.ainvoke(
@@ -70,13 +69,6 @@ class ChatAgent:
         messages = _current_turn(state["messages"])
         used_tools = any(isinstance(m, ToolMessage) for m in messages)
         answer = messages[-1].text if messages else ""
-
-        # No tool produced data, so the answer is ungrounded. Prefer a labelled web answer
-        # over the model's own guess; degraded marks it as not from the app's data.
-        if allow_web and not used_tools:
-            grounded = await web_answer(message)
-            if grounded:
-                return ChatResult(answer=grounded, used_tools=False, degraded=True)
 
         if used_tools and answer:
             rows = _tool_rows(messages)
@@ -156,6 +148,6 @@ def build_agent(repo, mongo_client) -> ChatAgent:
         model=build_chat_model(),
         repo=repo,
         checkpointer=checkpointer,
-        fallback_models=[build_fallback_model()],
+        fallback_models=[m for m in [build_fallback_model()] if m],
         prune=partial(keep_latest_checkpoint, checkpointer),
     )
