@@ -4,18 +4,6 @@
     },
     "teammateMode": "in-process",
     "hooks": {
-        "PreToolUse": [
-            {
-                "matcher": "Bash",
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "if": "Bash(gh pr create:*)",
-                        "prompt": "Hook input: $ARGUMENTS\n\nFirst, read tool_input.command. If it does not invoke `gh pr create`, respond {\"ok\": true} immediately and do nothing else.\n\nOtherwise a PR to master is about to be opened. If the code-review skill (/code-review) has NOT already been run against the latest changes in this conversation, respond {\"ok\": false, \"reason\": \"Run /code-review, address its findings, then retry opening the PR.\"}. Otherwise respond {\"ok\": true}."
-                    }
-                ]
-            }
-        ],
         "PostToolUse": [
             {
                 "matcher": "Bash",
