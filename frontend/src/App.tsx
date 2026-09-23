@@ -3,17 +3,15 @@ import { getPlayers } from './api/players'
 import ChatWidget from './components/ChatWidget'
 import ChatFullScreen from './pages/ChatFullScreen'
 import SeedPrompt from './components/SeedPrompt'
-import Rankings from './pages/Rankings'
-import PlayerDetail from './pages/PlayerDetail'
+import PlayerDetails from './pages/PlayerDetails'
 import Compare from './pages/Compare'
 import Sleepers from './pages/Sleepers'
 import ScatterPage from './pages/ScatterPage'
 
-type Tab = 'rankings' | 'detail' | 'compare' | 'sleepers' | 'scatter'
+type Tab = 'players' | 'compare' | 'sleepers' | 'scatter'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'rankings', label: 'Rankings' },
-  { id: 'detail', label: 'Player Detail' },
+  { id: 'players', label: 'Player details' },
   { id: 'compare', label: 'Compare' },
   { id: 'sleepers', label: 'Underpredicted' },
   { id: 'scatter', label: 'Scatter Plot' },
@@ -27,7 +25,7 @@ export default function App() {
 }
 
 function Dashboard() {
-  const [tab, setTab] = useState<Tab>('rankings')
+  const [tab, setTab] = useState<Tab>('players')
   const [isEmpty, setIsEmpty] = useState<boolean | null>(null)
   const [dbError, setDbError] = useState(false)
 
@@ -71,8 +69,7 @@ function Dashboard() {
         {!dbError && isEmpty === true && <SeedPrompt />}
         {!dbError && isEmpty === false && (
           <>
-            {tab === 'rankings' && <Rankings />}
-            {tab === 'detail' && <PlayerDetail />}
+            {tab === 'players' && <PlayerDetails />}
             {tab === 'compare' && <Compare />}
             {tab === 'sleepers' && <Sleepers />}
             {tab === 'scatter' && <ScatterPage />}

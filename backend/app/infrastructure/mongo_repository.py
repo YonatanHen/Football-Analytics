@@ -22,6 +22,11 @@ from app.domain.models import (
 from app.infrastructure.text_utils import normalize_text
 
 
+def _substring(text: str) -> dict:
+    """Match a norm_* field by substring. The text is escaped, so "." cannot match everything."""
+    return {"$regex": re.escape(normalize_text(text))}
+
+
 def _stats_to_dict(stats: Stats) -> dict:
     return asdict(stats)
 
@@ -328,15 +333,14 @@ class MongoRepository:
         if nationality:
             bio_query["nationality"] = nationality
         if name:
-            # The name is user text: escape it so "." cannot match every player.
-            bio_query["name"] = {"$regex": re.escape(name), "$options": "i"}
+            bio_query["norm_name"] = _substring(name)
 
         stats_query: dict = {"season": season}
         if bio_query:
             bio_ids = [d["_id"] for d in self._player_bios.find(bio_query, {"_id": 1})]
             stats_query["player_bio_id"] = {"$in": bio_ids}
         if team:
-            stats_query["team"] = team
+            stats_query["norm_team"] = _substring(team)
         if underpredicted_flag:
             stats_query["aggregated_scores.sleeper_flag"] = underpredicted_flag
 

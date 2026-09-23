@@ -2,7 +2,7 @@ import type { CompetitionList, FilterClause, FilterOp } from '../api/players'
 import { FILTER_OP_OPTIONS, METRIC_OPTIONS } from '../api/players'
 
 export interface Filters {
-  position: string; team: string; nationality: string; underpredicted_flag: string
+  name: string; position: string; team: string; nationality: string; underpredicted_flag: string
   stats_view: string; clauses: FilterClause[]
 }
 
@@ -38,6 +38,13 @@ export default function FilterBar({ filters, onChange, competitions }: FilterBar
   return (
     <div className="flex flex-col gap-3 mb-4">
       <div className="flex flex-wrap gap-3">
+        <input
+          value={filters.name}
+          onChange={set('name')}
+          placeholder="Player name..."
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-48"
+        />
+
         <select
           value={filters.position}
           onChange={set('position')}

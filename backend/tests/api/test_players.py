@@ -196,3 +196,26 @@ def test_filter_bad_op_422(client_with_player: TestClient) -> None:
 def test_filter_non_numeric_value_422(client_with_player: TestClient) -> None:
     resp = client_with_player.get('/v1/players?filters=[{"field":"goals","op":"gte","value":"x"}]')
     assert resp.status_code == 422
+
+
+def test_list_players_filter_by_team_partial(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?team=rsen")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_list_players_filter_by_team_case_insensitive(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?team=ARSENAL")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_list_players_team_and_name_are_combined_with_and(client_with_player: TestClient) -> None:
+    both = client_with_player.get("/v1/players?team=arsenal&name=test")
+    assert both.status_code == 200
+    assert both.json()["total"] == 1
+
+    # The team matches but the name does not, so the AND must reject the player.
+    one = client_with_player.get("/v1/players?team=arsenal&name=nobody")
+    assert one.status_code == 200
+    assert one.json()["total"] == 0

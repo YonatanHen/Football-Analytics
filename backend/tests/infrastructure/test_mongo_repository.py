@@ -367,3 +367,67 @@ def test_a_name_filter_is_matched_literally_not_as_a_regex(repo: MongoRepository
     repo.upsert_player(dataclasses.replace(_make_player("2"), name="Adrien Truffert"))
     assert repo.get_players(season="2025-2026", name=".")[1] == 0
     assert repo.get_players(season="2025-2026", name="O'Reilly")[1] == 1
+
+
+def test_get_players_team_filter_is_a_case_insensitive_substring(repo: MongoRepository) -> None:
+    player = _make_player("1")
+    player.team = "Manchester City"
+    repo.upsert_player(player)
+    for query in ("Cit", "cit", "CITY", "manchester"):
+        _, total = repo.get_players(season="2025-2026", team=query)
+        assert total == 1, query
+
+
+def test_get_players_team_filter_ignores_accents(repo: MongoRepository) -> None:
+    player = _make_player("1")
+    player.team = "FC Bayern München"
+    repo.upsert_player(player)
+    _, total = repo.get_players(season="2025-2026", team="munchen")
+    assert total == 1
+
+
+def test_get_players_team_substring_still_excludes_other_teams(repo: MongoRepository) -> None:
+    city = _make_player("1")
+    city.team = "Manchester City"
+    united = _make_player("2")
+    united.team = "Manchester United"
+    repo.upsert_player(city)
+    repo.upsert_player(united)
+    players, total = repo.get_players(season="2025-2026", team="cit")
+    assert total == 1
+    assert players[0].team == "Manchester City"
+
+
+def test_get_players_team_filter_treats_regex_characters_as_text(repo: MongoRepository) -> None:
+    player = _make_player("1")
+    player.team = "Manchester City"
+    repo.upsert_player(player)
+    _, total = repo.get_players(season="2025-2026", team=".*")
+    assert total == 0
+
+
+def test_get_players_name_and_team_are_combined_with_and(repo: MongoRepository) -> None:
+    kane = _make_player("1")
+    kane.name = "Harry Kane"
+    kane.team = "FC Bayern München"
+    maguire = _make_player("2")
+    maguire.name = "Harry Maguire"
+    maguire.team = "Manchester United"
+    repo.upsert_player(kane)
+    repo.upsert_player(maguire)
+
+    players, total = repo.get_players(season="2025-2026", name="Harry", team="bayern")
+    assert total == 1
+    assert players[0].name == "Harry Kane"
+
+    # A player matching only one of the two must not come back: this is AND, never OR.
+    _, miss = repo.get_players(season="2025-2026", name="Harry Kane", team="Manchester")
+    assert miss == 0
+
+
+def test_get_players_name_filter_ignores_accents(repo: MongoRepository) -> None:
+    player = _make_player("1")
+    player.name = "Julián Álvarez"
+    repo.upsert_player(player)
+    _, total = repo.get_players(season="2025-2026", name="julian alvarez")
+    assert total == 1
