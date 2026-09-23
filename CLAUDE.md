@@ -118,7 +118,7 @@ app/
 
 **Fantasy mode** (live fetch): `POST /v1/fetch/` → `FantasyMode.fetch_data()` → fetches from Sofascore per competition → `player_assembler.build_player()` → scores via `ScoringEngine` → upserts to MongoDB.
 
-**Read path**: `GET /v1/players` → `MongoRepository.get_players()` → paginates + filters by position/team/nationality/sleeper_flag.
+**Read path**: `GET /v1/players` → `MongoRepository.get_players()` → paginates + filters by name/position/team/nationality/sleeper_flag. `name` and `team` match `norm_name`/`norm_team` by substring, so they are case- and accent-insensitive; passing both combines them with AND.
 
 **Chat path**: `POST /v1/chat` → `ChatAgent.answer()` → LangGraph `create_agent` loop calls metric-family tools (each wraps `MongoRepository.get_players()`) → `answer_check.uncited_numbers()` flags any figure in the reply not present in a tool row (sets `degraded=True`, does not block the reply) → session state checkpointed to MongoDB by `session_id` (thread id). If the agent could not be built at startup (e.g. no `GEMINI_API_KEY`), `get_agent()` returns `None` and `/v1/chat` responds with a degraded generic answer instead of failing.
 
@@ -141,8 +141,7 @@ app/
 
 ### Frontend pages
 
-- `Rankings` — paginated player table with position/team filter
-- `PlayerDetail` — single player view by Sofascore ID (modal; also opens for players without a Sofascore ID)
+- `PlayerDetails` — paginated player table plus live search; the name and team fields filter as you type (250 ms debounce, stale responses dropped). Clicking a row opens the single-player modal, which also opens for players without a Sofascore ID
 - `Compare` — side-by-side exactly 2 players
 - `Sleepers` — filtered to sleeper_flag players
 - `ScatterPage` — xG+xA vs G+A scatter plot via Recharts

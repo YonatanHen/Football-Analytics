@@ -65,7 +65,7 @@ flowchart LR
 
 **Fetch path:** developer runs `tools/fetch_cli` → `POST /v1/fetch/` → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, no fetch rate limit) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
 
-**Read path:** React SPA → API routers → `MongoRepository.get_players()` → paginated and filterable by position, team, nationality, or sleeper flag.
+**Read path:** React SPA → API routers → `MongoRepository.get_players()` → paginated and filterable by name, team, position, nationality, or sleeper flag; name and team are case- and accent-insensitive substring matches, combined with AND when both are set.
 
 **Chat path:** floating chat widget (or `?chat=1` full-screen view) → `POST /v1/chat` → `ChatAgent` (LangGraph `create_agent` loop over per-metric-family DB query tools) → answer built from the rows those tools returned. Session history is a MongoDB checkpoint per thread, expiring 7 days after the last message.
 
@@ -74,10 +74,9 @@ flowchart LR
 ## Core Features
 
 - **Fantasy Scoring** — composite score `S_final = raw_per90 x starter_bonus x confidence + playing_time_bonus`, where `raw_per90` is `(Offensive + Defensive + Tactical) / (minutes / 90)` with position-specific goal/assist weights (GK goals worth 10 pts, FW goals worth 4 pts). `starter_bonus` rewards regular starters and `confidence` discounts small appearance counts — see `Mathematical_Specification.md`
-- **Rankings** — paginated player table sorted by `S_final`; filterable by position, team, nationality, and sleeper flag
-- **Defensive Metrics** — tackles, interceptions, clearances, blocks, aerial duels, ball recoveries, and errors leading to a shot/goal are tracked per player and sortable/filterable in Rankings; not yet part of `S_final` scoring
+- **Player Details** — paginated player table sorted by `S_final`; live-filterable (250ms debounce) by name, team, position, nationality, and sleeper flag, with name/team matching as a case- and accent-insensitive substring; click a row for the per-competition stat breakdown and aggregated scores, including players without a linked external ID
+- **Defensive Metrics** — tackles, interceptions, clearances, blocks, aerial duels, ball recoveries, and errors leading to a shot/goal are tracked per player and sortable/filterable in Player Details; not yet part of `S_final` scoring
 - **Sleeper Detection** — `HIGH_VALUE` flags players where xG+xA significantly exceeds G+A; `OVERPERFORMING` flags the inverse; gated on `minutes > 450`
-- **Player Detail** — per-competition stat breakdown and aggregated scores for any player, including those without a linked external ID
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions
 - **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) across the full dataset
 - **Chat Agent** — floating widget on every tab (also a full-screen view at `?chat=1`) answers natural-language questions about players and metrics from live DB tool calls; figures with no supporting row are flagged, and questions the database cannot answer are answered from the model's own knowledge and labelled as such; no navbar tab by design
@@ -131,7 +130,7 @@ Player data is split across two MongoDB collections:
 }
 ```
 
-`competition_type` is `"club"` for domestic leagues and cups, `"national"` for international tournaments (World Cup, European Championship, etc.). The stats-view filter on the Rankings page uses this field to let you see club-only or national-team-only aggregated scores.
+`competition_type` is `"club"` for domestic leagues and cups, `"national"` for international tournaments (World Cup, European Championship, etc.). The stats-view filter on the Player Details page uses this field to let you see club-only or national-team-only aggregated scores.
 
 ## Running the Project
 
