@@ -120,7 +120,7 @@ app/
 
 **Read path**: `GET /v1/players` → `MongoRepository.get_players()` → paginates + filters by name/position/team/nationality/sleeper_flag. `name` and `team` match `norm_name`/`norm_team` by substring, so they are case- and accent-insensitive; passing both combines them with AND.
 
-**Chat path**: `POST /v1/chat` → `ChatAgent.answer()` → LangGraph `create_agent` loop calls metric-family tools (each wraps `MongoRepository.get_players()`) → `answer_check.uncited_numbers()` flags any figure in the reply not present in a tool row (sets `degraded=True`, does not block the reply) → session state checkpointed to MongoDB by `session_id` (thread id). If the agent could not be built at startup (e.g. no `GEMINI_API_KEY`), `get_agent()` returns `None` and `/v1/chat` responds with a degraded generic answer instead of failing.
+**Chat path**: `POST /v1/chat` → `ChatAgent.answer()` → LangGraph `create_agent` loop calls metric-family tools (each wraps `MongoRepository.get_players()`) → `answer_check.uncited_numbers()` flags any figure in the reply not present in a tool row (sets `degraded=True`, does not block the reply) → session state checkpointed to MongoDB by `session_id` (thread id). Because the team filter matches by substring, a tool call whose `team` hits more than one club returns a disambiguation row instead of a merged ranking, and the model asks again with a full team name. If the agent could not be built at startup (e.g. no `GEMINI_API_KEY`), `get_agent()` returns `None` and `/v1/chat` responds with a degraded generic answer instead of failing.
 
 ### MongoDB collections
 
