@@ -431,3 +431,31 @@ def test_get_players_name_filter_ignores_accents(repo: MongoRepository) -> None:
     repo.upsert_player(player)
     _, total = repo.get_players(season="2025-2026", name="julian alvarez")
     assert total == 1
+
+
+def test_get_players_blank_team_is_not_a_filter(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("1"))
+    # An empty regex would match every document, so whitespace must not become a filter.
+    _, total = repo.get_players(season="2025-2026", team="   ")
+    assert total == 1
+
+
+def test_get_players_blank_name_is_not_a_filter(repo: MongoRepository) -> None:
+    repo.upsert_player(_make_player("1"))
+    _, total = repo.get_players(season="2025-2026", name="   ")
+    assert total == 1
+
+
+def test_matching_teams_lists_every_team_the_text_hits(repo: MongoRepository) -> None:
+    city = _make_player("1")
+    city.team = "Manchester City"
+    united = _make_player("2")
+    united.team = "Manchester United"
+    repo.upsert_player(city)
+    repo.upsert_player(united)
+    assert repo.matching_teams("2025-2026", "manchester") == [
+        "Manchester City",
+        "Manchester United",
+    ]
+    assert repo.matching_teams("2025-2026", "cit") == ["Manchester City"]
+    assert repo.matching_teams("2025-2026", "   ") == []

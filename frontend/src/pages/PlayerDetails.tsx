@@ -25,6 +25,7 @@ export default function PlayerDetails() {
   const [order, setOrder] = useState<SortOrder>('desc')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [modalId, setModalId] = useState<string | null>(null)
   const [modalPlayer, setModalPlayer] = useState<Player | null>(null)
   const [competitions, setCompetitions] = useState<CompetitionList | undefined>(undefined)
@@ -55,9 +56,11 @@ export default function PlayerDetails() {
       if (serialized) params.filters = serialized
       const result = await getPlayers(params)
       // A slower earlier request must not overwrite a newer one's rows.
-      if (id === requestId.current) setData(result)
+      if (id === requestId.current) { setData(result); setError('') }
     } catch (e) {
       console.error(e)
+      // Drop the rows too: stale ones would read as results for the new search.
+      if (id === requestId.current) { setData(null); setError(e instanceof Error ? e.message : 'Search failed') }
     } finally {
       if (id === requestId.current) setLoading(false)
     }
@@ -73,7 +76,9 @@ export default function PlayerDetails() {
     setPage(1)
   }
 
-  useEffect(() => { load() }, [load])
+  // Hold every request until typing settles, so a page reset cannot fire an unfiltered one first.
+  const settling = filters !== debouncedFilters
+  useEffect(() => { if (!settling) load() }, [load, settling])
 
   return (
     <div>
@@ -87,9 +92,11 @@ export default function PlayerDetails() {
         competitions={competitions}
       />
 
-      {loading && <div className="text-gray-400 py-8 text-center">Loading…</div>}
-      {data && !loading && (
-        <>
+      {error && <div className="text-red-400 text-sm py-8 text-center">{error}</div>}
+      {!data && !error && <div className="text-gray-400 py-8 text-center">Loading…</div>}
+      {data && (
+        // Keep the rows on screen while the next search runs, so the table does not blank out.
+        <div className={loading ? 'opacity-50 transition-opacity' : 'transition-opacity'}>
           <div className="text-xs text-gray-500 mb-2">
             {data.total} {data.total === 1 ? 'player' : 'players'}
           </div>
@@ -110,7 +117,7 @@ export default function PlayerDetails() {
               onSortChange={handleSortChange}
             />
           )}
-        </>
+        </div>
       )}
       <PlayerModal playerId={modalId} player={modalPlayer ?? undefined} onClose={closeModal} />
     </div>

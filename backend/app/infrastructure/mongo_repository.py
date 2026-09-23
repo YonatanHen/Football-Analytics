@@ -22,9 +22,11 @@ from app.domain.models import (
 from app.infrastructure.text_utils import normalize_text
 
 
-def _substring(text: str) -> dict:
-    """Match a norm_* field by substring. The text is escaped, so "." cannot match everything."""
-    return {"$regex": re.escape(normalize_text(text))}
+def _substring(text: str) -> dict | None:
+    """Match a norm_* field by substring, or None when the text holds nothing searchable."""
+    normalized = normalize_text(text)
+    # An empty term escapes to an empty regex, which matches every document rather than none.
+    return {"$regex": re.escape(normalized)} if normalized else None
 
 
 def _stats_to_dict(stats: Stats) -> dict:
@@ -332,15 +334,15 @@ class MongoRepository:
             bio_query["position"] = position
         if nationality:
             bio_query["nationality"] = nationality
-        if name:
-            bio_query["norm_name"] = _substring(name)
+        if name and (clause := _substring(name)):
+            bio_query["norm_name"] = clause
 
         stats_query: dict = {"season": season}
         if bio_query:
             bio_ids = [d["_id"] for d in self._player_bios.find(bio_query, {"_id": 1})]
             stats_query["player_bio_id"] = {"$in": bio_ids}
-        if team:
-            stats_query["norm_team"] = _substring(team)
+        if team and (clause := _substring(team)):
+            stats_query["norm_team"] = clause
         if underpredicted_flag:
             stats_query["aggregated_scores.sleeper_flag"] = underpredicted_flag
 
@@ -414,6 +416,13 @@ class MongoRepository:
             t = doc["_id"].get("type", "club")
             out.setdefault(t, []).append(doc["_id"]["name"])
         return out
+
+    def matching_teams(self, season: str, team: str) -> list[str]:
+        """Distinct team names the text matches, so a caller can spot an ambiguous name."""
+        clause = _substring(team)
+        if clause is None:
+            return []
+        return sorted(self._player_stats.distinct("team", {"season": season, "norm_team": clause}))
 
     def get_player(self, player_id: str, season: str) -> PlayerDTO | None:
         bio = self._player_bios.find_one({"sofascore_player_id": player_id})
