@@ -20,7 +20,7 @@ $$M_{early} = \min\!\left(\frac{Minutes}{Appearances},\ 59\right) \times Appeara
 
 $$M_{late} = \max\!\left(0,\ \min\!\left(\frac{Minutes}{Appearances},\ 90\right) - 59\right) \times Appearances$$
 
-- $C_{apps}$: appearance-based confidence multiplier. Dampens inflated per-90 rates for low-game-count players; reaches full weight at 20+ appearances. Team-specific match tracking is a planned improvement.
+- $C_{apps}$: appearance-based confidence multiplier. Dampens inflated per-90 rates for low-game-count players; reaches full weight at 20+ appearances. Team-specific match tracking is a planned improvement. Exposed via the API as `aggregated_scores.confidence`, computed at request time by `confidence_tier()`/`effective_appearances()` in `scoring_engine.py` — it is not stored in MongoDB.
 - $M_{early}$ / $M_{late}$: estimated playing minutes split at the 60th minute, using average minutes per appearance as a proxy (per-match breakdowns unavailable). Extra time not counted.
 - $B_{time}$ rewards playing time: minutes 60–90 earn 50% more per minute than early minutes.
 - If $Minutes = 0$, $S_{final} = 0$. The three pillars are still computed.

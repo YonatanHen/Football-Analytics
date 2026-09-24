@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Stack
 
 - **Backend**: FastAPI + PyMongo (Python 3.12), runs on port 8000
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS, runs on port 5173
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS (dark theme tokens, Inter + JetBrains Mono via `@fontsource`, `lucide-react` icons), runs on port 5173
 - **Database**: MongoDB 7 (`football_analytics` db)
 - **Scraping**: botasaurus + Chrome (inside Docker) for Sofascore; Tor is present but Sofascore's Cloudflare 403s it, so Chrome scrapes run without the Tor proxy
 - **Chatbot agent**: LangChain + LangGraph (`create_agent`), configurable LLM provider (`app/agent/providers.py`); Gemini free tier by default
@@ -76,8 +76,9 @@ app/
     players.py  # GET /v1/players, GET /v1/players/{id}
     analysis.py # GET /v1/analysis/scatter
     chat.py     # POST /v1/chat, GET/DELETE /v1/chat/sessions/{session_id}
+    meta.py     # GET /v1/meta — player count, last fetch time, stored seasons, chat model + tool-call cap
     modals/
-      chat_modals.py  # ChatRequest, ChatResponse, ChatTurn, ChatHistory
+      chat_modals.py  # ChatRequest, ChatResponse (+ tool_calls, uncited), ChatTurn, ChatHistory
   modes/        # Strategy pattern
     base.py     # AnalysisMode ABC: fetch_data(), process()
     factory.py  # ModeFactory.create("fantasy")
@@ -120,7 +121,7 @@ app/
 
 **Read path**: `GET /v1/players` → `MongoRepository.get_players()` → paginates + filters by name/position/team/nationality/sleeper_flag. `name` and `team` match `norm_name`/`norm_team` by substring, so they are case- and accent-insensitive; passing both combines them with AND.
 
-**Chat path**: `POST /v1/chat` → `ChatAgent.answer()` → LangGraph `create_agent` loop calls metric-family tools (each wraps `MongoRepository.get_players()`) → `answer_check.uncited_numbers()` flags any figure in the reply not present in a tool row (sets `degraded=True`, does not block the reply) → session state checkpointed to MongoDB by `session_id` (thread id). Because the team filter matches by substring, a tool call whose `team` hits more than one club returns a disambiguation row instead of a merged ranking, and the model asks again with a full team name. If the agent could not be built at startup (e.g. no `GEMINI_API_KEY`), `get_agent()` returns `None` and `/v1/chat` responds with a degraded generic answer instead of failing.
+**Chat path**: `POST /v1/chat` → `ChatAgent.answer()` → LangGraph `create_agent` loop calls metric-family tools (each wraps `MongoRepository.get_players()`) → `answer_check.uncited_numbers()` flags any figure in the reply not present in a tool row (sets `degraded=True`, does not block the reply). The response also carries `tool_calls` (tool names and row counts only, never arguments or rows) and the `uncited` figures, which the UI shows as a trace and a warning → session state checkpointed to MongoDB by `session_id` (thread id). Because the team filter matches by substring, a tool call whose `team` hits more than one club returns a disambiguation row instead of a merged ranking, and the model asks again with a full team name. If the agent could not be built at startup (e.g. no `GEMINI_API_KEY`), `get_agent()` returns `None` and `/v1/chat` responds with a degraded generic answer instead of failing.
 
 ### MongoDB collections
 
@@ -141,12 +142,14 @@ app/
 
 ### Frontend pages
 
-- `PlayerDetails` — paginated player table plus live search; the name and team fields filter as you type (250 ms debounce, stale responses dropped). Clicking a row opens the single-player modal, which also opens for players without a Sofascore ID
-- `Compare` — side-by-side exactly 2 players
-- `Sleepers` — "xGI Outliers" tab: players whose G+A diverges from xG+xA ("Due to score" / "Overperforming")
-- `ScatterPage` — xG+xA vs G+A scatter plot via Recharts
+The UI follows the sketches in `docs/superpowers/specs/2026-09-24-ui-redesign-design.md`. `AppShell` holds the tabs, the dataset status from `GET /v1/meta` and the season selector; the season is lifted state shared through `src/context/AppContext.tsx` (which also has `go(tab)` for cross-page jumps). Shared primitives live in `src/components/ui/`; empty-DB, backend-unreachable (auto-retry every 10 s) and no-results states live in `src/components/states/SystemStates.tsx`.
 
-Data loading is developer-driven via `tools/fetch_cli` (see its README) — the frontend has no fetch-triggering UI; when the DB is empty it just points to the CLI.
+- `PlayerDetails` — paginated player table plus live search; the name and team fields filter as you type (250 ms debounce, stale responses dropped). Metric filters are added from a popover and shown as removable chips. Clicking a row opens the player modal (score panel with confidence, per-competition scores, goal-type and shot-outcome bars, "Compare with..." jump), which also opens for players without a Sofascore ID
+- `Compare` — exactly 2 players: player cards plus mirrored bars and a Δ column
+- `Sleepers` — "xGI Outliers" tab: players whose G+A diverges from xG+xA ("Due to score" / "Overperforming"), sorted by `sort_by=xratio`
+- `ScatterPage` — Recharts scatter with X/Y metric selects, position and minutes filters, outlier highlighting, and a selected-point panel
+
+Data loading is developer-driven via `tools/fetch_cli` (see its README) — the frontend has no fetch-triggering UI; when the DB is empty it shows the CLI commands.
 
 `ChatWidget` — floating chat bubble rendered on every tab except "Ask AI" (`src/components/ChatWidget.tsx`); opens `ChatPanel`. The "Ask AI" navbar tab renders `ChatPanel` full height. `?chat=1` renders `ChatFullScreen` instead of the tabbed `Dashboard` (`src/App.tsx`), reusing the same `ChatPanel`. Session id is generated client-side (`src/api/chat.ts`) and persisted for `GET/DELETE /v1/chat/sessions/{session_id}`.
 

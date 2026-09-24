@@ -17,6 +17,7 @@ def effective_appearances(stats: Stats) -> int:
 
 
 def confidence_tier(apps: int) -> float:
+    """Confidence multiplier: 0.15/0.50/0.80/1.00 for <5/5-14/15-19/20+ appearances."""
     if apps < 5:
         return 0.15
     if apps < 15:

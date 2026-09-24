@@ -76,7 +76,7 @@ class CompetitionOut(BaseModel):
 
 
 class AggregatedScoresOut(BaseModel):
-    """Season-level fantasy scores including underprediction analysis across all competitions."""
+    """Season-level fantasy scores, underprediction analysis and confidence tier."""
 
     offensive: float
     defensive: float

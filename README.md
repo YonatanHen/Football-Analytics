@@ -18,7 +18,7 @@ This project is a **free, open-source, educational tool** built for football ent
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 · TypeScript · Vite · Tailwind CSS · Recharts · react-markdown |
+| Frontend | React 18 · TypeScript · Vite · Tailwind CSS · Recharts · react-markdown · lucide-react icons · Inter/JetBrains Mono fonts |
 | Backend | FastAPI · Python 3.12 · PyMongo · Pydantic Settings |
 | Chatbot Agent | LangChain · LangGraph (`create_agent`), configurable LLM provider (Gemini free tier by default) |
 | Database | MongoDB 7 |
@@ -65,21 +65,24 @@ flowchart LR
 
 **Fetch path:** developer runs `tools/fetch_cli` → `POST /v1/fetch/` → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, no fetch rate limit) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
 
-**Read path:** React SPA → API routers → `MongoRepository.get_players()` → paginated and filterable by name, team, position, nationality, or sleeper flag; name and team are case- and accent-insensitive substring matches, combined with AND when both are set.
+**Read path:** React SPA → API routers → `MongoRepository.get_players()` → paginated and filterable by name, team, position, nationality, or sleeper flag; name and team are case- and accent-insensitive substring matches, combined with AND when both are set. Sorting also accepts `sort_by=xratio` (the sleeper ratio), which is sort-only — it is not a filter metric and not an agent tool metric.
 
-**Chat path:** floating chat widget (or `?chat=1` full-screen view) → `POST /v1/chat` → `ChatAgent` (LangGraph `create_agent` loop over per-metric-family DB query tools) → answer built from the rows those tools returned. Session history is a MongoDB checkpoint per thread, expiring 7 days after the last message.
+**Chat path:** floating chat widget (or `?chat=1` full-screen view) → `POST /v1/chat` → `ChatAgent` (LangGraph `create_agent` loop over per-metric-family DB query tools) → answer built from the rows those tools returned. The response also carries `tool_calls` (tool name + row count only, never arguments or row contents) and `uncited` (figures in the answer with no backing row), which the UI renders as a trace and a warning. Session history is a MongoDB checkpoint per thread, expiring 7 days after the last message.
+
+**Meta path:** `GET /v1/meta?season=` → player count, last fetch time, stored seasons, and the active chat model/tool-call cap. Powers the app header's dataset status, season selector, and the Ask AI tab's model line.
 
 ---
 
 ## Core Features
 
 - **Fantasy Scoring** — composite score `S_final = raw_per90 x starter_bonus x confidence + playing_time_bonus`, where `raw_per90` is `(Offensive + Defensive + Tactical) / (minutes / 90)` with position-specific goal/assist weights (GK goals worth 10 pts, FW goals worth 4 pts). `starter_bonus` rewards regular starters and `confidence` discounts small appearance counts — see `Mathematical_Specification.md`
-- **Player Details** — paginated player table sorted by Fantasy Score (`S_final`); live-filterable (250ms debounce) by name, team, position, nationality, and sleeper flag, with name/team matching as a case- and accent-insensitive substring; click a row for the per-competition stat breakdown and aggregated scores, including players without a linked external ID
+- **Player Details** — paginated player table sorted by Fantasy Score (`S_final`) by default; live-filterable (250ms debounce) by name, team, position, nationality, and sleeper flag, plus a removable-chip "Add metric filter" popover for any allowlisted metric; click a row for the per-competition stat breakdown and aggregated scores, including players without a linked external ID
 - **Defensive Metrics** — tackles, interceptions, clearances, blocks, aerial duels, ball recoveries, and errors leading to a shot/goal are tracked per player and sortable/filterable in Player Details; not yet part of `S_final` scoring
-- **Sleeper Detection** — `HIGH_VALUE` flags players where xG+xA significantly exceeds G+A; `OVERPERFORMING` flags the inverse; gated on `minutes > 450`
-- **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions
-- **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) across the full dataset
-- **Chat Agent** — "Ask AI" navbar tab plus a floating widget on the other tabs (also a full-screen view at `?chat=1`) answers natural-language questions about players and metrics from live DB tool calls; figures with no supporting row are flagged, and questions the database cannot answer are answered from the model's own knowledge and labelled as such
+- **Sleeper Detection** — `HIGH_VALUE` flags players where xG+xA significantly exceeds G+A; `OVERPERFORMING` flags the inverse; gated on `minutes > 450`. The xGI Outliers page sorts each tab by the xG+xA/G+A ratio (descending for "Due to score", ascending for "Overperforming")
+- **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions, with mirrored bars and a per-row delta
+- **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) with selectable X/Y metrics, a position filter, a minimum-minutes filter, an outlier-highlight toggle, and a detail panel for the selected point
+- **Dataset Status** — the app header shows player count, last fetch time, and a season selector, backed by `GET /v1/meta`; the Ask AI tab shows the active chat model and its tool-call cap instead
+- **Chat Agent** — "Ask AI" navbar tab plus a floating widget on the other tabs (also a full-screen view at `?chat=1`) answers natural-language questions about players and metrics from live DB tool calls; each answer shows which tools ran and how many rows they returned, figures with no supporting row are flagged with a warning, and questions the database cannot answer are answered from the model's own knowledge and labelled as such
 - **Developer Data Loading** — `tools/fetch_cli`, a standalone CLI for browsing available competitions/seasons and loading data into MongoDB, with live per-task fetch progress
 - **DB Snapshots** — JSON dump/restore scripts (`backend/scripts/DB/`) for safe local dev iteration
 
