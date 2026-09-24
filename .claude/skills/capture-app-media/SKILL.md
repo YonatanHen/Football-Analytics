@@ -36,6 +36,7 @@ select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__tabs_creat
 
 - Screenshot coordinates do not match click coordinates. Prefer `find` refs. If `find` misses an element (it missed table headers), read its `getBoundingClientRect()` center with `javascript_tool` and divide by the scale factor. Measure the factor once with a test click; it was 1.36.
 - Scatter points: use `javascript_tool` to dispatch a click on the `<circle>` next to a labelled SVG `<text>`.
+- Never use `computer` `zoom` while recording: the zoomed crop becomes a small frame on a white canvas.
 - Setup steps outside a recording (switching tabs, closing a modal) can be plain JS clicks.
 - A frame is captured only on an action or a screenshot. Take a screenshot after each step. Identical frames in a row are dropped, so a pause needs a visible change.
 
