@@ -66,7 +66,7 @@ flowchart LR
         FE["React SPA\nVite :5173"]
         subgraph Backend["FastAPI :8000"]
             API["API Routers"]
-            SE["Scoring Engine\nS_final = raw/90 x starter x confidence + bonus"]
+            SE["Scoring Engine\nFantasy Score = raw/90 x starter x confidence + bonus"]
             PA["Player Assembler\nbuild · merge · aggregate"]
             SC["Stats Client\nScraperFC"]
             MR["Mongo Repository"]
@@ -103,10 +103,9 @@ flowchart LR
 
 ## Core Features
 
-- **Fantasy Scoring** — composite score `S_final = raw_per90 x starter_bonus x confidence + playing_time_bonus`, where `raw_per90` is `(Offensive + Defensive + Tactical) / (minutes / 90)` with position-specific goal/assist weights (GK goals worth 10 pts, FW goals worth 4 pts). `starter_bonus` rewards regular starters and `confidence` discounts small appearance counts — see `Mathematical_Specification.md`
-- **Player Details** — paginated player table sorted by Fantasy Score (`S_final`) by default; live-filterable (250ms debounce) by name, team, position, nationality, and sleeper flag, plus a removable-chip "Add metric filter" popover for any allowlisted metric; click a row for the per-competition stat breakdown and aggregated scores, including players without a linked external ID
-- **Defensive Metrics** — tackles, interceptions, clearances, blocks, aerial duels, ball recoveries, and errors leading to a shot/goal are tracked per player and sortable/filterable in Player Details; not yet part of `S_final` scoring
-- **Sleeper Detection** — `HIGH_VALUE` flags players where xG+xA significantly exceeds G+A; `OVERPERFORMING` flags the inverse; gated on `minutes > 450`. The xGI Outliers page sorts each tab by the xG+xA/G+A ratio (descending for "Due to score", ascending for "Overperforming")
+- **Fantasy Scoring** — composite Fantasy Score = `raw_per90 x starter_bonus x confidence + playing_time_bonus`, where `raw_per90` is `(Offensive + Defensive + Tactical) / (minutes / 90)` with position-specific goal/assist weights (GK goals worth 10 pts, FW goals worth 4 pts). `starter_bonus` rewards regular starters and `confidence` discounts small appearance counts — see `Mathematical_Specification.md`
+- **Player Details** — paginated player table sorted by Fantasy Score by default; live-filterable (250ms debounce) by name, team, position, nationality, and sleeper flag, plus a removable-chip "Add metric filter" popover for any allowlisted metric; click a row for the per-competition stat breakdown and aggregated scores, including players without a linked external ID
+- **xGI Outliers** — flags a player "Due to score" (`HIGH_VALUE`) when xG+xA is more than 1.20x G+A (also when G+A is 0 and xG+xA is above 0), and "Overperforming" (`OVERPERFORMING`) when G+A is more than 1.25x xG+xA; only applies to players with more than 450 minutes. The xGI Outliers page has one tab per flag, sorted by the xG+xA/G+A ratio (highest first for "Due to score", lowest first for "Overperforming"), and shows the xGI gap for each player
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions, with mirrored bars and a per-row delta
 - **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) with selectable X/Y metrics, a position filter, a minimum-minutes filter, an outlier-highlight toggle, and a detail panel for the selected point
 - **Dataset Status** — the app header shows player count, last fetch time, and a season selector, backed by `GET /v1/meta`; the Ask AI tab shows the active chat model and its tool-call cap instead
@@ -163,6 +162,8 @@ Player data is split across two MongoDB collections:
 
 `competition_type` is `"club"` for domestic leagues and cups, `"national"` for international tournaments (World Cup, European Championship, etc.). The stats-view filter on the Player Details page uses this field to let you see club-only or national-team-only aggregated scores.
 
+`s_final` is the stored field name for what the UI calls the Fantasy Score.
+
 ## Running the Project
 
 ### Prerequisites
@@ -176,7 +177,7 @@ CORS_ORIGINS=["http://localhost:5173"]
 GEMINI_API_KEY=your-key-here
 ```
 
-`GEMINI_API_KEY` powers the chat agent (default provider, free tier). Without it the rest of the API still starts — the agent is just disabled and `/v1/chat` returns a degraded response. See [Chat Agent Configuration](#chat-agent-configuration) below for other providers.
+`GEMINI_API_KEY` powers the chat agent (default provider, free tier). Without it the rest of the API still starts — the agent is just disabled and `/v1/chat` returns a degraded response. See [backend/app/agent/README.md](backend/app/agent/README.md) for other providers.
 
 ### Full stack
 
@@ -228,22 +229,7 @@ Tests use `mongomock` — no running MongoDB required. Agent tests live in `back
 AGENT_EVAL=1 pytest tests/agent/eval -v -s
 ```
 
-### Chat Agent Configuration
-
-Set in `secrets.env` / `.env`:
-
-| Variable | Default | Notes |
-|---|---|---|
-| `LLM_PROVIDER` | `gemini` | `gemini`, `openai`, or `anthropic` |
-| `LLM_MODEL` | provider default | `openai`/`anthropic` have no default — must be set explicitly |
-| `LLM_API_KEY` | unset | falls back to the provider SDK's own env var (e.g. `GEMINI_API_KEY`) |
-| `LLM_FALLBACK_MODEL` | unset | model to retry with on failure; empty means no fallback |
-| `AGENT_MAX_TOOL_ITERATIONS` | `8` | tool-call loop limit per turn |
-| `AGENT_MAX_ROWS` | `25` | max rows a DB query tool can return |
-| `CHECKPOINT_COLLECTION` | `chat_checkpoints` | MongoDB collection for session state |
-| `CHAT_SESSION_TTL_SECONDS` | `604800` (7 days) | session expiry after the last message |
-
-`openai` and `anthropic` require installing their LangChain package (`langchain-openai` / `langchain-anthropic`) and setting `LLM_MODEL` explicitly.
+Chat agent settings (provider, model, limits) are documented in [backend/app/agent/README.md](backend/app/agent/README.md).
 
 ### Loading Data
 
