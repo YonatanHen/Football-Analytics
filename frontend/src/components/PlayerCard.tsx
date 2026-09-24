@@ -110,7 +110,7 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
       {/* Score */}
       <div className="mb-5 flex items-end gap-4 flex-wrap">
         <div>
-          <SectionTitle>Score</SectionTitle>
+          <SectionTitle>Fantasy Score</SectionTitle>
           <div className="text-3xl font-mono text-indigo-300 leading-none">{sc.s_final.toFixed(2)}</div>
         </div>
         <div className="flex gap-2 flex-wrap pb-1">

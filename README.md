@@ -74,7 +74,7 @@ flowchart LR
 ## Core Features
 
 - **Fantasy Scoring** — composite score `S_final = raw_per90 x starter_bonus x confidence + playing_time_bonus`, where `raw_per90` is `(Offensive + Defensive + Tactical) / (minutes / 90)` with position-specific goal/assist weights (GK goals worth 10 pts, FW goals worth 4 pts). `starter_bonus` rewards regular starters and `confidence` discounts small appearance counts — see `Mathematical_Specification.md`
-- **Player Details** — paginated player table sorted by `S_final`; live-filterable (250ms debounce) by name, team, position, nationality, and sleeper flag, with name/team matching as a case- and accent-insensitive substring; click a row for the per-competition stat breakdown and aggregated scores, including players without a linked external ID
+- **Player Details** — paginated player table sorted by Fantasy Score (`S_final`); live-filterable (250ms debounce) by name, team, position, nationality, and sleeper flag, with name/team matching as a case- and accent-insensitive substring; click a row for the per-competition stat breakdown and aggregated scores, including players without a linked external ID
 - **Defensive Metrics** — tackles, interceptions, clearances, blocks, aerial duels, ball recoveries, and errors leading to a shot/goal are tracked per player and sortable/filterable in Player Details; not yet part of `S_final` scoring
 - **Sleeper Detection** — `HIGH_VALUE` flags players where xG+xA significantly exceeds G+A; `OVERPERFORMING` flags the inverse; gated on `minutes > 450`
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions

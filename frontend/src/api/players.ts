@@ -54,7 +54,7 @@ export interface FilterClause { field: string; op: FilterOp; value: number }
 
 // Allowlisted sortable/filterable metrics — mirrors backend metric_fields.METRIC_FIELDS.
 export const METRIC_OPTIONS: { value: string; label: string }[] = [
-  { value: 's_final', label: 'S_final' },
+  { value: 's_final', label: 'Fantasy Score' },
   { value: 'goals', label: 'Goals' },
   { value: 'assists', label: 'Assists' },
   { value: 'xg', label: 'xG' },

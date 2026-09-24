@@ -15,7 +15,7 @@ interface PlayerTableProps {
 // Sortable metric columns in render order. `metric` is the backend field the API sorts on;
 // `label` is the terse header text this table already displays (kept unchanged).
 const SORT_COLUMNS: { metric: string; label: string }[] = [
-  { metric: 's_final', label: 'S_final' },
+  { metric: 's_final', label: 'Fantasy Score' },
   { metric: 'goals', label: 'G' },
   { metric: 'assists', label: 'A' },
   { metric: 'xg', label: 'xG' },

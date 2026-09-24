@@ -148,7 +148,7 @@ export default function Compare() {
             </thead>
             <tbody>
               {/* scores */}
-              {scoreRow('S_final', playerA.aggregated_scores.s_final, playerB.aggregated_scores.s_final)}
+              {scoreRow('Fantasy Score', playerA.aggregated_scores.s_final, playerB.aggregated_scores.s_final)}
               {scoreRow('Offensive', playerA.aggregated_scores.offensive, playerB.aggregated_scores.offensive)}
               {scoreRow('Defensive', playerA.aggregated_scores.defensive, playerB.aggregated_scores.defensive)}
               {scoreRow('Tactical', playerA.aggregated_scores.tactical, playerB.aggregated_scores.tactical)}
