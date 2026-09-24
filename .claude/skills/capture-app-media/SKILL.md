@@ -72,9 +72,9 @@ You may record only a subset, for example only the pages that changed.
 | `03-compare.gif` | Modal → "Compare with..." → pick player B via search → show the table |
 | `04-xgi-outliers.gif` | "Due to score" table, then switch to "Overperforming" |
 | `05-scatter-plot.gif` | Select a labelled point; position filter FW; toggle "Highlight outliers" off, then on |
-| `06-ask-ai.gif` | "New chat", then the chip "Top 5 scorers this season"; wait for the answer with the "RAN …" trace |
+| `06-ask-ai-chat.gif` | "New chat", then the chip "Top 5 scorers this season"; wait for the answer with the "RAN …" trace |
 
-`06-ask-ai.gif` uses one free-tier Gemini request. Ask the user before recording it.
+`06-ask-ai-chat.gif` uses one free-tier Gemini request. Ask the user before recording it.
 
 ### 7. Permissions
 
@@ -98,5 +98,5 @@ Exporting a GIF is a browser download. The user's request to capture media is th
    ```
 3. `ls -la screenshots/`
 4. Warn if any GIF is larger than 8 MB. Suggest fewer frames or `quality: 15-20`, not new tools.
-5. If a filename is new, add it to the README "Screenshots" grid (an HTML table with `screenshots/<name>.gif`).
+5. If a filename is new, add it to the README "Screenshots" section: one column, a bold title with a one-line caption, then `![alt](screenshots/<name>.gif)`.
 6. Commit on the dev branch. Follow the `pre-pr-lint` skill before opening a PR.
