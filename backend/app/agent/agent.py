@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 
 from langchain.agents import create_agent
@@ -23,10 +23,18 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class ToolCallSummary:
+    name: str
+    rows: int
+
+
+@dataclass
 class ChatResult:
     answer: str
     used_tools: bool
     degraded: bool = False
+    tool_calls: list[ToolCallSummary] = field(default_factory=list)
+    uncited: list[str] = field(default_factory=list)
 
 
 class ChatAgent:
@@ -69,6 +77,7 @@ class ChatAgent:
         messages = _current_turn(state["messages"])
         used_tools = any(isinstance(m, ToolMessage) for m in messages)
         answer = messages[-1].text if messages else ""
+        trace = _tool_trace(messages)
 
         if used_tools and answer:
             rows = _tool_rows(messages)
@@ -81,13 +90,16 @@ class ChatAgent:
                     session_id,
                     rows,
                 )
-                return ChatResult(answer=answer, used_tools=True, degraded=True)
+                return ChatResult(
+                    answer=answer, used_tools=True, degraded=True, tool_calls=trace, uncited=uncited
+                )
 
         # No tool behind the answer means it is the model's own knowledge, not this app's data.
         return ChatResult(
             answer=answer or GENERIC_ERROR,
             used_tools=used_tools,
             degraded=not (answer and used_tools),
+            tool_calls=trace,
         )
 
     async def _prune_session(self, session_id: str) -> None:
@@ -148,6 +160,22 @@ def _tool_rows(messages) -> list[dict] | None:
             return None  # unreadable rows would look like missing citations
         rows.extend(payload if isinstance(payload, list) else [payload])
     return rows
+
+
+def _tool_trace(messages) -> list[ToolCallSummary]:
+    """Name and row count of each tool call this turn; arguments are never kept."""
+    names = {c["id"]: c["name"] for m in messages if isinstance(m, AIMessage) for c in m.tool_calls}
+    trace = []
+    for m in messages:
+        if not isinstance(m, ToolMessage):
+            continue
+        try:
+            payload = _ToolPayload.validate_json(m.content)
+            rows = len(payload) if isinstance(payload, list) else 1
+        except ValidationError:
+            rows = 0
+        trace.append(ToolCallSummary(name=names.get(m.tool_call_id, m.name or "tool"), rows=rows))
+    return trace
 
 
 def build_agent(repo, mongo_client) -> ChatAgent:

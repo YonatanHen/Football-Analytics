@@ -8,11 +8,18 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
 
 
-# No field can carry a tool trace: tool names, arguments and rows never leave the server.
+class ToolCallOut(BaseModel):
+    name: str
+    rows: int
+
+
+# The trace is tool names and row counts only: arguments and row contents never leave the server.
 class ChatResponse(BaseModel):
     answer: str
     session_id: str
     degraded: bool = False
+    tool_calls: list[ToolCallOut] = []
+    uncited: list[str] = []
 
 
 class ChatTurn(BaseModel):

@@ -32,8 +32,10 @@ export interface CompetitionEntry {
 export interface CompetitionList { club: string[]; national: string[] }
 
 export interface AggregatedScores extends Score {
-  underpredicted_ratio: number | null; underpredicted_flag: 'HIGH_VALUE' | 'OVERPERFORMING' | null
+  underpredicted_ratio: number | null; underpredicted_flag: Flag | null; confidence: number
 }
+
+export type Flag = 'HIGH_VALUE' | 'OVERPERFORMING'
 
 export interface Player {
   sofascore_player_id: string; name: string; season: string
@@ -54,7 +56,7 @@ export interface FilterClause { field: string; op: FilterOp; value: number }
 
 // Allowlisted sortable/filterable metrics — mirrors backend metric_fields.METRIC_FIELDS.
 export const METRIC_OPTIONS: { value: string; label: string }[] = [
-  { value: 's_final', label: 'S_final' },
+  { value: 's_final', label: 'Fantasy Score' },
   { value: 'goals', label: 'Goals' },
   { value: 'assists', label: 'Assists' },
   { value: 'xg', label: 'xG' },
@@ -122,7 +124,9 @@ export function serializeFilters(clauses: FilterClause[]): string {
 }
 
 export interface ScatterPoint {
-  sofascore_player_id: string | null; name: string; position: string; xg_xa: number; g_a: number
+  sofascore_player_id: string | null; name: string; position: string; team: string
+  goals: number; assists: number; xg: number; xa: number; minutes: number
+  xg_xa: number; g_a: number; s_final: number; xratio: number | null; flag: Flag | null
 }
 
 export interface ScatterData { data: ScatterPoint[] }
@@ -136,14 +140,14 @@ export async function getPlayers(params: Record<string, string | number | undefi
   return apiFetch<PlayerList>(`/v1/players${qs ? `?${qs}` : ''}`)
 }
 
+const seasonQs = (season?: string) => (season ? `?season=${encodeURIComponent(season)}` : '')
+
 export async function getPlayer(playerId: string, season?: string): Promise<Player> {
-  const qs = season ? `?season=${season}` : ''
-  return apiFetch<Player>(`/v1/players/${playerId}${qs}`)
+  return apiFetch<Player>(`/v1/players/${playerId}${seasonQs(season)}`)
 }
 
 export async function getScatterData(season?: string): Promise<ScatterData> {
-  const qs = season ? `?season=${season}` : ''
-  return apiFetch<ScatterData>(`/v1/analysis/scatter${qs}`)
+  return apiFetch<ScatterData>(`/v1/analysis/scatter${seasonQs(season)}`)
 }
 
 export interface BioData { nationality: string; position_exact: string }
@@ -153,6 +157,5 @@ export async function refreshBio(playerId: string): Promise<BioData> {
 }
 
 export async function getPlayerCompetitions(season?: string): Promise<CompetitionList> {
-  const qs = season ? `?season=${season}` : ''
-  return apiFetch<CompetitionList>(`/v1/players/competitions${qs}`)
+  return apiFetch<CompetitionList>(`/v1/players/competitions${seasonQs(season)}`)
 }

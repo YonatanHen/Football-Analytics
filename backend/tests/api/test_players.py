@@ -196,3 +196,60 @@ def test_filter_bad_op_422(client_with_player: TestClient) -> None:
 def test_filter_non_numeric_value_422(client_with_player: TestClient) -> None:
     resp = client_with_player.get('/v1/players?filters=[{"field":"goals","op":"gte","value":"x"}]')
     assert resp.status_code == 422
+
+
+def test_list_players_filter_by_team_partial(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?team=rsen")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_list_players_filter_by_team_case_insensitive(client_with_player: TestClient) -> None:
+    resp = client_with_player.get("/v1/players?team=ARSENAL")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+def test_list_players_team_and_name_are_combined_with_and(client_with_player: TestClient) -> None:
+    both = client_with_player.get("/v1/players?team=arsenal&name=test")
+    assert both.status_code == 200
+    assert both.json()["total"] == 1
+
+    # The team matches but the name does not, so the AND must reject the player.
+    one = client_with_player.get("/v1/players?team=arsenal&name=nobody")
+    assert one.status_code == 200
+    assert one.json()["total"] == 0
+
+
+def test_player_exposes_confidence(client_with_player: TestClient) -> None:
+    # 900 minutes and no appearance count -> 10 estimated apps -> the 0.5 tier.
+    resp = client_with_player.get("/v1/players/1")
+    assert resp.json()["aggregated_scores"]["confidence"] == 0.5
+
+
+def test_sort_by_xratio(client: TestClient) -> None:
+    repo = app.dependency_overrides[get_repo]()
+    for pid, ratio in (("1", 1.3), ("2", 1.8), ("3", None)):
+        p = _make_player(pid)
+        p.aggregated_scores.underpredicted_ratio = ratio
+        repo.upsert_player(p)
+    desc = client.get("/v1/players?sort_by=xratio").json()["data"]
+    ids = [d["sofascore_player_id"] for d in desc]
+    assert ids[:2] == ["2", "1"]
+    asc = client.get("/v1/players?sort_by=xratio&order=asc&stats_view=club").json()["data"]
+    assert [d["sofascore_player_id"] for d in asc] == ["1", "2", "3"]  # nulls last
+
+
+def test_xratio_is_not_a_filter_field(client_with_player: TestClient) -> None:
+    resp = client_with_player.get('/v1/players?filters=[{"field":"xratio","op":"gte","value":1}]')
+    assert resp.status_code == 422
+
+
+def test_scatter_points_carry_the_panel_fields(client_with_player: TestClient) -> None:
+    point = client_with_player.get("/v1/analysis/scatter").json()["data"][0]
+    assert point["team"] == "Arsenal"
+    assert (point["goals"], point["assists"], point["minutes"]) == (5, 3, 900)
+    assert point["xg"] == pytest.approx(4.0) and point["xa"] == pytest.approx(2.5)
+    assert point["s_final"] == pytest.approx(4.06)
+    assert point["xratio"] == pytest.approx(1.3)
+    assert point["flag"] == "HIGH_VALUE"

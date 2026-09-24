@@ -10,6 +10,23 @@ _POSITION_WEIGHTS: dict[str, dict[str, int]] = {
 }
 
 
+def effective_appearances(stats: Stats) -> int:
+    """Appearance count, estimated as ceil(minutes/90) when missing or non-positive."""
+    # ceil, not round: round can imply >90 min per appearance (1300 min -> 14 apps).
+    return stats.appearances if stats.appearances > 0 else math.ceil(stats.minutes / 90)
+
+
+def confidence_tier(apps: int) -> float:
+    """Confidence multiplier: 0.15/0.50/0.80/1.00 for <5/5-14/15-19/20+ appearances."""
+    if apps < 5:
+        return 0.15
+    if apps < 15:
+        return 0.50
+    if apps < 20:
+        return 0.80
+    return 1.00
+
+
 class ScoringEngine:
     def calculate(self, stats: Stats, position: str) -> Score:
         """Compute offensive/defensive/tactical scores and s_final.
@@ -54,9 +71,7 @@ class ScoringEngine:
 
         raw_per90 = (offensive + defensive + tactical) / minutes_per_90
 
-        # Legacy/partial records carry minutes but no appearance count; estimate from minutes.
-        # ceil, not round: round can imply >90 min per appearance (1300 min -> 14 apps).
-        apps = stats.appearances if stats.appearances > 0 else math.ceil(stats.minutes / 90)
+        apps = effective_appearances(stats)
 
         starter_bonus = 1.0 + 0.2 * min(1.0, stats.matches_started / apps)
 
@@ -65,15 +80,6 @@ class ScoringEngine:
         late_mins = max(0.0, min(avg_mins, 90.0) - 59.0) * apps
         playing_time_bonus = early_mins * 0.001 + late_mins * 0.0015
 
-        if apps < 5:
-            confidence = 0.15
-        elif apps < 15:
-            confidence = 0.50
-        elif apps < 20:
-            confidence = 0.80
-        else:
-            confidence = 1.00
-
-        s_final = raw_per90 * starter_bonus * confidence + playing_time_bonus
+        s_final = raw_per90 * starter_bonus * confidence_tier(apps) + playing_time_bonus
 
         return Score(offensive=offensive, defensive=defensive, tactical=tactical, s_final=s_final)

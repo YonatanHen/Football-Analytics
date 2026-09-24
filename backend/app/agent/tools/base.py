@@ -45,6 +45,12 @@ def run_metric_query(repo, family: set[str], q: MetricQuery) -> list[dict]:
     if q.metric not in family or q.metric not in METRIC_FIELDS:
         return [{"error": f"{q.metric!r} is not available in this tool."}]
 
+    if q.team:
+        # The team filter matches by substring, so "Manchester" would merge City and United.
+        teams = repo.matching_teams(settings.season, q.team)
+        if len(teams) > 1:
+            return [{"error": f"{q.team!r} matches {teams}. Ask again with one full team name."}]
+
     filters: list[dict] = []
     if q.min_value is not None:
         filters.append({"field": q.metric, "op": "gte", "value": float(q.min_value)})

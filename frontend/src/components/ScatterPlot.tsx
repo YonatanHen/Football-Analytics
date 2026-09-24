@@ -1,22 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, ReferenceLine,
+  ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import type { ScatterPoint } from '../api/players'
+
+export interface PlotPoint {
+  id: string
+  name: string
+  x: number
+  y: number
+  color: string
+  radius: number
+  label?: string
+  selected?: boolean
+}
 
 interface ScatterPlotProps {
-  data: ScatterPoint[]
-  onPointClick?: (point: ScatterPoint) => void
+  points: PlotPoint[]
+  xLabel: string
+  yLabel: string
+  onPointClick?: (id: string) => void
 }
 
-const POSITION_COLORS: Record<string, string> = {
-  GK: '#6366f1', DF: '#22c55e', MF: '#f59e0b', FW: '#ef4444',
-}
-
-const Y_AXIS_WIDTH = 55
-const MARGIN = { top: 24, right: 24, bottom: 44, left: 8 }
+const Y_AXIS_WIDTH = 44
+const MARGIN = { top: 24, right: 28, bottom: 40, left: 16 }
 const MIN_ZOOM_FRACTION = 0.03 // don't let a single wheel-zoom session collapse past 3% of the full domain
+const TICK = { fill: '#56635c', fontSize: 11, fontFamily: 'JetBrains Mono' }
 
 type Domain = [number, number]
 
@@ -25,8 +33,7 @@ function clampWidth(width: number, full: Domain): number {
   return Math.min(fullWidth, Math.max(fullWidth * MIN_ZOOM_FRACTION, width))
 }
 
-// Shift a domain window back inside the full data range, preserving its width —
-// used to stop panning past the edges of the actual data.
+// Shift a domain window back inside the full data range, preserving its width.
 function clampDomain(domain: Domain, full: Domain): Domain {
   const width = domain[1] - domain[0]
   let [lo, hi] = domain
@@ -35,58 +42,67 @@ function clampDomain(domain: Domain, full: Domain): Domain {
   return [lo, hi]
 }
 
-export default function ScatterPlot({ data, onPointClick }: ScatterPlotProps) {
+interface ShapeProps { cx?: number; cy?: number; payload?: PlotPoint }
+
+function PointShape({ cx = 0, cy = 0, payload }: ShapeProps) {
+  if (!payload) return null
+  return (
+    <g>
+      {payload.selected && <circle cx={cx} cy={cy} r={payload.radius + 4} fill="none" stroke="#e7ede9" strokeOpacity={0.35} />}
+      <circle cx={cx} cy={cy} r={payload.radius} fill={payload.color} />
+      {payload.label && (
+        <text x={cx + payload.radius + 6} y={cy + 4} fill="#8a978f" fontSize={11} fontFamily="JetBrains Mono">
+          {payload.label}
+        </text>
+      )}
+    </g>
+  )
+}
+
+export default function ScatterPlot({ points, xLabel, yLabel, onPointClick }: ScatterPlotProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [xDomain, setXDomain] = useState<Domain | null>(null)
   const [yDomain, setYDomain] = useState<Domain | null>(null)
 
-  const byPosition = useMemo(() => {
-    const grouped: Record<string, ScatterPoint[]> = {}
-    for (const p of data) {
-      const pos = p.position || 'MF'
-      grouped[pos] = grouped[pos] ?? []
-      grouped[pos].push(p)
-    }
-    return grouped
-  }, [data])
+  // One shared range for both axes, rounded up to a whole number of ~6 even steps.
+  const { full, ticks } = useMemo(() => {
+    const max = Math.max(points.reduce((m, p) => Math.max(m, p.x, p.y), 0) * 1.03, 1)
+    const raw = max / 6
+    const mag = 10 ** Math.floor(Math.log10(raw))
+    const step = ([1, 2, 2.5, 5, 10].find((f) => f * mag >= raw) ?? 10) * mag
+    const top = Math.ceil(max / step) * step
+    return { full: [0, top] as Domain, ticks: Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step) }
+  }, [points])
 
-  const fullXDomain = useMemo<Domain>(() => {
-    const maxXgXa = data.reduce((m, p) => Math.max(m, p.xg_xa), 0)
-    return [0, Math.max(Math.round(maxXgXa * 1.05 * 100) / 100, 1)]
-  }, [data])
-
-  const fullYDomain = useMemo<Domain>(() => {
-    const maxGA = data.reduce((m, p) => Math.max(m, p.g_a), 0)
-    return [0, Math.max(Math.round(maxGA * 1.05 * 100) / 100, 1)]
-  }, [data])
-
-  const refMax = Math.max(fullXDomain[1], fullYDomain[1])
-
-  // Reset zoom whenever the underlying dataset changes (e.g. season switch).
+  // Reset zoom whenever the axes or the range change, not on every point restyle.
+  const top = full[1]
   useEffect(() => {
     setXDomain(null)
     setYDomain(null)
-  }, [data])
+  }, [top, xLabel, yLabel])
 
-  // Pending domain lives in refs, updated synchronously on every wheel tick (cheap).
-  // The expensive part — flushing to React state, which re-renders ~1200 points — is
-  // throttled to one commit per animation frame so a fast trackpad fling doesn't queue
-  // a render per wheel event.
-  const pendingXRef = useRef(fullXDomain)
-  const pendingYRef = useRef(fullYDomain)
-  const fullXDomainRef = useRef(fullXDomain)
-  const fullYDomainRef = useRef(fullYDomain)
+  // Wheel ticks update refs; React state is flushed at most once per frame.
+  const pendingXRef = useRef(full)
+  const pendingYRef = useRef(full)
+  const fullRef = useRef(full)
   const rafRef = useRef<number | null>(null)
-  useEffect(() => { fullXDomainRef.current = fullXDomain }, [fullXDomain])
-  useEffect(() => { fullYDomainRef.current = fullYDomain }, [fullYDomain])
+  useEffect(() => { fullRef.current = full }, [full])
   useEffect(() => {
-    pendingXRef.current = xDomain ?? fullXDomain
-    pendingYRef.current = yDomain ?? fullYDomain
-  }, [xDomain, yDomain, fullXDomain, fullYDomain])
+    pendingXRef.current = xDomain ?? full
+    pendingYRef.current = yDomain ?? full
+  }, [xDomain, yDomain, full])
 
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
+    const flush = () => {
+      if (rafRef.current !== null) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        setXDomain(pendingXRef.current)
+        setYDomain(pendingYRef.current)
+      })
+    }
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
@@ -99,185 +115,122 @@ export default function ScatterPlot({ data, onPointClick }: ScatterPlotProps) {
       const plotBottom = rect.bottom - MARGIN.bottom
       const fracX = Math.min(1, Math.max(0, (e.clientX - plotLeft) / (plotRight - plotLeft)))
       const fracY = Math.min(1, Math.max(0, 1 - (e.clientY - plotTop) / (plotBottom - plotTop)))
-
       const dataX = curX[0] + fracX * (curX[1] - curX[0])
       const dataY = curY[0] + fracY * (curY[1] - curY[0])
-      const zoomFactor = e.deltaY < 0 ? 0.85 : 1 / 0.85
+      const zoom = e.deltaY < 0 ? 0.85 : 1 / 0.85
+      const wX = clampWidth((curX[1] - curX[0]) * zoom, fullRef.current)
+      const wY = clampWidth((curY[1] - curY[0]) * zoom, fullRef.current)
+      pendingXRef.current = [dataX - fracX * wX, dataX + (1 - fracX) * wX]
+      pendingYRef.current = [dataY - fracY * wY, dataY + (1 - fracY) * wY]
+      flush()
+    }
 
-      const newWidthX = clampWidth((curX[1] - curX[0]) * zoomFactor, fullXDomainRef.current)
-      const newWidthY = clampWidth((curY[1] - curY[0]) * zoomFactor, fullYDomainRef.current)
+    let drag: { x: number; y: number; dX: Domain; dY: Domain; w: number; h: number } | null = null
+    let dragged = false
 
-      pendingXRef.current = [dataX - fracX * newWidthX, dataX + (1 - fracX) * newWidthX]
-      pendingYRef.current = [dataY - fracY * newWidthY, dataY + (1 - fracY) * newWidthY]
-
-      if (rafRef.current === null) {
-        rafRef.current = requestAnimationFrame(() => {
-          rafRef.current = null
-          setXDomain(pendingXRef.current)
-          setYDomain(pendingYRef.current)
-        })
+    const onMove = (e: MouseEvent) => {
+      if (!drag) return
+      const dx = e.clientX - drag.x
+      const dy = e.clientY - drag.y
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragged = true
+      const shiftX = (dx / drag.w) * (drag.dX[1] - drag.dX[0])
+      const shiftY = (dy / drag.h) * (drag.dY[1] - drag.dY[0])
+      pendingXRef.current = clampDomain([drag.dX[0] - shiftX, drag.dX[1] - shiftX], fullRef.current)
+      pendingYRef.current = clampDomain([drag.dY[0] + shiftY, drag.dY[1] + shiftY], fullRef.current)
+      flush()
+    }
+    const onUp = () => {
+      drag = null
+      el.style.cursor = 'grab'
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      e.preventDefault()
+      dragged = false
+      const rect = el.getBoundingClientRect()
+      drag = {
+        x: e.clientX, y: e.clientY, dX: pendingXRef.current, dY: pendingYRef.current,
+        w: rect.width - MARGIN.left - Y_AXIS_WIDTH - MARGIN.right,
+        h: rect.height - MARGIN.top - MARGIN.bottom,
       }
+      el.style.cursor = 'grabbing'
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    }
+    // Swallow the click that ends a drag so it does not also select a point.
+    const onClickCapture = (e: MouseEvent) => {
+      if (dragged) { e.stopPropagation(); dragged = false }
     }
 
     el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('mousedown', onDown)
+    el.addEventListener('click', onClickCapture, true)
     return () => {
       el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('mousedown', onDown)
+      el.removeEventListener('click', onClickCapture, true)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
   }, [])
 
-  // Click-and-drag panning, for navigating around once zoomed in. Uses the same
-  // pending-ref + rAF-flush pattern as the wheel handler to stay smooth.
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    let dragStart: {
-      x: number; y: number; domainX: Domain; domainY: Domain; plotWidth: number; plotHeight: number
-    } | null = null
-    let dragged = false
-
-    const onMouseMove = (e: MouseEvent) => {
-      if (!dragStart) return
-      const dx = e.clientX - dragStart.x
-      const dy = e.clientY - dragStart.y
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragged = true
-
-      const deltaDataX = (dx / dragStart.plotWidth) * (dragStart.domainX[1] - dragStart.domainX[0])
-      const deltaDataY = (dy / dragStart.plotHeight) * (dragStart.domainY[1] - dragStart.domainY[0])
-
-      pendingXRef.current = clampDomain(
-        [dragStart.domainX[0] - deltaDataX, dragStart.domainX[1] - deltaDataX],
-        fullXDomainRef.current,
-      )
-      pendingYRef.current = clampDomain(
-        [dragStart.domainY[0] + deltaDataY, dragStart.domainY[1] + deltaDataY],
-        fullYDomainRef.current,
-      )
-
-      if (rafRef.current === null) {
-        rafRef.current = requestAnimationFrame(() => {
-          rafRef.current = null
-          setXDomain(pendingXRef.current)
-          setYDomain(pendingYRef.current)
-        })
-      }
-    }
-
-    const onMouseUp = () => {
-      dragStart = null
-      el.style.cursor = 'grab'
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-
-    const onMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0) return
-      e.preventDefault() // avoid native text-selection while dragging
-      dragged = false
-      const rect = el.getBoundingClientRect()
-      dragStart = {
-        x: e.clientX,
-        y: e.clientY,
-        domainX: pendingXRef.current,
-        domainY: pendingYRef.current,
-        plotWidth: rect.width - MARGIN.left - Y_AXIS_WIDTH - MARGIN.right,
-        plotHeight: rect.height - MARGIN.top - MARGIN.bottom,
-      }
-      el.style.cursor = 'grabbing'
-      window.addEventListener('mousemove', onMouseMove)
-      window.addEventListener('mouseup', onMouseUp)
-    }
-
-    // Swallow the click that follows a drag so it doesn't also open a dot's player modal.
-    const onClickCapture = (e: MouseEvent) => {
-      if (dragged) {
-        e.stopPropagation()
-        dragged = false
-      }
-    }
-
-    el.addEventListener('mousedown', onMouseDown)
-    el.addEventListener('click', onClickCapture, true)
-    return () => {
-      el.removeEventListener('mousedown', onMouseDown)
-      el.removeEventListener('click', onClickCapture, true)
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [])
-
   const isZoomed = xDomain !== null || yDomain !== null
-  const resetZoom = () => { setXDomain(null); setYDomain(null) }
+  const fmt = (v: number) => String(Number(v.toFixed(1)))
 
   return (
-    <div className="relative">
-      <div ref={containerRef} className="relative h-[72vh] min-h-[480px] max-h-[840px] cursor-grab">
-        {isZoomed && (
-          <button
-            onClick={resetZoom}
-            className="absolute top-2 right-2 z-10 px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded"
-          >
-            Reset zoom
-          </button>
-        )}
-        <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart margin={MARGIN}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis
-              dataKey="xg_xa" name="xG+xA" type="number"
-              domain={xDomain ?? fullXDomain} allowDataOverflow
-              tickFormatter={(v: number) => String(Number(v.toFixed(2)))}
-              label={{ value: 'xG + xA', position: 'insideBottom', offset: -20, fill: '#9ca3af' }}
-              stroke="#6b7280"
-            />
-            <YAxis
-              dataKey="g_a" name="G+A" type="number"
-              domain={yDomain ?? fullYDomain} allowDataOverflow width={Y_AXIS_WIDTH}
-              tickFormatter={(v: number) => String(Number(v.toFixed(2)))}
-              label={{ value: 'Goals + Assists', angle: -90, position: 'insideLeft', offset: 10, fill: '#9ca3af' }}
-              stroke="#6b7280"
-            />
-            {/* diagonal y=x: above = underperformer (potential sleeper) */}
-            <ReferenceLine
-              segment={[{ x: 0, y: 0 }, { x: refMax, y: refMax }]}
-              stroke="#4b5563" strokeDasharray="4 4"
-            />
-            <Tooltip
-              cursor={{ strokeDasharray: '3 3' }}
-              content={({ payload }) => {
-                if (!payload?.length) return null
-                const p = payload[0].payload as ScatterPoint
-                return (
-                  <div className="bg-gray-800 border border-gray-700 p-2 rounded text-sm">
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-gray-400">{p.position}</div>
-                    <div className="text-gray-400">G+A: {p.g_a} · xG+xA: {p.xg_xa.toFixed(2)}</div>
-                  </div>
-                )
-              }}
-            />
-            <Legend
-              verticalAlign="bottom"
-              align="center"
-              wrapperStyle={{ position: 'relative', marginTop: 16, display: 'flex', justifyContent: 'center', width: '100%' }}
-            />
-            {Object.entries(byPosition).map(([pos, points]) => (
-              <Scatter
-                key={pos}
-                name={pos}
-                data={points}
-                fill={POSITION_COLORS[pos] ?? '#9ca3af'}
-                opacity={0.8}
-                isAnimationActive={false}
-                cursor={onPointClick ? 'pointer' : undefined}
-                onClick={onPointClick ? (point) => onPointClick(point as unknown as ScatterPoint) : undefined}
-              />
-            ))}
-          </ScatterChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="text-center text-xs text-gray-500 mt-1">Scroll to zoom · drag to pan</div>
+    <div ref={containerRef} className="relative h-full w-full cursor-grab">
+      {isZoomed && (
+        <button
+          onClick={() => { setXDomain(null); setYDomain(null) }}
+          className="btn-ghost absolute right-4 top-3 z-10 h-7 text-xs"
+        >
+          Reset zoom
+        </button>
+      )}
+      <ResponsiveContainer width="100%" height="100%">
+        <ScatterChart margin={MARGIN}>
+          <CartesianGrid stroke="#1f2b25" />
+          <XAxis
+            dataKey="x" type="number" domain={xDomain ?? full} allowDataOverflow
+            tickFormatter={fmt} tick={TICK} tickLine={false} axisLine={false} ticks={isZoomed ? undefined : ticks}
+            label={{ value: `${xLabel}  (expected)`, position: 'insideBottom', offset: -24, ...TICK, fill: '#8a978f' }}
+          />
+          <YAxis
+            dataKey="y" type="number" domain={yDomain ?? full} allowDataOverflow width={Y_AXIS_WIDTH}
+            tickFormatter={fmt} tick={TICK} tickLine={false} axisLine={false} ticks={isZoomed ? undefined : ticks}
+            label={{ value: `${yLabel}  (actual)`, angle: -90, position: 'insideLeft', offset: -4, ...TICK, fill: '#8a978f' }}
+          />
+          <ReferenceLine
+            segment={[{ x: 0, y: 0 }, { x: full[1], y: full[1] }]}
+            stroke="#1f9360" strokeWidth={1.5} ifOverflow="hidden"
+            label={{ value: 'xGI = GI', position: 'insideTopRight', fill: '#1f9360', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+          />
+          <Tooltip
+            cursor={false}
+            isAnimationActive={false}
+            content={({ payload }) => {
+              if (!payload?.length) return null
+              const p = payload[0].payload as PlotPoint
+              return (
+                <div className="rounded-md border border-line-strong bg-surface px-3 py-2 text-xs">
+                  <div className="text-ink">{p.name}</div>
+                  <div className="mt-0.5 font-mono text-muted">{xLabel} {p.x.toFixed(1)} · {yLabel} {p.y}</div>
+                </div>
+              )
+            }}
+          />
+          <Scatter
+            data={points}
+            shape={(props: unknown) => <PointShape {...(props as ShapeProps)} />}
+            isAnimationActive={false}
+            cursor={onPointClick ? 'pointer' : undefined}
+            onClick={onPointClick ? (p) => onPointClick((p as unknown as PlotPoint).id) : undefined}
+          />
+        </ScatterChart>
+      </ResponsiveContainer>
     </div>
   )
 }

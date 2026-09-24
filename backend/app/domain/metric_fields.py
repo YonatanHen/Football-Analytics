@@ -25,6 +25,15 @@ _SCORE_FIELDS: dict[str, tuple[str, str]] = {
 
 METRIC_FIELDS: dict[str, tuple[str, str]] = {**_STATS_FIELDS, **_SCORE_FIELDS}
 
+# Sort-only: nullable, so it is neither a filter metric nor an agent tool metric.
+SORT_FIELDS: dict[str, tuple[str, str]] = {
+    **METRIC_FIELDS,
+    "xratio": ("scores", "underpredicted_ratio"),
+}
+
+# DTO attribute -> stored MongoDB field, where the two differ.
+_MONGO_ATTRS = {"underpredicted_ratio": "sleeper_ratio"}
+
 FILTER_OPS: dict[str, str] = {
     "gte": "$gte",
     "lte": "$lte",
@@ -41,15 +50,15 @@ _PY_OPS = {
 
 
 def mongo_path(name: str) -> str:
-    """Return the MongoDB dotted path for an allowlisted metric name."""
-    source, attr = METRIC_FIELDS[name]
+    """Return the MongoDB dotted path for an allowlisted metric or sort name."""
+    source, attr = SORT_FIELDS[name]
     root = "aggregated_stats" if source == "stats" else "aggregated_scores"
-    return f"{root}.{attr}"
+    return f"{root}.{_MONGO_ATTRS.get(attr, attr)}"
 
 
-def python_value(player: PlayerDTO, name: str) -> float:
+def python_value(player: PlayerDTO, name: str) -> float | None:
     """Read a metric value off a PlayerDTO (used by the stats_view re-aggregation path)."""
-    source, attr = METRIC_FIELDS[name]
+    source, attr = SORT_FIELDS[name]
     obj = player.aggregated_stats if source == "stats" else player.aggregated_scores
     return getattr(obj, attr)
 

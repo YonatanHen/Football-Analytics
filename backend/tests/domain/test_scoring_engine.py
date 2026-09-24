@@ -1,7 +1,7 @@
 import pytest
 
 from app.domain.models import Stats
-from app.domain.scoring_engine import ScoringEngine
+from app.domain.scoring_engine import ScoringEngine, confidence_tier, effective_appearances
 
 
 @pytest.fixture
@@ -211,3 +211,16 @@ def test_negative_appearances_treated_as_missing(engine: ScoringEngine) -> None:
     corrupt = engine.calculate(Stats(goals=5, minutes=900, appearances=-3), "FW")
     missing = engine.calculate(Stats(goals=5, minutes=900, appearances=0), "FW")
     assert corrupt.s_final == pytest.approx(missing.s_final, rel=1e-9)
+
+
+@pytest.mark.parametrize(
+    ("apps", "expected"), [(0, 0.15), (4, 0.15), (5, 0.5), (14, 0.5), (15, 0.8), (20, 1.0)]
+)
+def test_confidence_tier_is_a_pure_lookup(apps: int, expected: float) -> None:
+    assert confidence_tier(apps) == expected
+
+
+def test_effective_appearances_estimates_from_minutes() -> None:
+    assert effective_appearances(Stats(minutes=900)) == 10
+    assert effective_appearances(Stats(minutes=900, appearances=12)) == 12
+    assert effective_appearances(Stats()) == 0

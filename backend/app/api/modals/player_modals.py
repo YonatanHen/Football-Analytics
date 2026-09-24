@@ -76,7 +76,7 @@ class CompetitionOut(BaseModel):
 
 
 class AggregatedScoresOut(BaseModel):
-    """Season-level fantasy scores including underprediction analysis across all competitions."""
+    """Season-level fantasy scores, underprediction analysis and confidence tier."""
 
     offensive: float
     defensive: float
@@ -84,6 +84,7 @@ class AggregatedScoresOut(BaseModel):
     s_final: float
     underpredicted_ratio: float | None
     underpredicted_flag: str | None
+    confidence: float = 1.0
 
 
 class PlayerOut(BaseModel):

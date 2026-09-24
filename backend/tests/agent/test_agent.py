@@ -258,3 +258,33 @@ def test_clearing_a_session_survives_a_storage_failure():
         model=FakeToolCallingModel(responses=[]), repo=fake_repo(), checkpointer=checkpointer
     )
     agent.clear("gone")  # must not raise: the API returns 204 either way
+
+
+@pytest.mark.asyncio
+async def test_answer_reports_tool_names_and_row_counts_only():
+    scripted = [
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "attacking", "args": {"metric": "goals"}, "id": "t1"}],
+        ),
+        AIMessage(content="Player A leads with 10 goals."),
+    ]
+    res = await _agent(scripted, fake_repo(rows=[fake_player()])).answer("top?", session_id="t1")
+    assert [(c.name, c.rows) for c in res.tool_calls] == [("attacking", 1)]
+    assert res.uncited == []
+
+
+@pytest.mark.asyncio
+async def test_answer_lists_uncited_figures():
+    scripted = [
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "attacking", "args": {"metric": "goals"}, "id": "t2"}],
+        ),
+        AIMessage(content="Player A scored 41 goals."),
+    ]
+    res = await _agent(scripted, fake_repo(rows=[fake_player(goals=10)])).answer(
+        "top?", session_id="t2"
+    )
+    assert res.degraded is True
+    assert res.uncited == ["41"]

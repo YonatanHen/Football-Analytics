@@ -14,7 +14,8 @@ from app.api.modals.player_modals import (
 )
 from app.config import settings
 from app.dependencies import get_repo
-from app.domain.metric_fields import FILTER_OPS, METRIC_FIELDS
+from app.domain.metric_fields import FILTER_OPS, METRIC_FIELDS, SORT_FIELDS
+from app.domain.scoring_engine import confidence_tier, effective_appearances
 from app.infrastructure.mongo_repository import MongoRepository
 from app.infrastructure.sofascore_client import SofascoreClient
 
@@ -85,7 +86,10 @@ def _to_out(p: "PlayerDTO") -> PlayerOut:
             for c in p.competitions
         ],
         aggregated_stats=StatsOut(**p.aggregated_stats.__dict__),
-        aggregated_scores=AggregatedScoresOut(**p.aggregated_scores.__dict__),
+        aggregated_scores=AggregatedScoresOut(
+            **p.aggregated_scores.__dict__,
+            confidence=confidence_tier(effective_appearances(p.aggregated_stats)),
+        ),
         low_sample_size=p.low_sample_size,
         last_updated=p.last_updated,
     )
@@ -124,10 +128,10 @@ def list_players(
     stats_view: 'all' | 'club' | 'national' | <competition name>
     When set, re-aggregates and re-scores each player from matching competitions only.
 
-    sort_by: any allowlisted metric (see metric_fields.METRIC_FIELDS); defaults to s_final.
+    sort_by: any allowlisted metric, or xratio (see metric_fields.SORT_FIELDS); defaults to s_final.
     filters: JSON array of {field, op, value} clauses over allowlisted numeric metrics.
     """
-    if sort_by not in METRIC_FIELDS:
+    if sort_by not in SORT_FIELDS:
         raise _err(f"Unknown sort field: {sort_by!r}.")
     parsed_filters = _parse_filters(filters)
     players, total = repo.get_players(

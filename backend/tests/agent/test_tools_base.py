@@ -34,9 +34,10 @@ def _player(name="Player A", goals=10):
     )
 
 
-def _repo(players):
+def _repo(players, teams=()):
     repo = MagicMock()
     repo.get_players.return_value = (players, len(players))
+    repo.matching_teams.return_value = list(teams)
     return repo
 
 
@@ -106,3 +107,26 @@ def test_the_built_tool_offers_both_sort_directions():
     tool = build_metric_tool(_repo([]), name="attacking", description="d", metrics=["goals"])
     schema = tool.args_schema.model_json_schema()
     assert set(schema["properties"]["order"]["enum"]) == {"asc", "desc"}
+
+
+def test_an_ambiguous_team_name_is_reported_instead_of_merging_clubs():
+    repo = _repo([_player()], teams=["Manchester City", "Manchester United"])
+    rows = run_metric_query(repo, FAMILY, MetricQuery(metric="goals", team="Manchester"))
+    assert len(rows) == 1
+    assert "Manchester City" in rows[0]["error"]
+    assert "Manchester United" in rows[0]["error"]
+    repo.get_players.assert_not_called()
+
+
+def test_a_team_name_matching_one_club_still_queries():
+    repo = _repo([_player()], teams=["Manchester City"])
+    rows = run_metric_query(repo, FAMILY, MetricQuery(metric="goals", team="cit"))
+    assert "error" not in rows[0]
+    repo.get_players.assert_called_once()
+
+
+def test_no_team_filter_skips_the_ambiguity_check():
+    repo = _repo([_player()])
+    rows = run_metric_query(repo, FAMILY, MetricQuery(metric="goals"))
+    assert "error" not in rows[0]
+    repo.matching_teams.assert_not_called()

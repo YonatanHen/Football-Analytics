@@ -22,6 +22,13 @@ from app.domain.models import (
 from app.infrastructure.text_utils import normalize_text
 
 
+def _substring(text: str) -> dict | None:
+    """Match a norm_* field by substring, or None when the text holds nothing searchable."""
+    normalized = normalize_text(text)
+    # An empty term escapes to an empty regex, which matches every document rather than none.
+    return {"$regex": re.escape(normalized)} if normalized else None
+
+
 def _stats_to_dict(stats: Stats) -> dict:
     return asdict(stats)
 
@@ -327,16 +334,15 @@ class MongoRepository:
             bio_query["position"] = position
         if nationality:
             bio_query["nationality"] = nationality
-        if name:
-            # The name is user text: escape it so "." cannot match every player.
-            bio_query["name"] = {"$regex": re.escape(name), "$options": "i"}
+        if name and (clause := _substring(name)):
+            bio_query["norm_name"] = clause
 
         stats_query: dict = {"season": season}
         if bio_query:
             bio_ids = [d["_id"] for d in self._player_bios.find(bio_query, {"_id": 1})]
             stats_query["player_bio_id"] = {"$in": bio_ids}
-        if team:
-            stats_query["team"] = team
+        if team and (clause := _substring(team)):
+            stats_query["norm_team"] = clause
         if underpredicted_flag:
             stats_query["aggregated_scores.sleeper_flag"] = underpredicted_flag
 
@@ -359,8 +365,10 @@ class MongoRepository:
                     for p in players_all
                     if all(python_matches(p, f["field"], f["op"], f["value"]) for f in filters)
                 ]
-            reverse = order == "desc"
-            players_all.sort(key=lambda p: python_value(p, sort_by), reverse=reverse)
+            # Nulls (e.g. xratio with no G+A) always sort last.
+            ranked = [p for p in players_all if python_value(p, sort_by) is not None]
+            ranked.sort(key=lambda p: python_value(p, sort_by), reverse=order == "desc")
+            players_all = ranked + [p for p in players_all if python_value(p, sort_by) is None]
             total = len(players_all)
             skip = (page - 1) * page_size
             return players_all[skip : skip + page_size], total
@@ -411,6 +419,13 @@ class MongoRepository:
             out.setdefault(t, []).append(doc["_id"]["name"])
         return out
 
+    def matching_teams(self, season: str, team: str) -> list[str]:
+        """Distinct team names the text matches, so a caller can spot an ambiguous name."""
+        clause = _substring(team)
+        if clause is None:
+            return []
+        return sorted(self._player_stats.distinct("team", {"season": season, "norm_team": clause}))
+
     def get_player(self, player_id: str, season: str) -> PlayerDTO | None:
         bio = self._player_bios.find_one({"sofascore_player_id": player_id})
         if bio is None:
@@ -430,6 +445,11 @@ class MongoRepository:
                     "aggregated_stats.xa": 1,
                     "aggregated_stats.goals": 1,
                     "aggregated_stats.assists": 1,
+                    "aggregated_stats.minutes": 1,
+                    "aggregated_scores.s_final": 1,
+                    "aggregated_scores.sleeper_ratio": 1,
+                    "aggregated_scores.sleeper_flag": 1,
+                    "team": 1,
                 },
             )
         )
@@ -449,7 +469,9 @@ class MongoRepository:
                     "sofascore_player_id": bio.get("sofascore_player_id"),
                     "name": bio.get("name", ""),
                     "position": bio.get("position", ""),
+                    "team": s.get("team", ""),
                     "aggregated_stats": s.get("aggregated_stats", {}),
+                    "aggregated_scores": s.get("aggregated_scores", {}),
                 }
             )
         return result
@@ -473,6 +495,22 @@ class MongoRepository:
             }
             for d in self._league_meta.find({}, {"competition": 1, "season": 1, "updated_at": 1})
         ]
+
+    def count_players(self, season: str) -> int:
+        return self._player_stats.count_documents({"season": season})
+
+    def list_seasons(self) -> list[str]:
+        """Stored seasons, newest first."""
+        return sorted(self._player_stats.distinct("season"), reverse=True)
+
+    def last_updated(self, season: str) -> str | None:
+        """Latest league fetch time for a season, as an ISO string."""
+        times = [
+            d["updated_at"]
+            for d in self._league_meta.find({"season": season}, {"updated_at": 1})
+            if d.get("updated_at")
+        ]
+        return max(times, default=None)
 
     def set_league_total_matches(self, competition: str, season: str, total_matches: int) -> None:
         """Persist total matches played for a (competition, season) pair (upsert)."""
