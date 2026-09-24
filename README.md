@@ -2,6 +2,55 @@
 
 A football analytics platform for observing and analyzing player statistics across leagues worldwide, with dedicated support for fantasy league decision-making.
 
+## Screenshots
+
+The GIFs below show the dark-theme UI running against real 2025-26 season data.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="screenshots/01-player-details.gif" alt="Player details — ranked table with live filters and sorting" width="100%">
+
+**Player Details**<br>
+Ranked table with live filters and sorting.
+</td>
+<td width="50%" valign="top">
+<img src="screenshots/02-player-modal.gif" alt="Player modal — scores, per-competition breakdown, goal and shot bars" width="100%">
+
+**Player Modal**<br>
+Scores, per-competition breakdown, goal and shot bars.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="screenshots/03-compare.gif" alt="Compare — head-to-head with mirrored bars and a Δ column" width="100%">
+
+**Compare**<br>
+Head-to-head with mirrored bars and a Δ column.
+</td>
+<td width="50%" valign="top">
+<img src="screenshots/04-xgi-outliers.gif" alt="xGI Outliers — Due to score and Overperforming players" width="100%">
+
+**xGI Outliers**<br>
+"Due to score" and "Overperforming" players.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="screenshots/05-scatter-plot.gif" alt="Scatter plot — xG+xA vs G+A with outlier highlighting" width="100%">
+
+**Scatter Plot**<br>
+xG+xA vs G+A with outlier highlighting.
+</td>
+<td width="50%" valign="top">
+<img src="screenshots/06-ask-ai.gif" alt="Ask AI — answers built from database tool calls, with a tool trace" width="100%">
+
+**Ask AI**<br>
+Answers built from database tool calls, with a tool trace.
+</td>
+</tr>
+</table>
+
 ## Disclaimer & Intended Use
 
 This project is a **free, open-source, educational tool** built for football enthusiasts exploring soccer data and fantasy players seeking personal analytical insights.
