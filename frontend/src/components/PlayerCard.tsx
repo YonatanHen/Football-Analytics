@@ -117,7 +117,7 @@ export default function PlayerCard({ player: p, bioLoading = false }: PlayerCard
           {sc.underpredicted_flag && (
             <span className={`text-xs px-2 py-0.5 rounded ${
               sc.underpredicted_flag === 'HIGH_VALUE' ? 'bg-amber-800 text-amber-200' : 'bg-green-800 text-green-200'
-            }`}>{sc.underpredicted_flag === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'}</span>
+            }`}>{sc.underpredicted_flag === 'HIGH_VALUE' ? 'Due to score' : 'Overperforming'}</span>
           )}
           {totwTotal > 0 && (
             <span className="text-xs px-2 py-0.5 rounded bg-yellow-700 text-yellow-100">TOTW ×{totwTotal}</span>

@@ -143,12 +143,12 @@ app/
 
 - `PlayerDetails` — paginated player table plus live search; the name and team fields filter as you type (250 ms debounce, stale responses dropped). Clicking a row opens the single-player modal, which also opens for players without a Sofascore ID
 - `Compare` — side-by-side exactly 2 players
-- `Sleepers` — filtered to sleeper_flag players
+- `Sleepers` — "xGI Outliers" tab: players whose G+A diverges from xG+xA ("Due to score" / "Overperforming")
 - `ScatterPage` — xG+xA vs G+A scatter plot via Recharts
 
 Data loading is developer-driven via `tools/fetch_cli` (see its README) — the frontend has no fetch-triggering UI; when the DB is empty it just points to the CLI.
 
-`ChatWidget` — floating chat bubble rendered on every tab (`src/components/ChatWidget.tsx`); opens `ChatPanel`. `?chat=1` renders `ChatFullScreen` instead of the tabbed `Dashboard` (`src/App.tsx`), reusing the same `ChatPanel`. Deliberately no navbar tab. Session id is generated client-side (`src/api/chat.ts`) and persisted for `GET/DELETE /v1/chat/sessions/{session_id}`.
+`ChatWidget` — floating chat bubble rendered on every tab except "Ask AI" (`src/components/ChatWidget.tsx`); opens `ChatPanel`. The "Ask AI" navbar tab renders `ChatPanel` full height. `?chat=1` renders `ChatFullScreen` instead of the tabbed `Dashboard` (`src/App.tsx`), reusing the same `ChatPanel`. Session id is generated client-side (`src/api/chat.ts`) and persisted for `GET/DELETE /v1/chat/sessions/{session_id}`.
 
 ### tools/fetch_cli
 

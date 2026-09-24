@@ -25,9 +25,9 @@ export default function Sleepers() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-2">Underpredicted Picks</h1>
+      <h1 className="text-xl font-bold mb-2">xGI Outliers</h1>
       <p className="text-sm text-gray-400 mb-4">
-        <strong className="text-amber-300">Underpredicted</strong>: xG+xA &gt; 1.2×(G+A) with &gt;450 min — underperforming their underlying numbers.{' '}
+        <strong className="text-amber-300">Due to score</strong>: xG+xA &gt; 1.2×(G+A) with &gt;450 min — underperforming their underlying numbers.{' '}
         <strong className="text-green-300">Overperforming</strong>: G+A &gt; 1.25×(xG+xA) with &gt;450 min — scoring above expectation, likely to regress.
       </p>
       <div className="flex gap-2 mb-4">
@@ -39,7 +39,7 @@ export default function Sleepers() {
               flag === f ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}
           >
-            {f === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'}
+            {f === 'HIGH_VALUE' ? 'Due to score' : 'Overperforming'}
           </button>
         ))}
       </div>

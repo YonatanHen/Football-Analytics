@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getPlayers } from './api/players'
+import ChatPanel from './components/ChatPanel'
 import ChatWidget from './components/ChatWidget'
 import ChatFullScreen from './pages/ChatFullScreen'
 import SeedPrompt from './components/SeedPrompt'
@@ -8,16 +9,17 @@ import Compare from './pages/Compare'
 import Sleepers from './pages/Sleepers'
 import ScatterPage from './pages/ScatterPage'
 
-type Tab = 'players' | 'compare' | 'sleepers' | 'scatter'
+type Tab = 'players' | 'compare' | 'sleepers' | 'scatter' | 'chat'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'players', label: 'Player details' },
   { id: 'compare', label: 'Compare' },
-  { id: 'sleepers', label: 'Underpredicted' },
+  { id: 'sleepers', label: 'xGI Outliers' },
   { id: 'scatter', label: 'Scatter Plot' },
+  { id: 'chat', label: 'Ask AI' },
 ]
 
-// One query param does not justify adding a router. The chat has no navbar tab by design.
+// One query param does not justify adding a router.
 const fullScreenChat = new URLSearchParams(window.location.search).get('chat') === '1'
 
 export default function App() {
@@ -73,11 +75,16 @@ function Dashboard() {
             {tab === 'compare' && <Compare />}
             {tab === 'sleepers' && <Sleepers />}
             {tab === 'scatter' && <ScatterPage />}
+            {tab === 'chat' && (
+              <div className="h-[calc(100vh-5rem)] max-w-3xl mx-auto flex flex-col">
+                <ChatPanel fullScreen />
+              </div>
+            )}
           </>
         )}
       </main>
 
-      {!dbError && isEmpty === false && <ChatWidget />}
+      {!dbError && isEmpty === false && tab !== 'chat' && <ChatWidget />}
     </div>
   )
 }

@@ -73,7 +73,7 @@ export default function FilterBar({ filters, onChange, competitions }: FilterBar
           className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
         >
           <option value="">All flags</option>
-          <option value="HIGH_VALUE">Underpredicted</option>
+          <option value="HIGH_VALUE">Due to score</option>
           <option value="OVERPERFORMING">Overperforming</option>
         </select>
       </div>

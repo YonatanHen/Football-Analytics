@@ -31,7 +31,7 @@ export default function PlayerTable({
   const flagBadge = (flag: string | null) => {
     if (!flag) return null
     const color = flag === 'HIGH_VALUE' ? 'bg-amber-800 text-amber-200' : 'bg-green-800 text-green-200'
-    const label = flag === 'HIGH_VALUE' ? 'Underpredicted' : 'Overperforming'
+    const label = flag === 'HIGH_VALUE' ? 'Due to score' : 'Overperforming'
     return <span className={`text-xs px-2 py-0.5 rounded ${color}`}>{label}</span>
   }
 

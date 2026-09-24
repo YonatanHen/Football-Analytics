@@ -79,7 +79,7 @@ flowchart LR
 - **Sleeper Detection** — `HIGH_VALUE` flags players where xG+xA significantly exceeds G+A; `OVERPERFORMING` flags the inverse; gated on `minutes > 450`
 - **Head-to-Head Compare** — side-by-side comparison of exactly two players across all stat dimensions
 - **Scatter Plot** — interactive xG+xA vs G+A chart (Recharts) across the full dataset
-- **Chat Agent** — floating widget on every tab (also a full-screen view at `?chat=1`) answers natural-language questions about players and metrics from live DB tool calls; figures with no supporting row are flagged, and questions the database cannot answer are answered from the model's own knowledge and labelled as such; no navbar tab by design
+- **Chat Agent** — "Ask AI" navbar tab plus a floating widget on the other tabs (also a full-screen view at `?chat=1`) answers natural-language questions about players and metrics from live DB tool calls; figures with no supporting row are flagged, and questions the database cannot answer are answered from the model's own knowledge and labelled as such
 - **Developer Data Loading** — `tools/fetch_cli`, a standalone CLI for browsing available competitions/seasons and loading data into MongoDB, with live per-task fetch progress
 - **DB Snapshots** — JSON dump/restore scripts (`backend/scripts/DB/`) for safe local dev iteration
 
