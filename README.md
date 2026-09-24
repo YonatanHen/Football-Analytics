@@ -50,7 +50,7 @@ This project is a **free, open-source, educational tool** built for football ent
 | Backend | FastAPI · Python 3.12 · PyMongo · Pydantic Settings |
 | Chatbot Agent | LangChain · LangGraph (`create_agent`), configurable LLM provider (Gemini free tier by default) |
 | Database | MongoDB 7 |
-| Data Fetching | ScraperFC · botasaurus · Chromium |
+| Data Fetching | ScraperFC |
 | Infrastructure | Docker Compose |
 | Testing | pytest · mongomock |
 
@@ -68,7 +68,7 @@ flowchart LR
             API["API Routers"]
             SE["Scoring Engine\nS_final = raw/90 x starter x confidence + bonus"]
             PA["Player Assembler\nbuild · merge · aggregate"]
-            SC["Stats Client\nScraperFC + Chrome"]
+            SC["Stats Client\nScraperFC"]
             MR["Mongo Repository"]
             CA["Chat Agent\nLangGraph tool loop"]
         end
@@ -88,7 +88,7 @@ flowchart LR
     CA --> MR
     CA -- "chat tools" --> LLM
     MR --> DB
-    SC -- "ScraperFC / botasaurus" --> EXT
+    SC -- "ScraperFC" --> EXT
 ```
 
 **Fetch path:** developer runs `tools/fetch_cli` → `POST /v1/fetch/` → `FantasyMode` → `FetchRunner` pulls stats per competition (concurrent, no fetch rate limit) → `PlayerAssembler` scores via `ScoringEngine` and classifies sleepers → `MongoRepository` upserts to `player_bios` / `player_stats`.
