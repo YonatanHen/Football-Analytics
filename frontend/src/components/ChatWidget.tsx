@@ -1,8 +1,6 @@
 import { useState } from 'react'
+import { ArrowUpRight, MessageSquare, X } from 'lucide-react'
 import ChatPanel from './ChatPanel'
-
-const INSTRUCTIONS =
-  'Ask about any player or metric in the database. I can rank, filter and compare.'
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
@@ -12,37 +10,24 @@ export default function ChatWidget() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Open chat"
-        className="fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-2xl shadow-lg"
+        className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-bg shadow-lg shadow-black/40 transition hover:brightness-110"
       >
-        💬
+        <MessageSquare size={20} />
       </button>
     )
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[380px] h-[540px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] flex flex-col bg-gray-900 border border-gray-800 rounded-xl shadow-2xl p-4">
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-100">Ask the data</h2>
-        <button
-          onClick={() => setOpen(false)}
-          aria-label="Close chat"
-          className="text-gray-400 hover:text-gray-200 text-sm"
-        >
-          ✕
+    <div className="fixed bottom-5 right-5 z-40 flex h-[560px] max-h-[calc(100vh-2.5rem)] w-[400px] max-w-[calc(100vw-2.5rem)] flex-col rounded-xl border border-line-strong bg-header p-4 shadow-2xl shadow-black/50">
+      <div className="mb-3 flex items-center gap-3">
+        <h2 className="text-sm font-semibold">Ask AI</h2>
+        <a href="?chat=1" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent">
+          Open full screen <ArrowUpRight size={12} />
+        </a>
+        <button onClick={() => setOpen(false)} aria-label="Close chat" className="ml-auto text-muted hover:text-ink">
+          <X size={16} />
         </button>
       </div>
-
-      <p className="text-xs text-gray-500 mt-1 leading-relaxed">{INSTRUCTIONS}</p>
-
-      <a
-        href="?chat=1"
-        target="_blank"
-        rel="noreferrer"
-        className="self-start mt-1 mb-2 text-xs text-indigo-400 hover:text-indigo-300"
-      >
-        Open full screen ↗
-      </a>
-
       <ChatPanel />
     </div>
   )

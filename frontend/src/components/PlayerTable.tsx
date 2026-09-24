@@ -1,111 +1,72 @@
+import type { ReactNode } from 'react'
 import type { Player, SortOrder } from '../api/players'
+
+export interface Column {
+  key: string
+  label: string
+  sortKey?: string
+  className?: string
+  render: (p: Player, rank: number) => ReactNode
+}
 
 interface PlayerTableProps {
   players: Player[]
-  total: number
-  page: number
-  pageSize: number
-  onPageChange: (page: number) => void
-  onPlayerClick: (player: Player) => void
+  columns: Column[]
+  rankOffset: number
+  onRowClick: (p: Player) => void
   sortBy?: string
   order?: SortOrder
-  onSortChange?: (field: string) => void
+  onSort?: (key: string) => void
+  dimmed?: boolean
 }
 
-// Sortable metric columns in render order. `metric` is the backend field the API sorts on;
-// `label` is the terse header text this table already displays (kept unchanged).
-const SORT_COLUMNS: { metric: string; label: string }[] = [
-  { metric: 's_final', label: 'Fantasy Score' },
-  { metric: 'goals', label: 'G' },
-  { metric: 'assists', label: 'A' },
-  { metric: 'xg', label: 'xG' },
-  { metric: 'xa', label: 'xA' },
-  { metric: 'minutes', label: 'Min' },
-]
-
 export default function PlayerTable({
-  players, total, page, pageSize, onPageChange, onPlayerClick, sortBy, order, onSortChange,
+  players, columns, rankOffset, onRowClick, sortBy, order, onSort, dimmed = false,
 }: PlayerTableProps) {
-  const totalPages = Math.ceil(total / pageSize)
-
-  const flagBadge = (flag: string | null) => {
-    if (!flag) return null
-    const color = flag === 'HIGH_VALUE' ? 'bg-amber-800 text-amber-200' : 'bg-green-800 text-green-200'
-    const label = flag === 'HIGH_VALUE' ? 'Due to score' : 'Overperforming'
-    return <span className={`text-xs px-2 py-0.5 rounded ${color}`}>{label}</span>
-  }
-
-  const sortHeader = ({ metric, label }: { metric: string; label: string }) => {
-    if (!onSortChange) return <th key={metric} className="py-2 pr-4">{label}</th>
-    const active = sortBy === metric
-    return (
-      <th
-        key={metric}
-        onClick={() => onSortChange(metric)}
-        className={`py-2 pr-4 cursor-pointer select-none hover:text-white ${active ? 'text-white' : ''}`}
-      >
-        {label}{active ? (order === 'desc' ? ' ▼' : ' ▲') : ''}
-      </th>
-    )
-  }
-
   return (
-    <div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-gray-400 border-b border-gray-800 text-left">
-              <th className="py-2 pr-4">#</th>
-              <th className="py-2 pr-4">Player</th>
-              <th className="py-2 pr-4">Pos</th>
-              <th className="py-2 pr-4">Team</th>
-              {SORT_COLUMNS.map(sortHeader)}
-              <th className="py-2">Flag</th>
+    <div className={`overflow-x-auto transition-opacity ${dimmed ? 'opacity-50' : ''}`}>
+      <table className="w-full border-separate border-spacing-0 text-left">
+        <thead>
+          <tr>
+            {columns.map((c, i) => {
+              const active = c.sortKey !== undefined && c.sortKey === sortBy
+              const sortable = c.sortKey !== undefined && onSort
+              return (
+                <th
+                  key={c.key}
+                  onClick={sortable ? () => onSort(c.sortKey!) : undefined}
+                  className={`h-11 bg-surface px-3 font-mono text-[10px] font-normal uppercase tracking-[0.16em] ${
+                    i === 0 ? 'rounded-tl-lg pl-4' : ''
+                  } ${i === columns.length - 1 ? 'rounded-tr-lg' : ''} ${
+                    active ? 'text-accent' : 'text-dim'
+                  } ${sortable ? 'cursor-pointer select-none hover:text-ink' : ''} ${c.className ?? ''}`}
+                >
+                  {c.label}
+                  {active && <span className="ml-1.5">{order === 'asc' ? '▲' : '▼'}</span>}
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {players.map((p, i) => (
+            <tr
+              key={p.sofascore_player_id || `${p.name}|${p.team}`}
+              onClick={() => onRowClick(p)}
+              className="cursor-pointer transition-colors hover:bg-surface/70"
+            >
+              {columns.map((c, j) => (
+                <td
+                  key={c.key}
+                  className={`h-[46px] border-b border-line px-3 text-[13px] ${j === 0 ? 'pl-4' : ''} ${c.className ?? ''}`}
+                >
+                  {c.render(p, rankOffset + i + 1)}
+                </td>
+              ))}
             </tr>
-          </thead>
-          <tbody>
-            {players.map((p, i) => (
-              <tr
-                key={p.sofascore_player_id ?? `${p.name}|${p.team}`}
-                onClick={() => onPlayerClick(p)}
-                className="border-b border-gray-800 hover:bg-gray-800 cursor-pointer"
-              >
-                <td className="py-2 pr-4 text-gray-500">{(page - 1) * pageSize + i + 1}</td>
-                <td className="py-2 pr-4 font-medium">{p.name}</td>
-                <td className="py-2 pr-4 text-gray-400">{p.position}</td>
-                <td className="py-2 pr-4 text-gray-400">{p.team}</td>
-                <td className="py-2 pr-4 font-mono text-indigo-300">{p.aggregated_scores.s_final.toFixed(2)}</td>
-                <td className="py-2 pr-4">{p.aggregated_stats.goals}</td>
-                <td className="py-2 pr-4">{p.aggregated_stats.assists}</td>
-                <td className="py-2 pr-4 text-gray-400">{p.aggregated_stats.xg.toFixed(1)}</td>
-                <td className="py-2 pr-4 text-gray-400">{p.aggregated_stats.xa.toFixed(1)}</td>
-                <td className="py-2 pr-4 text-gray-400">{p.aggregated_stats.minutes}</td>
-                <td className="py-2">{flagBadge(p.aggregated_scores.underpredicted_flag)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex gap-2 mt-4 justify-center">
-          <button
-            disabled={page === 1}
-            onClick={() => onPageChange(page - 1)}
-            className="px-3 py-1 bg-gray-800 rounded disabled:opacity-40"
-          >
-            Prev
-          </button>
-          <span className="px-3 py-1 text-gray-400">{page} / {totalPages}</span>
-          <button
-            disabled={page === totalPages}
-            onClick={() => onPageChange(page + 1)}
-            className="px-3 py-1 bg-gray-800 rounded disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
-      )}
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

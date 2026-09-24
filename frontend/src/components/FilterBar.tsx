@@ -1,107 +1,66 @@
-import type { CompetitionList, FilterClause, FilterOp } from '../api/players'
+import { useEffect, useRef, useState } from 'react'
+import { Flag, Plus, Search, Shield } from 'lucide-react'
+import type { CompetitionList, FilterClause, FilterOp, SortOrder } from '../api/players'
+import { clauseLabel, metricLabel, type Filters } from '../lib/filters'
 import { FILTER_OP_OPTIONS, METRIC_OPTIONS } from '../api/players'
+import { IconInput, Select } from './ui/Fields'
+import FilterChip from './ui/FilterChip'
+import Segmented from './ui/Segmented'
 
-export interface Filters {
-  name: string; position: string; team: string; nationality: string; underpredicted_flag: string
-  stats_view: string; clauses: FilterClause[]
-}
+const VIEWS = [
+  { value: 'all', label: 'All' },
+  { value: 'club', label: 'Club' },
+  { value: 'national', label: 'National' },
+] as const
 
 interface FilterBarProps {
   filters: Filters
   onChange: (filters: Filters) => void
   competitions?: CompetitionList
+  sortBy: string
+  order: SortOrder
 }
 
-const POSITIONS = ['', 'GK', 'DF', 'MF', 'FW']
-const VIEW_SEGMENTS = [
-  { value: '', label: 'All' },
-  { value: 'club', label: 'Club' },
-  { value: 'national', label: 'National' },
-]
-
-export default function FilterBar({ filters, onChange, competitions }: FilterBarProps) {
-  const set = (key: keyof Filters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    onChange({ ...filters, [key]: e.target.value })
-
-  const setView = (value: string) => onChange({ ...filters, stats_view: value })
-
-  const clauses = filters.clauses
-  const setClauses = (next: FilterClause[]) => onChange({ ...filters, clauses: next })
-  const addClause = () =>
-    setClauses([...clauses, { field: METRIC_OPTIONS[0].value, op: 'gte', value: 0 }])
-  const updateClause = (i: number, patch: Partial<FilterClause>) =>
-    setClauses(clauses.map((c, j) => (j === i ? { ...c, ...patch } : c)))
-  const removeClause = (i: number) => setClauses(clauses.filter((_, j) => j !== i))
-
-  const isCompView = filters.stats_view !== '' && filters.stats_view !== 'club' && filters.stats_view !== 'national'
+export default function FilterBar({ filters, onChange, competitions, sortBy, order }: FilterBarProps) {
+  const set = (key: keyof Filters) => (v: string) => onChange({ ...filters, [key]: v })
+  const isView = ['', 'club', 'national'].includes(filters.stats_view)
+  const removeClause = (i: number) =>
+    onChange({ ...filters, clauses: filters.clauses.filter((_, j) => j !== i) })
 
   return (
-    <div className="flex flex-col gap-3 mb-4">
-      <div className="flex flex-wrap gap-3">
-        <input
-          value={filters.name}
-          onChange={set('name')}
-          placeholder="Player name..."
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-48"
-        />
-
-        <select
-          value={filters.position}
-          onChange={set('position')}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
-        >
-          {POSITIONS.map((p) => <option key={p} value={p}>{p || 'All positions'}</option>)}
-        </select>
-
-        <input
-          value={filters.team}
-          onChange={set('team')}
-          placeholder="Team..."
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-40"
-        />
-
-        <input
-          value={filters.nationality}
-          onChange={set('nationality')}
-          placeholder="Nationality..."
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-40"
-        />
-
-        <select
-          value={filters.underpredicted_flag}
-          onChange={set('underpredicted_flag')}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
-        >
+    <div className="mb-5 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <IconInput icon={Search} value={filters.name} onChange={set('name')} placeholder="Player name..." className="w-[236px]" />
+        <Select value={filters.position} onChange={set('position')} className="w-[156px]">
+          <option value="">All positions</option>
+          {['GK', 'DF', 'MF', 'FW'].map((p) => <option key={p} value={p}>{p}</option>)}
+        </Select>
+        <IconInput icon={Shield} value={filters.team} onChange={set('team')} placeholder="Team..." className="w-[168px]" />
+        <IconInput icon={Flag} value={filters.nationality} onChange={set('nationality')} placeholder="Nationality..." className="w-[168px]" />
+        <Select value={filters.underpredicted_flag} onChange={set('underpredicted_flag')} className="w-[156px]">
           <option value="">All flags</option>
           <option value="HIGH_VALUE">Due to score</option>
           <option value="OVERPERFORMING">Overperforming</option>
-        </select>
+        </Select>
+        <div className="ml-auto">
+          <AddMetricFilter onAdd={(c) => onChange({ ...filters, clauses: [...filters.clauses, c] })} />
+        </div>
       </div>
 
-      {/* Stats View selector */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-gray-400 mr-1">Stats view:</span>
-        {VIEW_SEGMENTS.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => setView(value)}
-            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-              filters.stats_view === value && !isCompView
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="label-caps mr-1">Stats view</span>
+        <Segmented
+          size="sm"
+          options={[...VIEWS]}
+          value={isView ? (filters.stats_view || 'all') : null}
+          onChange={(v) => set('stats_view')(v === 'all' ? '' : v)}
+        />
         {competitions && (
-          <select
-            value={isCompView ? filters.stats_view : ''}
-            onChange={(e) => e.target.value ? setView(e.target.value) : setView('')}
-            className={`bg-gray-800 border rounded px-2 py-1 text-xs ${
-              isCompView ? 'border-indigo-500 text-white' : 'border-gray-700 text-gray-400'
-            }`}
+          <Select
+            size="sm"
+            value={isView ? '' : filters.stats_view}
+            onChange={set('stats_view')}
+            className="w-[120px]"
           >
             <option value="">Competition...</option>
             {competitions.club.length > 0 && (
@@ -114,50 +73,75 @@ export default function FilterBar({ filters, onChange, competitions }: FilterBar
                 {competitions.national.map((c) => <option key={c} value={c}>{c}</option>)}
               </optgroup>
             )}
-          </select>
+          </Select>
         )}
-      </div>
-
-      {/* Metric filter builder */}
-      <div className="flex flex-col gap-2">
-        {clauses.map((c, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <select
-              value={c.field}
-              onChange={(e) => updateClause(i, { field: e.target.value })}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
-            >
-              {METRIC_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
-            <select
-              value={c.op}
-              onChange={(e) => updateClause(i, { op: e.target.value as FilterOp })}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
-            >
-              {FILTER_OP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <input
-              type="number"
-              value={Number.isFinite(c.value) ? c.value : ''}
-              onChange={(e) => updateClause(i, { value: e.target.valueAsNumber })}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm w-24"
-            />
-            <button
-              onClick={() => removeClause(i)}
-              className="text-gray-500 hover:text-red-400 px-1"
-              aria-label="Remove filter"
-            >
-              ✕
-            </button>
-          </div>
+        {filters.clauses.length > 0 && <span className="mx-1 h-5 w-px bg-line-strong" />}
+        {filters.clauses.map((c, i) => (
+          <FilterChip key={`${c.field}-${i}`} label={clauseLabel(c)} onRemove={() => removeClause(i)} />
         ))}
-        <button
-          onClick={addClause}
-          className="self-start text-xs text-indigo-400 hover:text-indigo-300"
-        >
-          + add filter
-        </button>
+        <span className="ml-auto font-mono text-[11px] text-muted">
+          sorted by {metricLabel(sortBy)} {order === 'asc' ? '▲' : '▼'}
+        </span>
       </div>
+    </div>
+  )
+}
+
+function AddMetricFilter({ onAdd }: { onAdd: (c: FilterClause) => void }) {
+  const [open, setOpen] = useState(false)
+  const [field, setField] = useState('minutes')
+  const [op, setOp] = useState<FilterOp>('gte')
+  const [value, setValue] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  const n = Number(value)
+  const valid = value.trim() !== '' && Number.isFinite(n)
+  const add = () => {
+    if (!valid) return
+    onAdd({ field, op, value: n })
+    setValue('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen((o) => !o)} className="btn-accent h-10 px-4">
+        <Plus size={15} /> Add metric filter
+      </button>
+      {open && (
+        <div className="absolute right-0 top-12 z-30 w-[340px] rounded-lg border border-line-strong bg-surface p-3 shadow-2xl">
+          <div className="label-caps mb-2">New clause</div>
+          <div className="flex gap-2">
+            <Select value={field} onChange={setField} size="sm" className="flex-1">
+              {METRIC_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </Select>
+            <Select value={op} onChange={(v) => setOp(v as FilterOp)} size="sm" className="w-16">
+              {FILTER_OP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+            <input
+              autoFocus
+              type="number"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && add()}
+              placeholder="0"
+              className="field h-8 w-20 px-2 font-mono text-xs"
+            />
+          </div>
+          <button disabled={!valid} onClick={add} className="btn-solid mt-3 h-8 w-full justify-center">
+            Apply
+          </button>
+        </div>
+      )}
     </div>
   )
 }

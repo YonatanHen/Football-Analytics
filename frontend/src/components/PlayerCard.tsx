@@ -1,235 +1,205 @@
 import { useState } from 'react'
-import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
+import { ArrowLeftRight, ChevronDown, ChevronUp, X } from 'lucide-react'
 import type { Player, Stats } from '../api/players'
+import { shortDate, totwCount } from '../lib/format'
+import Avatar from './ui/Avatar'
+import { Chip, CompTag, PosBadge, TotwBadge } from './ui/Badges'
+import StackedBar from './ui/StackedBar'
+import StatRow from './ui/StatRow'
 
 const ALL_STATS: { key: keyof Stats; label: string; decimals?: number }[] = [
   { key: 'appearances', label: 'Appearances' },
-  { key: 'matches_started', label: 'Matches Started' },
+  { key: 'matches_started', label: 'Matches started' },
   { key: 'minutes', label: 'Minutes' },
   { key: 'goals', label: 'Goals' },
   { key: 'assists', label: 'Assists' },
   { key: 'xg', label: 'xG', decimals: 2 },
   { key: 'xa', label: 'xA', decimals: 2 },
-  { key: 'key_passes', label: 'Key Passes' },
-  { key: 'big_chances_created', label: 'Big Chances Created' },
-  { key: 'total_shots', label: 'Total Shots' },
-  { key: 'shots_on_target', label: 'Shots On Target' },
-  { key: 'shots_off_target', label: 'Shots Off Target' },
-  { key: 'headed_goals', label: 'Headed Goals' },
-  { key: 'right_foot_goals', label: 'Right Foot Goals' },
-  { key: 'left_foot_goals', label: 'Left Foot Goals' },
-  { key: 'scoring_frequency', label: 'Scoring Frequency', decimals: 2 },
-  { key: 'pk_won', label: 'PK Won' },
-  { key: 'pk_scored', label: 'PK Scored' },
-  { key: 'pk_taken', label: 'PK Taken' },
-  { key: 'pk_saved', label: 'PK Saved' },
-  { key: 'penalty_miss', label: 'Penalty Miss' },
-  { key: 'penalty_faced', label: 'Penalty Faced' },
-  { key: 'penalty_conceded', label: 'Penalty Conceded' },
-  { key: 'fouls_committed', label: 'Fouls Committed' },
-  { key: 'yellow_cards', label: 'Yellow Cards' },
-  { key: 'yellow_red_cards', label: '2nd Yellow (Red)' },
-  { key: 'direct_red_cards', label: 'Direct Red' },
-  { key: 'red_cards', label: 'Red Cards (total)' },
-  { key: 'clean_sheets', label: 'Clean Sheets' },
+  { key: 'key_passes', label: 'Key passes' },
+  { key: 'big_chances_created', label: 'Big chances created' },
+  { key: 'total_shots', label: 'Total shots' },
+  { key: 'shots_on_target', label: 'Shots on target' },
+  { key: 'shots_off_target', label: 'Shots off target' },
+  { key: 'headed_goals', label: 'Headed goals' },
+  { key: 'right_foot_goals', label: 'Right-foot goals' },
+  { key: 'left_foot_goals', label: 'Left-foot goals' },
+  { key: 'scoring_frequency', label: 'Scoring frequency', decimals: 2 },
+  { key: 'pk_won', label: 'Penalties won' },
+  { key: 'pk_scored', label: 'Penalties scored' },
+  { key: 'pk_taken', label: 'Penalties taken' },
+  { key: 'pk_saved', label: 'Penalties saved' },
+  { key: 'penalty_miss', label: 'Penalties missed' },
+  { key: 'penalty_faced', label: 'Penalties faced' },
+  { key: 'penalty_conceded', label: 'Penalties conceded' },
+  { key: 'fouls_committed', label: 'Fouls committed' },
+  { key: 'yellow_cards', label: 'Yellow cards' },
+  { key: 'yellow_red_cards', label: 'Second-yellow reds' },
+  { key: 'direct_red_cards', label: 'Direct reds' },
+  { key: 'red_cards', label: 'Red cards (total)' },
+  { key: 'clean_sheets', label: 'Clean sheets' },
   { key: 'saves', label: 'Saves' },
-  { key: 'saves_outside_box', label: 'Saves Outside Box' },
-  { key: 'goals_conceded', label: 'Goals Conceded' },
-  { key: 'goals_prevented', label: 'Goals Prevented', decimals: 2 },
-  { key: 'high_claims', label: 'High Claims' },
+  { key: 'saves_outside_box', label: 'Saves outside box' },
+  { key: 'goals_conceded', label: 'Goals conceded' },
+  { key: 'goals_prevented', label: 'Goals prevented', decimals: 2 },
+  { key: 'high_claims', label: 'High claims' },
   { key: 'rating', label: 'Rating', decimals: 1 },
 ]
 
-interface PlayerCardProps { player: Player; bioLoading?: boolean }
+const C = { green: '#34d98c', blue: '#6fa8ea', amber: '#e9b44c', red: '#e5564d', gray: '#2f3d36' }
 
-const StatRow = ({ label, value }: { label: string; value: string | number }) => (
-  <div className="flex justify-between py-1 border-b border-gray-800 text-sm">
-    <span className="text-gray-400">{label}</span>
-    <span>{value}</span>
-  </div>
-)
-
-const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <div className="text-xs text-gray-400 uppercase mb-1">{children}</div>
-)
-
-interface DonutDatum { name: string; value: number; color: string }
-
-const Donut = ({ title, data }: { title: string; data: DonutDatum[] }) => {
-  const slices = data.filter((d) => d.value > 0)
-  return (
-    <div className="flex flex-col items-center">
-      <SectionTitle>{title}</SectionTitle>
-      <PieChart width={240} height={190}>
-        <Pie data={slices} cx={120} cy={80} innerRadius={38} outerRadius={64} dataKey="value">
-          {slices.map((d) => <Cell key={d.name} fill={d.color} />)}
-        </Pie>
-        <Tooltip
-          formatter={(v: number, name: string) => [`${v}`, name]}
-          contentStyle={{ background: '#1f2937', border: 'none', fontSize: 11 }}
-        />
-        <Legend iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-      </PieChart>
-    </div>
-  )
+interface PlayerCardProps {
+  player: Player
+  bioLoading?: boolean
+  onClose: () => void
+  onCompare?: () => void
 }
 
-export default function PlayerCard({ player: p, bioLoading = false }: PlayerCardProps) {
+export default function PlayerCard({ player: p, bioLoading = false, onClose, onCompare }: PlayerCardProps) {
   const s = p.aggregated_stats
   const sc = p.aggregated_scores
   const [showAll, setShowAll] = useState(false)
-
-  const totwTotal = p.competitions.reduce(
-    (n, c) => n + (((c.raw_stats?.totwAppearances) as number) ?? 0), 0
-  )
-
-  const showGoalTypes = s.goals > 0 && (s.headed_goals + s.left_foot_goals + s.right_foot_goals) > 0
-  const showShots = s.total_shots > 0
+  const totw = totwCount(p)
+  const blocked = Math.max(0, s.total_shots - s.shots_on_target - s.shots_off_target)
+  const pending = <span className="animate-pulse">…</span>
 
   return (
-    <div className="w-full">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-5">
-        <img
-          src={p.photo_url || '/default-player.jpg'}
-          alt={p.name}
-          className="w-16 h-16 rounded-full object-cover bg-gray-700"
-        />
-        <div>
-          <div className="text-lg font-semibold">{p.name}</div>
-          <div className="text-sm text-gray-400">
-            {bioLoading && !p.position_exact ? <span className="animate-pulse">…</span> : p.position_exact}
-            {p.position_exact ? ' · ' : ''}{p.team}
+    <div>
+      <div className="flex items-start gap-5">
+        <Avatar name={p.name} size="lg" />
+        <div className="flex-1 pt-1">
+          <h2 className="text-[26px] font-semibold leading-tight tracking-tight">{p.name}</h2>
+          <div className="mt-1.5 flex items-center gap-2 text-sm text-ink/90">
+            {bioLoading && !p.position_exact ? pending : <PosBadge pos={p.position_exact || p.position} />}
+            <span>{p.team}</span>
+            <span className="text-dim">·</span>
+            <span className="text-muted">{bioLoading && !p.nationality ? pending : p.nationality}</span>
           </div>
-          <div className="text-sm text-gray-500">
-            {bioLoading && !p.nationality ? <span className="animate-pulse">…</span> : p.nationality}
+        </div>
+        <div className="flex items-center gap-2 pt-2">
+          {totw > 0 && <TotwBadge count={totw} />}
+          {sc.underpredicted_ratio != null && <Chip>xRatio {sc.underpredicted_ratio.toFixed(2)}</Chip>}
+          <button onClick={onClose} aria-label="Close" className="ml-3 rounded-md border border-line-strong p-2 text-muted hover:text-ink">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-7 flex items-center rounded-lg bg-surface-2/70 px-6 py-5">
+        <div className="pr-8">
+          <div className="label-caps">Fantasy Score</div>
+          <div className="mt-2 font-mono text-[40px] font-medium leading-none text-accent">{sc.s_final.toFixed(2)}</div>
+        </div>
+        <div className="mx-2 h-16 w-px bg-line-strong" />
+        <ScoreStat label="Offensive" value={sc.offensive} strong />
+        <ScoreStat label="Defensive" value={sc.defensive} />
+        <ScoreStat label="Tactical" value={sc.tactical} />
+        <div className="ml-auto text-right">
+          <div className="label-caps">Confidence</div>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="h-[3px] w-24 rounded bg-line-strong">
+              <div className="h-full rounded bg-accent" style={{ width: `${sc.confidence * 100}%` }} />
+            </div>
+            <span className="font-mono text-sm">{sc.confidence.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
-      {/* Score */}
-      <div className="mb-5 flex items-end gap-4 flex-wrap">
+      <div className="mt-7 grid grid-cols-1 gap-10 md:grid-cols-2">
         <div>
-          <SectionTitle>Fantasy Score</SectionTitle>
-          <div className="text-3xl font-mono text-indigo-300 leading-none">{sc.s_final.toFixed(2)}</div>
-        </div>
-        <div className="flex gap-2 flex-wrap pb-1">
-          {sc.underpredicted_flag && (
-            <span className={`text-xs px-2 py-0.5 rounded ${
-              sc.underpredicted_flag === 'HIGH_VALUE' ? 'bg-amber-800 text-amber-200' : 'bg-green-800 text-green-200'
-            }`}>{sc.underpredicted_flag === 'HIGH_VALUE' ? 'Due to score' : 'Overperforming'}</span>
-          )}
-          {totwTotal > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded bg-yellow-700 text-yellow-100">TOTW ×{totwTotal}</span>
-          )}
-          {sc.underpredicted_ratio != null && (
-            <span className="text-xs text-gray-500 self-center">xRatio: {sc.underpredicted_ratio.toFixed(2)}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-        <div>
-          <SectionTitle>Aggregate Stats</SectionTitle>
-          {s.appearances > 0 && (
-            <StatRow label="Apps (started)" value={`${s.appearances} (${s.matches_started})`} />
-          )}
+          <div className="label-caps mb-2">Aggregate stats</div>
+          <StatRow label="Appearances (started)" value={`${s.appearances} (${s.matches_started})`} />
+          <StatRow label="Minutes" value={s.minutes} />
           <StatRow label="Goals" value={s.goals} />
           <StatRow label="Assists" value={s.assists} />
           <StatRow label="xG" value={s.xg.toFixed(2)} />
           <StatRow label="xA" value={s.xa.toFixed(2)} />
-          <StatRow label="Minutes" value={s.minutes} />
-          <StatRow label="Yellow Cards" value={s.yellow_cards} />
-          <StatRow label="Red Cards" value={s.red_cards} />
+          {p.position === 'GK' ? (
+            <>
+              <StatRow label="Saves" value={s.saves} />
+              <StatRow label="Goals prevented" value={s.goals_prevented.toFixed(2)} />
+              <StatRow label="Clean sheets" value={s.clean_sheets} />
+            </>
+          ) : (
+            <>
+              <StatRow label="Key passes" value={s.key_passes} />
+              <StatRow label="Big chances created" value={s.big_chances_created} />
+              <StatRow label="Shots on target" value={s.shots_on_target} />
+            </>
+          )}
+          <StatRow label="Yellow / Red" value={`${s.yellow_cards} / ${s.red_cards}`} />
           <StatRow label="Rating" value={s.rating.toFixed(1)} />
-          <StatRow label="Key Passes" value={s.key_passes} />
-          <StatRow label="Big Chances" value={s.big_chances_created} />
         </div>
 
         <div>
-          {p.position === 'GK' && s.saves > 0 && (
-            <>
-              <SectionTitle>GK Stats</SectionTitle>
-              <StatRow label="Saves" value={s.saves} />
-              <StatRow label="Goals Prevented" value={s.goals_prevented.toFixed(2)} />
-              <StatRow label="High Claims" value={s.high_claims} />
-              <StatRow label="Penalty Faced" value={s.penalty_faced} />
-            </>
+          <div className="label-caps mb-2">Per competition</div>
+          {p.competitions.map((c) => (
+            <div key={c.competition} className="flex items-center justify-between border-b border-line py-2.5 text-[13px]">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">{c.competition}</span>
+                <CompTag national={c.competition_type === 'national'} />
+              </span>
+              <span className="font-mono text-accent">{c.scores.s_final.toFixed(2)}</span>
+            </div>
+          ))}
+          {s.goals > 0 && (
+            <div className="mt-6">
+              <StackedBar
+                title="Goal types"
+                total={s.goals}
+                segments={[
+                  { label: 'Right foot', value: s.right_foot_goals, color: C.green },
+                  { label: 'Left foot', value: s.left_foot_goals, color: C.blue },
+                  { label: 'Header', value: s.headed_goals, color: C.amber },
+                ]}
+              />
+            </div>
           )}
-
-          {p.competitions.length > 1 && (
-            <div className={p.position === 'GK' && s.saves > 0 ? 'mt-4' : ''}>
-              <SectionTitle>Per Competition</SectionTitle>
-              {p.competitions.map((c) => (
-                <div key={c.competition} className="text-sm py-1 flex justify-between border-b border-gray-800">
-                  <span className="flex items-center gap-1 text-gray-400 truncate max-w-44">
-                    {c.competition}
-                    <span className={`text-xs px-1 rounded shrink-0 ${
-                      c.competition_type === 'national'
-                        ? 'bg-blue-900 text-blue-300'
-                        : 'bg-gray-700 text-gray-400'
-                    }`}>
-                      {c.competition_type === 'national' ? 'NT' : 'Club'}
-                    </span>
-                  </span>
-                  <span className="font-mono text-indigo-300">{c.scores.s_final.toFixed(2)}</span>
-                </div>
-              ))}
+          {s.total_shots > 0 && (
+            <div className="mt-6">
+              <StackedBar
+                title="Shot outcome"
+                total={s.total_shots}
+                segments={[
+                  { label: 'On target', value: s.shots_on_target, color: C.green },
+                  { label: 'Off target', value: s.shots_off_target, color: C.red },
+                  { label: 'Blocked', value: blocked, color: C.gray },
+                ]}
+              />
             </div>
           )}
         </div>
       </div>
 
-      {/* Charts row */}
-      {(showGoalTypes || showShots) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 justify-items-center">
-          {showGoalTypes && (
-            <Donut
-              title="Goal Types"
-              data={[
-                { name: 'Head', value: s.headed_goals, color: '#6366f1' },
-                { name: 'Left', value: s.left_foot_goals, color: '#22c55e' },
-                { name: 'Right', value: s.right_foot_goals, color: '#f59e0b' },
-              ]}
-            />
-          )}
-          {showShots && (
-            <Donut
-              title={`Shots (${s.total_shots} total)`}
-              data={[
-                { name: 'On Target', value: s.shots_on_target, color: '#22c55e' },
-                { name: 'Off Target', value: s.shots_off_target, color: '#ef4444' },
-                { name: 'Blocked', value: Math.max(0, s.total_shots - s.shots_on_target - s.shots_off_target), color: '#6b7280' },
-              ]}
-            />
-          )}
+      {showAll && (
+        <div className="mt-6 grid grid-cols-1 gap-x-10 md:grid-cols-2">
+          {ALL_STATS.map(({ key, label, decimals }) => {
+            const v = s[key] as number
+            return <StatRow key={key} label={label} value={decimals !== undefined ? v.toFixed(decimals) : v} />
+          })}
         </div>
       )}
 
-      {/* All data toggle */}
-      <div className="mt-5">
-        <button
-          onClick={() => setShowAll(v => !v)}
-          className="text-xs text-indigo-400 hover:text-indigo-300 underline"
-        >
-          {showAll ? 'Hide full data' : 'Show all data'}
+      <div className="mt-7 flex items-center gap-3">
+        <button onClick={() => setShowAll((v) => !v)} className="btn-ghost h-10 px-4">
+          {showAll ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          {showAll ? 'Hide metrics' : `Show all ${ALL_STATS.length} metrics`}
         </button>
-        {showAll && (
-          <div className="mt-3 grid grid-cols-2 gap-x-6">
-            {ALL_STATS.map(({ key, label, decimals }) => {
-              const val = s[key] as number
-              const formatted = decimals !== undefined ? val.toFixed(decimals) : val
-              return (
-                <div key={key} className="flex justify-between py-1 border-b border-gray-800 text-sm">
-                  <span className="text-gray-400">{label}</span>
-                  <span className="font-mono">{formatted}</span>
-                </div>
-              )
-            })}
-          </div>
+        {onCompare && (
+          <button onClick={onCompare} className="btn-accent h-10 px-4">
+            <ArrowLeftRight size={15} /> Compare with...
+          </button>
         )}
+        <span className="ml-auto font-mono text-[11px] text-muted">last updated {shortDate(p.last_updated, true)}</span>
       </div>
+    </div>
+  )
+}
+
+function ScoreStat({ label, value, strong = false }: { label: string; value: number; strong?: boolean }) {
+  return (
+    <div className="w-40 pl-6">
+      <div className="label-caps">{label}</div>
+      <div className={`mt-2 font-mono text-2xl ${strong ? 'text-ink' : 'text-ink/70'}`}>{value.toFixed(1)}</div>
     </div>
   )
 }

@@ -5,10 +5,17 @@ export interface ChatTurn {
   content: string
 }
 
+export interface ToolCall {
+  name: string
+  rows: number
+}
+
 export interface ChatResponse {
   answer: string
   session_id: string
   degraded: boolean
+  tool_calls: ToolCall[]
+  uncited: string[]
 }
 
 const SESSION_KEY = 'fa.chat.session_id'

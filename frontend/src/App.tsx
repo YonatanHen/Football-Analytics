@@ -1,23 +1,18 @@
-import { useState, useEffect } from 'react'
-import { getPlayers } from './api/players'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { getMeta, type Meta } from './api/meta'
+import { clearSession, getSessionId } from './api/chat'
+import AppShell, { type Status } from './components/AppShell'
 import ChatPanel from './components/ChatPanel'
 import ChatWidget from './components/ChatWidget'
+import { BackendUnreachable, EmptyDatabase } from './components/states/SystemStates'
+import { AppContext, type GoOptions, type Tab } from './context/AppContext'
 import ChatFullScreen from './pages/ChatFullScreen'
-import SeedPrompt from './components/SeedPrompt'
 import PlayerDetails from './pages/PlayerDetails'
 import Compare from './pages/Compare'
 import Sleepers from './pages/Sleepers'
 import ScatterPage from './pages/ScatterPage'
 
-type Tab = 'players' | 'compare' | 'sleepers' | 'scatter' | 'chat'
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'players', label: 'Player details' },
-  { id: 'compare', label: 'Compare' },
-  { id: 'sleepers', label: 'xGI Outliers' },
-  { id: 'scatter', label: 'Scatter Plot' },
-  { id: 'chat', label: 'Ask AI' },
-]
+const RETRY_MS = 10_000
 
 // One query param does not justify adding a router.
 const fullScreenChat = new URLSearchParams(window.location.search).get('chat') === '1'
@@ -28,63 +23,78 @@ export default function App() {
 
 function Dashboard() {
   const [tab, setTab] = useState<Tab>('players')
-  const [isEmpty, setIsEmpty] = useState<boolean | null>(null)
-  const [dbError, setDbError] = useState(false)
+  const [season, setSeason] = useState('')
+  const [meta, setMeta] = useState<Meta | null>(null)
+  const [status, setStatus] = useState<Status>('loading')
+  const [tick, setTick] = useState(0)
+  const [compareSeed, setCompareSeed] = useState<string | null>(null)
+  const [chatKey, setChatKey] = useState(0)
+
+  const retry = useCallback(() => setTick((t) => t + 1), [])
+  const clearSeed = useCallback(() => setCompareSeed(null), [])
 
   useEffect(() => {
-    getPlayers({ page_size: 1 })
-      .then(r => setIsEmpty(r.total === 0))
-      .catch(() => setDbError(true))
+    let live = true
+    getMeta(season || undefined)
+      .then((m) => {
+        if (!live) return
+        setMeta(m)
+        setStatus(m.seasons.length === 0 ? 'empty' : 'ok')
+        if (!season && m.seasons.length) setSeason(m.seasons[0])
+      })
+      .catch(() => live && setStatus('down'))
+    return () => { live = false }
+  }, [season, tick])
+
+  useEffect(() => {
+    if (status !== 'down') return
+    const t = setInterval(retry, RETRY_MS)
+    return () => clearInterval(t)
+  }, [status, retry])
+
+  const go = useCallback((next: Tab, opts?: GoOptions) => {
+    if (opts?.comparePlayerId) setCompareSeed(opts.comparePlayerId)
+    setTab(next)
   }, [])
 
-  return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <nav className="bg-gray-900 border-b border-gray-800 px-4">
-        <div className="flex gap-1 max-w-7xl mx-auto">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.id
-                  ? 'border-indigo-500 text-indigo-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+  const newChat = async () => {
+    try { await clearSession(getSessionId()) } catch { /* the TTL removes the thread later */ }
+    setChatKey((k) => k + 1)
+  }
 
-      <main className="max-w-7xl mx-auto p-4">
-        {dbError && (
-          <div className="flex items-center justify-center min-h-[60vh] text-red-400 text-sm">
-            Cannot reach the backend. Make sure the server is running.
-          </div>
-        )}
-        {!dbError && isEmpty === null && (
-          <div className="flex items-center justify-center min-h-[60vh] text-gray-500 text-sm">
-            Checking database…
-          </div>
-        )}
-        {!dbError && isEmpty === true && <SeedPrompt />}
-        {!dbError && isEmpty === false && (
+  const ctx = useMemo(() => ({ season, meta, go }), [season, meta, go])
+  const ready = status === 'ok' && season !== ''
+
+  return (
+    <AppContext.Provider value={ctx}>
+      <AppShell
+        tab={tab}
+        onTab={setTab}
+        status={status}
+        meta={meta}
+        season={season}
+        onSeason={setSeason}
+        onNewChat={newChat}
+      >
+        {status === 'down' && <BackendUnreachable onRetry={retry} />}
+        {status === 'empty' && <EmptyDatabase onRetry={retry} />}
+        {ready && (
           <>
-            {tab === 'players' && <PlayerDetails />}
-            {tab === 'compare' && <Compare />}
-            {tab === 'sleepers' && <Sleepers />}
-            {tab === 'scatter' && <ScatterPage />}
+            {tab === 'players' && <PlayerDetails key={season} />}
+            {tab === 'compare' && (
+              <Compare key={season} seedId={compareSeed} onSeedUsed={clearSeed} />
+            )}
+            {tab === 'sleepers' && <Sleepers key={season} />}
+            {tab === 'scatter' && <ScatterPage key={season} />}
             {tab === 'chat' && (
-              <div className="h-[calc(100vh-5rem)] max-w-3xl mx-auto flex flex-col">
-                <ChatPanel fullScreen />
+              <div className="mx-auto flex h-[calc(100vh-7.5rem)] max-w-[900px] flex-col">
+                <ChatPanel key={chatKey} fullScreen />
               </div>
             )}
           </>
         )}
-      </main>
-
-      {!dbError && isEmpty === false && tab !== 'chat' && <ChatWidget />}
-    </div>
+      </AppShell>
+      {ready && tab !== 'chat' && <ChatWidget key={chatKey} />}
+    </AppContext.Provider>
   )
 }
