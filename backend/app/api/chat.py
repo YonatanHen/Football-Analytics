@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Response
 
 from app.agent.agent import ChatAgent
 from app.agent.constants import GENERIC_ERROR
-from app.api.modals.chat_modals import ChatHistory, ChatRequest, ChatResponse
+from app.api.modals.chat_modals import ChatHistory, ChatRequest, ChatResponse, ToolCallOut
 from app.dependencies import get_agent
 
 router = APIRouter()
@@ -21,7 +21,13 @@ async def chat(body: ChatRequest, agent: ChatAgent | None = Depends(get_agent)) 
     except Exception:
         logger.exception("Chat request failed for session %s", body.session_id)
         return ChatResponse(answer=GENERIC_ERROR, session_id=body.session_id, degraded=True)
-    return ChatResponse(answer=result.answer, session_id=body.session_id, degraded=result.degraded)
+    return ChatResponse(
+        answer=result.answer,
+        session_id=body.session_id,
+        degraded=result.degraded,
+        tool_calls=[ToolCallOut(name=c.name, rows=c.rows) for c in result.tool_calls],
+        uncited=result.uncited,
+    )
 
 
 @router.get("/sessions/{session_id}", response_model=ChatHistory)

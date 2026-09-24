@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import dependencies, main
-from app.agent.agent import ChatResult
+from app.agent.agent import ChatResult, ToolCallSummary
 from app.agent.constants import GENERIC_ERROR
 from app.main import app
 
@@ -33,7 +33,13 @@ def test_chat_returns_the_answer_only(client, agent):
     agent.answer = AsyncMock(return_value=ChatResult(answer="Player A leads.", used_tools=True))
     r = client.post("/v1/chat", json={"session_id": "s1", "message": "top scorer?"})
     assert r.status_code == 200
-    assert r.json() == {"answer": "Player A leads.", "session_id": "s1", "degraded": False}
+    assert r.json() == {
+        "answer": "Player A leads.",
+        "session_id": "s1",
+        "degraded": False,
+        "tool_calls": [],
+        "uncited": [],
+    }
     agent.answer.assert_awaited_once_with("top scorer?", session_id="s1")
 
 
@@ -93,7 +99,9 @@ def client_without_agent():
 def test_chat_without_an_agent_returns_the_generic_message(client_without_agent):
     r = client_without_agent.post("/v1/chat", json={"session_id": "s1", "message": "hi"})
     assert r.status_code == 200
-    assert r.json() == {"answer": GENERIC_ERROR, "session_id": "s1", "degraded": True}
+    assert r.json()["answer"] == GENERIC_ERROR
+    assert r.json()["degraded"] is True
+    assert r.json()["tool_calls"] == []
 
 
 def test_session_endpoints_without_an_agent_do_not_fail(client_without_agent):
@@ -118,3 +126,13 @@ def test_startup_survives_an_agent_that_cannot_be_built():
     finally:
         app.router.lifespan_context = original
         dependencies._repo = dependencies._mode_factory = dependencies._agent = None
+
+
+def test_chat_returns_the_tool_trace_without_arguments(client, agent):
+    result = ChatResult(
+        answer="x", used_tools=True, tool_calls=[ToolCallSummary("attacking", 3)], uncited=["41"]
+    )
+    agent.answer = AsyncMock(return_value=result)
+    body = client.post("/v1/chat", json={"session_id": "s1", "message": "q"}).json()
+    assert body["tool_calls"] == [{"name": "attacking", "rows": 3}]
+    assert body["uncited"] == ["41"]

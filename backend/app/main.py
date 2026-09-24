@@ -8,7 +8,7 @@ from pymongo import MongoClient
 
 from app import dependencies
 from app.agent.agent import build_agent
-from app.api import analysis, chat, fetch, players
+from app.api import analysis, chat, fetch, meta, players
 from app.config import settings
 from app.infrastructure.mongo_repository import MongoRepository
 from app.logging_config import configure_logging
@@ -44,6 +44,7 @@ app.include_router(fetch.router, prefix="/v1/fetch")
 app.include_router(players.router, prefix="/v1/players")
 app.include_router(analysis.router, prefix="/v1/analysis")
 app.include_router(chat.router, prefix="/v1/chat")
+app.include_router(meta.router, prefix="/v1/meta")
 
 
 # Re-export for backward compatibility with tests that import from app.main

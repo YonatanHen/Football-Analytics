@@ -365,8 +365,10 @@ class MongoRepository:
                     for p in players_all
                     if all(python_matches(p, f["field"], f["op"], f["value"]) for f in filters)
                 ]
-            reverse = order == "desc"
-            players_all.sort(key=lambda p: python_value(p, sort_by), reverse=reverse)
+            # Nulls (e.g. xratio with no G+A) always sort last.
+            ranked = [p for p in players_all if python_value(p, sort_by) is not None]
+            ranked.sort(key=lambda p: python_value(p, sort_by), reverse=order == "desc")
+            players_all = ranked + [p for p in players_all if python_value(p, sort_by) is None]
             total = len(players_all)
             skip = (page - 1) * page_size
             return players_all[skip : skip + page_size], total
@@ -443,6 +445,11 @@ class MongoRepository:
                     "aggregated_stats.xa": 1,
                     "aggregated_stats.goals": 1,
                     "aggregated_stats.assists": 1,
+                    "aggregated_stats.minutes": 1,
+                    "aggregated_scores.s_final": 1,
+                    "aggregated_scores.sleeper_ratio": 1,
+                    "aggregated_scores.sleeper_flag": 1,
+                    "team": 1,
                 },
             )
         )
@@ -462,7 +469,9 @@ class MongoRepository:
                     "sofascore_player_id": bio.get("sofascore_player_id"),
                     "name": bio.get("name", ""),
                     "position": bio.get("position", ""),
+                    "team": s.get("team", ""),
                     "aggregated_stats": s.get("aggregated_stats", {}),
+                    "aggregated_scores": s.get("aggregated_scores", {}),
                 }
             )
         return result
@@ -486,6 +495,22 @@ class MongoRepository:
             }
             for d in self._league_meta.find({}, {"competition": 1, "season": 1, "updated_at": 1})
         ]
+
+    def count_players(self, season: str) -> int:
+        return self._player_stats.count_documents({"season": season})
+
+    def list_seasons(self) -> list[str]:
+        """Stored seasons, newest first."""
+        return sorted(self._player_stats.distinct("season"), reverse=True)
+
+    def last_updated(self, season: str) -> str | None:
+        """Latest league fetch time for a season, as an ISO string."""
+        times = [
+            d["updated_at"]
+            for d in self._league_meta.find({"season": season}, {"updated_at": 1})
+            if d.get("updated_at")
+        ]
+        return max(times, default=None)
 
     def set_league_total_matches(self, competition: str, season: str, total_matches: int) -> None:
         """Persist total matches played for a (competition, season) pair (upsert)."""

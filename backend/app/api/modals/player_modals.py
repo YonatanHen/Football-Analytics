@@ -84,6 +84,7 @@ class AggregatedScoresOut(BaseModel):
     s_final: float
     underpredicted_ratio: float | None
     underpredicted_flag: str | None
+    confidence: float = 1.0
 
 
 class PlayerOut(BaseModel):
