@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from app.domain.competitions import canonical_competition
@@ -103,6 +104,23 @@ def build_player(
         low_sample_size=agg_stats.minutes < 90,
         last_updated=datetime.now(UTC).isoformat(),
     )
+
+
+def rescore_player(player: PlayerDTO) -> PlayerDTO:
+    """Recompute every competition score and the combined score from the stored stats."""
+    entries = [
+        replace(e, scores=_scoring.calculate(e.stats, player.position)) for e in player.competitions
+    ]
+    meta = {
+        "sofascore_player_id": player.sofascore_player_id,
+        "name": player.name,
+        "position": player.position,
+        "position_exact": player.position_exact,
+        "team": player.team,
+        "nationality": player.nationality,
+        "photo_url": player.photo_url,
+    }
+    return build_player(meta, entries, player.season)
 
 
 def merge(existing: PlayerDTO | None, incoming: PlayerDTO) -> PlayerDTO:

@@ -1,5 +1,6 @@
-from app.domain.models import CompetitionEntry, PlayerDTO, Score, Stats
-from app.domain.player_assembler import aggregate_stats, build_player, merge
+from app.domain.models import AggregatedScores, CompetitionEntry, PlayerDTO, Score, Stats
+from app.domain.player_assembler import aggregate_stats, build_player, merge, rescore_player
+from app.domain.scoring_engine import ScoringEngine
 
 
 def _make_entry(comp: str, goals: int = 1) -> CompetitionEntry:
@@ -166,3 +167,65 @@ def test_aggregate_sums_new_fields() -> None:
     assert agg.right_foot_goals == 5
     assert agg.yellow_red_cards == 1
     assert agg.direct_red_cards == 1
+
+
+_STALE = Score(offensive=0.0, defensive=0.0, tactical=0.0, s_final=99.0)
+
+
+def _stored_player() -> PlayerDTO:
+    big = Stats(goals=30, minutes=2400, appearances=30, matches_started=28)
+    tiny = Stats(yellow_cards=1, minutes=1, appearances=1)
+    return PlayerDTO(
+        sofascore_player_id="7",
+        name="Stored Player",
+        season="2025-2026",
+        position="FW",
+        position_exact="ST",
+        team="Team A",
+        nationality="England",
+        photo_url="",
+        competitions=[
+            CompetitionEntry("Germany Bundesliga", big, _STALE),
+            CompetitionEntry("UEFA Champions League", tiny, _STALE),
+        ],
+        aggregated_stats=Stats(goals=30, minutes=2401, appearances=31, yellow_cards=1),
+        aggregated_scores=AggregatedScores(0.0, 0.0, 0.0, -13.5, None, None),
+        low_sample_size=False,
+        last_updated="2026-01-01T00:00:00+00:00",
+    )
+
+
+def test_rescore_player_rescores_every_competition_entry():
+    out = rescore_player(_stored_player())
+    engine = ScoringEngine()
+    for entry in out.competitions:
+        assert entry.scores.s_final == engine.calculate(entry.stats, "FW").s_final
+        assert 0.0 <= entry.scores.s_final <= 10.0
+    assert out.competitions[1].scores.s_final == 0.0  # 1 minute, 1 card
+
+
+def test_rescore_player_rescores_the_combined_score():
+    out = rescore_player(_stored_player())
+    assert 0.0 <= out.aggregated_scores.s_final <= 10.0
+    assert out.aggregated_scores.s_final != -13.5
+
+
+def test_rescore_player_keeps_identity():
+    out = rescore_player(_stored_player())
+    assert (out.sofascore_player_id, out.name, out.team, out.season) == (
+        "7",
+        "Stored Player",
+        "Team A",
+        "2025-2026",
+    )
+    assert [e.competition for e in out.competitions] == [
+        "Germany Bundesliga",
+        "UEFA Champions League",
+    ]
+
+
+def test_rescore_is_idempotent():
+    once = rescore_player(_stored_player())
+    twice = rescore_player(once)
+    assert twice.aggregated_scores == once.aggregated_scores
+    assert [e.scores for e in twice.competitions] == [e.scores for e in once.competitions]
