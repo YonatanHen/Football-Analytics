@@ -177,7 +177,7 @@ CORS_ORIGINS=["http://localhost:5173"]
 GEMINI_API_KEY=your-key-here
 ```
 
-`GEMINI_API_KEY` powers the chat agent (default provider, free tier). Without it the rest of the API still starts — the agent is just disabled and `/v1/chat` returns a generic error message. See [backend/app/agent/README.md](backend/app/agent/README.md) for other providers.
+`GEMINI_API_KEY` powers the chat agent (default provider, free tier). Without it the rest of the API still starts — the agent is just disabled and `/v1/chat` returns a generic error message. To use OpenAI or Anthropic instead, see [Chat Agent LLM Providers](#chat-agent-llm-providers).
 
 ### Full stack
 
@@ -230,6 +230,125 @@ AGENT_EVAL=1 pytest tests/agent/eval -v -s
 ```
 
 Chat agent settings (provider, model, limits) are documented in [backend/app/agent/README.md](backend/app/agent/README.md).
+
+### Chat Agent LLM Providers
+
+The chat agent supports three LLM providers: **Gemini** (default), **OpenAI** and **Anthropic**. You choose one with environment variables. No code change is needed.
+
+**Where to put the variables**
+
+| How you run the backend | File |
+|---|---|
+| Docker (`docker compose up`) | `secrets.env` in the project root |
+| Local (`uvicorn` from `backend/`) | `backend/.env` |
+
+Both files are gitignored. Never commit an API key.
+
+**Variables**
+
+| Variable | Purpose |
+|---|---|
+| `LLM_PROVIDER` | `gemini` (default), `openai` or `anthropic` |
+| `LLM_MODEL` | Model id. Optional for Gemini (default `gemini-3.5-flash`). **Required** for OpenAI and Anthropic. |
+| `LLM_API_KEY` | API key for the selected provider. Takes priority over the provider-specific variables below. |
+| `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Provider-specific key. Used when `LLM_API_KEY` is not set. |
+| `LLM_FALLBACK_MODEL` | Optional. Model to retry with when the main model fails (for example, an HTTP 503). It must be different from `LLM_MODEL`. Gemini defaults to `gemini-3.5-flash-lite`. OpenAI and Anthropic have no fallback unless you set one. |
+
+The selected model must support tool calling, because the agent answers by calling database tools.
+
+#### Gemini (default, free tier)
+
+1. Create a free API key in [Google AI Studio](https://aistudio.google.com/apikey).
+2. Add it to your env file:
+
+   ```env
+   GEMINI_API_KEY=your-gemini-key
+   # Optional overrides:
+   # LLM_MODEL=gemini-3.5-flash
+   # LLM_FALLBACK_MODEL=gemini-3.5-flash-lite
+   ```
+
+3. Restart the backend (see [Apply the changes](#apply-the-changes)).
+
+No extra package is needed. `langchain-google-genai` is already in `backend/requirements.txt`.
+
+#### OpenAI (paid)
+
+1. Create an API key in the [OpenAI dashboard](https://platform.openai.com/api-keys). The OpenAI API is billed per token, so the account needs credit.
+2. Install the LangChain OpenAI package. It is not installed by default:
+   - **Docker:** add the line `langchain-openai` to `backend/requirements.txt`, then rebuild the image:
+
+     ```bash
+     docker compose build backend
+     ```
+
+   - **Local:** from `backend/`, run `pip install langchain-openai`.
+3. Add the provider settings to your env file:
+
+   ```env
+   LLM_PROVIDER=openai
+   LLM_MODEL=gpt-5-mini              # any OpenAI chat model with tool calling
+   LLM_API_KEY=sk-...                # or OPENAI_API_KEY=sk-...
+   # Optional:
+   # LLM_FALLBACK_MODEL=gpt-5-nano
+   ```
+
+4. Restart the backend (see [Apply the changes](#apply-the-changes)).
+
+Check the [OpenAI models page](https://platform.openai.com/docs/models) for current model ids.
+
+#### Anthropic (paid)
+
+1. Create an API key in the [Anthropic Console](https://console.anthropic.com/settings/keys). The Anthropic API is billed per token, so the account needs credit.
+2. Install the LangChain Anthropic package. It is not installed by default:
+   - **Docker:** add the line `langchain-anthropic` to `backend/requirements.txt`, then rebuild the image:
+
+     ```bash
+     docker compose build backend
+     ```
+
+   - **Local:** from `backend/`, run `pip install langchain-anthropic`.
+3. Add the provider settings to your env file:
+
+   ```env
+   LLM_PROVIDER=anthropic
+   LLM_MODEL=claude-sonnet-5         # or claude-haiku-4-5-20251001 (cheaper)
+   LLM_API_KEY=sk-ant-...            # or ANTHROPIC_API_KEY=sk-ant-...
+   # Optional:
+   # LLM_FALLBACK_MODEL=claude-haiku-4-5-20251001
+   ```
+
+4. Restart the backend (see [Apply the changes](#apply-the-changes)).
+
+Check the [Anthropic models page](https://docs.anthropic.com/en/docs/about-claude/models) for current model ids.
+
+#### Apply the changes
+
+The backend reads these settings once, at startup. After you edit the env file, restart it:
+
+```bash
+# Docker: recreate the container so it reads the new secrets.env
+docker compose up -d --force-recreate backend
+
+# Local: stop uvicorn (Ctrl+C) and start it again
+uvicorn app.main:app --reload
+```
+
+#### Verify
+
+- `GET http://localhost:8000/v1/meta` returns the active model in `agent.model`. The UI shows the same value.
+- Ask a question in the **Ask AI** tab.
+
+If the agent does not answer, check the backend logs (`docker compose logs backend`). Common causes:
+
+| Log message | Fix |
+|---|---|
+| `Provider 'anthropic' needs a package: pip install langchain-anthropic` (or `openai`) | Install the package (step 2) and rebuild the image. |
+| `Provider 'openai' has no default model: set LLM_MODEL.` | Set `LLM_MODEL`. |
+| `Unknown LLM_PROVIDER ...` | Use `gemini`, `openai` or `anthropic` (lowercase). |
+| Authentication error (401) | The API key is wrong, or it belongs to a different provider than `LLM_PROVIDER`. |
+
+When the agent cannot start, the rest of the app keeps working. Only `/v1/chat` returns a generic error message.
 
 ### Loading Data
 
