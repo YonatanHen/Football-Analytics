@@ -120,7 +120,7 @@ export default function PlayerDetails() {
     <div>
       <PageHeader
         title="Player details"
-        subtitle={<>Ranked by Fantasy Score<span className="ml-6">S_final = raw/90 × starter × confidence + playing-time bonus</span></>}
+        subtitle={<>Ranked by Fantasy Score<span className="ml-6">Fantasy Score (0-10) = (raw/90 × starter + playing-time bonus) × confidence</span></>}
         right={data && (
           <span className="text-sm text-muted">
             <span className="mr-1 font-mono text-base text-ink">{data.total.toLocaleString('en-US')}</span> results
