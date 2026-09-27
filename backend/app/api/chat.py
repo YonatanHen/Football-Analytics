@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 async def chat(body: ChatRequest, agent: ChatAgent | None = Depends(get_agent)) -> ChatResponse:
     """Answer one question. Never surfaces internal errors to the caller."""
     if agent is None:
-        return ChatResponse(answer=GENERIC_ERROR, session_id=body.session_id, degraded=True)
+        return ChatResponse(answer=GENERIC_ERROR, session_id=body.session_id)
     try:
         result = await agent.answer(body.message, session_id=body.session_id)
     except Exception:
         logger.exception("Chat request failed for session %s", body.session_id)
-        return ChatResponse(answer=GENERIC_ERROR, session_id=body.session_id, degraded=True)
+        return ChatResponse(answer=GENERIC_ERROR, session_id=body.session_id)
     return ChatResponse(
         answer=result.answer,
         session_id=body.session_id,

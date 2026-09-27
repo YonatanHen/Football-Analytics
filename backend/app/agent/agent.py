@@ -4,10 +4,11 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
 from functools import partial
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import ModelFallbackMiddleware
+from langchain.agents.middleware import ModelFallbackMiddleware, ModelRequest, dynamic_prompt
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import TypeAdapter, ValidationError
@@ -16,10 +17,17 @@ from app.agent.answer_check import uncited_numbers
 from app.agent.checkpoints import build_checkpointer, keep_latest_checkpoint
 from app.agent.constants import GENERIC_ERROR, MAX_TOOL_ITERATIONS
 from app.agent.llm import build_chat_model, build_fallback_model
-from app.agent.system_prompt import SYSTEM_PROMPT
+from app.agent.season import calendar_season, previous_season
+from app.agent.system_prompt import build_system_prompt
 from app.agent.tools import build_tools
 
 logger = logging.getLogger(__name__)
+
+
+@dynamic_prompt
+def _dated_system_prompt(request: ModelRequest) -> str:
+    # Built per call, so "this season" follows the calendar in a long-running process.
+    return build_system_prompt(date.today())
 
 
 @dataclass
@@ -47,12 +55,12 @@ class ChatAgent:
         prune: Callable[[str], None] | None = None,
     ) -> None:
         self._prune = prune
+        fallback = [ModelFallbackMiddleware(*fallback_models)] if fallback_models else []
         self._graph = create_agent(
             model=model,
             tools=build_tools(repo),
-            system_prompt=SYSTEM_PROMPT,
             checkpointer=checkpointer,
-            middleware=[ModelFallbackMiddleware(*fallback_models)] if fallback_models else [],
+            middleware=[_dated_system_prompt, *fallback],
         )
 
     def _config(self, session_id: str) -> dict:
@@ -71,7 +79,8 @@ class ChatAgent:
             )
         except Exception:
             logger.exception("Agent failed for session %s", session_id)
-            return ChatResult(answer=GENERIC_ERROR, used_tools=False, degraded=True)
+            # Not degraded: the error text is not an answer, so the "not backed" warning is wrong.
+            return ChatResult(answer=GENERIC_ERROR, used_tools=False)
         await self._prune_session(session_id)
 
         messages = _current_turn(state["messages"])
@@ -81,7 +90,7 @@ class ChatAgent:
 
         if used_tools and answer:
             rows = _tool_rows(messages)
-            uncited = uncited_numbers(answer, rows) if rows is not None else []
+            uncited = uncited_numbers(answer, rows + _prompt_facts()) if rows is not None else []
             if uncited:
                 # A signal, not a gate: withholding the answer would be worse than flagging it.
                 logger.warning(
@@ -133,6 +142,12 @@ class ChatAgent:
         except Exception:
             # The caller gets 204 either way; the TTL removes the thread later.
             logger.exception("Could not clear session %s", session_id)
+
+
+def _prompt_facts() -> list[dict]:
+    """Figures the system prompt gave the model, so naming them is not an ungrounded number."""
+    current = calendar_season(date.today())
+    return [{"current_season": current, "last_season": previous_season(current)}]
 
 
 def _current_turn(messages: list) -> list:

@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.agent.tools.base import MetricQuery, build_metric_tool, run_metric_query
-from app.domain.models import AggregatedScores, PlayerDTO, Stats
+from app.domain.models import AggregatedScores, CompetitionEntry, PlayerDTO, Score, Stats
 
 FAMILY = {"goals", "assists"}
 
@@ -46,8 +46,54 @@ def test_rank_returns_rows_with_the_requested_metric():
     rows = run_metric_query(repo, FAMILY, MetricQuery(metric="goals"))
     assert [r["name"] for r in rows] == ["Player A", "Player B"]
     assert rows[0]["goals"] == 10
-    assert rows[0]["s_final"] == 5.5
+    assert rows[0]["fantasy_score"] == 5.5
+    assert "s_final" not in rows[0]
     assert repo.get_players.call_args.kwargs["sort_by"] == "goals"
+
+
+def _two_league_player():
+    p = _player(goals=36)
+    p.competitions = [
+        CompetitionEntry("Germany Bundesliga", Stats(goals=30, minutes=2400), Score(0, 0, 0, 0)),
+        CompetitionEntry("UEFA Champions League", Stats(goals=6, minutes=700), Score(0, 0, 0, 0)),
+    ]
+    return p
+
+
+def test_rows_say_which_season_and_competitions_they_cover():
+    rows = run_metric_query(_repo([_two_league_player()]), FAMILY, MetricQuery(metric="goals"))
+    assert rows[0]["season"] == "2025-2026"
+    assert rows[0]["competitions"] == ["Germany Bundesliga", "UEFA Champions League"]
+
+
+def test_a_competition_filter_labels_rows_with_that_competition_only():
+    repo = _repo([_two_league_player()])
+    rows = run_metric_query(repo, FAMILY, MetricQuery(metric="goals", competition="bundesliga"))
+    assert rows[0]["competitions"] == ["Germany Bundesliga"]
+    assert "by_competition" not in rows[0]
+    assert repo.get_players.call_args.kwargs["stats_view"] == "bundesliga"
+
+
+def test_one_player_across_leagues_gets_the_metric_per_competition():
+    repo = _repo([_two_league_player()])
+    rows = run_metric_query(repo, FAMILY, MetricQuery(metric="goals", player_name="Kane"))
+    assert rows[0]["goals"] == 36  # the combined total
+    assert rows[0]["by_competition"] == {"Germany Bundesliga": 30, "UEFA Champions League": 6}
+
+
+def test_rankings_stay_short_and_have_no_per_competition_split():
+    rows = run_metric_query(_repo([_two_league_player()]), FAMILY, MetricQuery(metric="goals"))
+    assert "by_competition" not in rows[0]
+
+
+def test_a_score_metric_per_competition_is_scored_from_that_competition_alone():
+    from app.domain.scoring_engine import ScoringEngine
+
+    repo = _repo([_two_league_player()])
+    rows = run_metric_query(repo, {"s_final"}, MetricQuery(metric="s_final", player_name="Kane"))
+    expected = round(ScoringEngine().calculate(Stats(goals=30, minutes=2400), "FW").s_final, 2)
+    assert rows[0]["by_competition"]["Germany Bundesliga"] == expected
+    assert "s_final" not in rows[0]  # reported once, as fantasy_score
 
 
 def test_unknown_metric_is_rejected_before_reaching_mongo():

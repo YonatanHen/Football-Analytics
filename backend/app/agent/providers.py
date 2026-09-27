@@ -17,6 +17,7 @@ class ModelProvider(ABC):
     name: str
     package: str
     default_model: str = ""  # empty means the user must set LLM_MODEL
+    default_fallback_model: str = ""  # empty means no fallback unless LLM_FALLBACK_MODEL is set
 
     @abstractmethod
     def create(self, model: str, api_key: str | None) -> BaseChatModel:
@@ -35,6 +36,7 @@ class GeminiProvider(ModelProvider):
     name = "gemini"
     package = "langchain-google-genai"
     default_model = "gemini-3.5-flash"  # free tier; 3.6-flash allows only 20 requests/day
+    default_fallback_model = "gemini-3.5-flash-lite"  # free tier, separate capacity from flash
 
     def create(self, model: str, api_key: str | None) -> BaseChatModel:
         # No temperature: Gemini 3.x uses fixed sampling and ignores it.

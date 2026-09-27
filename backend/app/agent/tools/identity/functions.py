@@ -5,6 +5,7 @@ import logging
 from langchain_core.tools import BaseTool, StructuredTool
 
 from app.agent.constants import MAX_ROWS, TOOL_ERROR
+from app.agent.tools.base import competition_value, entries_in_scope
 from app.agent.tools.identity import prompts
 from app.config import settings
 
@@ -13,35 +14,56 @@ logger = logging.getLogger(__name__)
 _NAME_MATCH_LIMIT = 5
 
 
-def _profile(player) -> dict:
+def _competition_line(entry, position: str) -> dict:
+    return {
+        "competition": entry.competition,
+        "appearances": entry.stats.appearances,
+        "minutes": entry.stats.minutes,
+        "goals": entry.stats.goals,
+        "assists": entry.stats.assists,
+        "fantasy_score": competition_value(entry, position, "s_final"),
+    }
+
+
+def _profile(player, competition: str | None = None) -> dict:
     stats, scores = player.aggregated_stats, player.aggregated_scores
+    entries = entries_in_scope(player, competition)
     return {
         "name": player.name,
         "team": player.team,
         "position": player.position,
         "position_exact": player.position_exact,
         "nationality": player.nationality,
+        "season": player.season,
+        "competitions": [e.competition for e in entries],
         "minutes": stats.minutes,
         "appearances": stats.appearances,
         "goals": stats.goals,
         "assists": stats.assists,
-        "s_final": round(scores.s_final, 2),
+        "fantasy_score": round(scores.s_final, 2),
         "sleeper_flag": scores.underpredicted_flag,
         "low_sample_size": player.low_sample_size,
+        "by_competition": [_competition_line(e, player.position) for e in entries],
     }
 
 
-def _lookup(repo, name: str, limit: int = _NAME_MATCH_LIMIT) -> list[dict]:
+def _lookup(
+    repo, name: str, limit: int = _NAME_MATCH_LIMIT, competition: str | None = None
+) -> list[dict]:
     players, _ = repo.get_players(
-        season=settings.season, name=name, page=1, page_size=min(limit, MAX_ROWS)
+        season=settings.season,
+        name=name,
+        stats_view=competition,
+        page=1,
+        page_size=min(limit, MAX_ROWS),
     )
-    return [_profile(p) for p in players]
+    return [_profile(p, competition) for p in players]
 
 
 def build(repo) -> list[BaseTool]:
-    def find_player(name: str) -> list[dict]:
+    def find_player(name: str, competition: str | None = None) -> list[dict]:
         try:
-            return _lookup(repo, name)
+            return _lookup(repo, name, competition=competition)
         except Exception:
             logger.exception("find_player failed for %s", name)
             return [{"error": TOOL_ERROR}]

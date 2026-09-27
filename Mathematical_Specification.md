@@ -6,30 +6,33 @@ This document defines the logic for the AI selection engine. Use these formulas 
 
 ## 1. The Master Equation
 
-$$S_{final} = \frac{Offensive + Defensive + Tactical}{Minutes / 90} \times B_{starter} \times C_{apps} + B_{time}$$
+$$S_{final} = \min\!\left(10,\ \max\!\left(0,\ 10 \times \frac{R}{E}\right)\right), \qquad E = 8.0$$
+
+$$R = \left(\frac{Offensive + Defensive + Tactical}{\max(Minutes / 90,\ 1)} \times B_{starter} + B_{time}\right) \times C$$
 
 Where:
 
 $$B_{starter} = 1 + 0.2 \times \min\!\left(1,\ \frac{MatchesStarted}{Appearances}\right)$$
 
-$$C_{apps} = \begin{cases} 0.15 & \text{if } Appearances < 5 \\ 0.50 & \text{if } 5 \leq Appearances < 15 \\ 0.80 & \text{if } 15 \leq Appearances < 20 \\ 1.00 & \text{if } Appearances \geq 20 \end{cases}$$
+$$C = \min\!\left(T(Appearances),\ T\!\left(\left\lfloor \frac{Minutes}{60}\right\rfloor\right)\right)$$
 
-$$B_{time} = M_{early} \times 0.001 + M_{late} \times 0.0015$$
+$$T(n) = \begin{cases} 0.15 & \text{if } n < 5 \\ 0.50 & \text{if } 5 \leq n < 15 \\ 0.80 & \text{if } 15 \leq n < 20 \\ 1.00 & \text{if } n \geq 20 \end{cases}$$
 
-$$M_{early} = \min\!\left(\frac{Minutes}{Appearances},\ 59\right) \times Appearances$$
+$$B_{time} = 0.5 \times \frac{\min(avg,\ 59)}{59} + 0.5 \times \frac{\max(0,\ \min(avg,\ 90) - 59)}{31}, \qquad avg = \frac{Minutes}{Appearances}$$
 
-$$M_{late} = \max\!\left(0,\ \min\!\left(\frac{Minutes}{Appearances},\ 90\right) - 59\right) \times Appearances$$
-
-- $C_{apps}$: appearance-based confidence multiplier. Dampens inflated per-90 rates for low-game-count players; reaches full weight at 20+ appearances. Team-specific match tracking is a planned improvement. Exposed via the API as `aggregated_scores.confidence`, computed at request time by `confidence_tier()`/`effective_appearances()` in `scoring_engine.py` — it is not stored in MongoDB.
-- $M_{early}$ / $M_{late}$: estimated playing minutes split at the 60th minute, using average minutes per appearance as a proxy (per-match breakdowns unavailable). Extra time not counted.
-- $B_{time}$ rewards playing time: minutes 60–90 earn 50% more per minute than early minutes.
+- $C$: confidence multiplier, the lower of the appearance tier and the tier of 60-minute games played ($\lfloor Minutes/60 \rfloor$). Dampens inflated per-90 rates for low-sample players; reaches full weight at 20+ appearances and 1200+ minutes. Counting minutes stops many short substitute appearances from earning full confidence, and dividing by 60 (not 90) keeps regular starters who are subbed off around the 60th minute at full weight. Team-specific match tracking is a planned improvement. Exposed via the API as `aggregated_scores.confidence`, computed at request time by `score_confidence()` in `scoring_engine.py` — it is not stored in MongoDB.
+- $S_{final}$ is always in $[0, 10]$ and depends only on the player's own stats. $E$ (`ELITE_RAW`) is a fixed constant: a raw score of 8 maps to 10. It is never derived from the data.
+- The per-90 denominator has a floor of one full match, $\max(Minutes/90, 1)$. So a single card in a few minutes cannot produce an extreme negative rate.
+- $B_{time}$ is in $[0, 1]$. It uses average minutes per appearance: 0.5 for the first 59 minutes, 0.5 for minutes 60-90. It does not grow with total minutes, so loading another competition does not raise it. It is multiplied by $C$ too, so a small sample cannot score from playing time alone.
 - If $Minutes = 0$, $S_{final} = 0$. The three pillars are still computed.
 - If $Appearances \leq 0$ but $Minutes > 0$ (legacy, corrupt, or partially scraped records), $Appearances$ is estimated as $\lceil Minutes / 90 \rceil$ so the record still ranks instead of silently scoring 0. Ceiling, not rounding: rounding can imply more than 90 minutes per appearance (1300 minutes rounds to 14, i.e. 92.9 min each), which the $\min(avg,90)$ split would then silently truncate. The $\min$ in $B_{starter}$ bounds it to $[1.0, 1.2]$ even when $MatchesStarted$ exceeds the estimate.
-- An estimated count assumes full 90-minute appearances, so it yields the largest $B_{time}$ reachable for those minutes. A record with missing appearance data can therefore out-score an otherwise identical record that shows real rotation.
+- An estimated count assumes full 90-minute appearances, so it yields the maximum $B_{time}$ (1.0). A record with missing appearance data can therefore out-score an otherwise identical record that shows real rotation.
 
 ---
 
 ## 2. Pillar Calculations
+
+The formulas below give each pillar's raw season points ($Offensive$, $Defensive$, $Tactical$), which feed $R$ in section 1. The stored and displayed pillar scores are separate 0-10 values, see section 2.D.
 
 ### A. Offensive Score
 
@@ -69,6 +72,24 @@ $$Tactical = (PK_{won} \times 2) + \left(\frac{PK_{scored}}{PK_{taken}} \times 5
 | $F_c$ | Fouls Committed | −0.2 pts per foul |
 
 Note: `red_cards` (total reds) is stored for display only and is **not** used in scoring. Scoring uses the split `yellow_red_cards` and `direct_red_cards` fields.
+
+### D. Displayed Pillar Scores (0-10)
+
+Each pillar gets the same treatment as $S_{final}$ (per-90 floor, $B_{starter}$, $C$), then its own fixed scale:
+
+$$P_x = \frac{Points_x}{\max(Minutes/90,\ 1)} \times B_{starter} \times C$$
+
+$$Offensive_{0-10} = \text{clamp}\left(10 \times \frac{P_{off}}{8.0},\ 0,\ 10\right)$$
+
+$$Defensive_{0-10} = \text{clamp}\left(10 \times \frac{P_{def}}{3.0},\ 0,\ 10\right)$$
+
+$$Tactical_{0-10} = \text{clamp}\left(5 + 5 \times \frac{P_{tac}}{1.0},\ 0,\ 10\right)$$
+
+- The constants are fixed (`OFFENSIVE_ELITE`, `DEFENSIVE_ELITE`, `TACTICAL_RANGE`), never derived from the data. 8.0 and 3.0 sit just below the best real seasons (Kane offensive 8.11, Raya defensive 3.47).
+- Tactical is centered on 5 because most players have a small negative raw value from fouls: 5 is neutral discipline, penalties won raise it, cards and fouls lower it. Low confidence pulls it toward 5.
+- Midfielders and forwards have no defensive formula, so their defensive score is 0.
+- With $Minutes = 0$: offensive 0, defensive 0, tactical 5.
+- The display scaling does not change $S_{final}$, which is built from the raw points.
 
 ---
 

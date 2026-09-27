@@ -54,6 +54,9 @@ export type FilterOp = 'gte' | 'lte' | 'gt' | 'lt'
 
 export interface FilterClause { field: string; op: FilterOp; value: number }
 
+// Fantasy Score (s_final) is always in [0, 10]; mirrors backend scoring_engine.MAX_SCORE.
+export const MAX_FANTASY_SCORE = 10
+
 // Allowlisted sortable/filterable metrics — mirrors backend metric_fields.METRIC_FIELDS.
 export const METRIC_OPTIONS: { value: string; label: string }[] = [
   { value: 's_final', label: 'Fantasy Score' },

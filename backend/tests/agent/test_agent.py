@@ -81,7 +81,30 @@ async def test_model_failure_returns_the_generic_message():
     agent = ChatAgent(model=model, repo=fake_repo(), checkpointer=InMemorySaver())
     res = await agent.answer("anything", session_id="s6")
     assert res.answer == GENERIC_ERROR
-    assert res.degraded is True
+    assert res.degraded is False  # an outage is not an answer, so no "not backed" warning
+
+
+@pytest.mark.asyncio
+async def test_the_system_prompt_carries_todays_date():
+    from datetime import date
+
+    model = FakeToolCallingModel(responses=[AIMessage(content="ok")])
+    agent = ChatAgent(model=model, repo=fake_repo(), checkpointer=InMemorySaver())
+    await agent.answer("hi", session_id="d1")
+    system = model.last_messages[0]
+    assert system.type == "system"
+    assert date.today().isoformat() in system.text
+
+
+@pytest.mark.asyncio
+async def test_a_failing_primary_model_falls_back_to_the_next_one():
+    primary = FakeToolCallingModel(responses=[])  # raises, like a 503
+    fallback = FakeToolCallingModel(responses=[AIMessage(content="Hello from the fallback.")])
+    agent = ChatAgent(
+        model=primary, repo=fake_repo(), checkpointer=InMemorySaver(), fallback_models=[fallback]
+    )
+    res = await agent.answer("anything", session_id="s6b")
+    assert res.answer == "Hello from the fallback."
 
 
 @pytest.mark.asyncio
@@ -215,6 +238,28 @@ async def test_rows_from_an_earlier_turn_do_not_support_this_answer():
     repo.get_players.return_value = ([fake_player(goals=10)], 1)
     second = await agent.answer("and now?", session_id="x2")
     assert second.degraded is True  # 41 is only in the first turn's rows
+
+
+@pytest.mark.asyncio
+async def test_season_labels_from_the_prompt_count_as_cited():
+    # The prompt, not a row, tells the model the calendar season; naming it is not a guess.
+    from datetime import date
+
+    from app.agent.season import calendar_season
+
+    current = calendar_season(date.today())
+    scripted = [
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "attacking", "args": {"metric": "goals"}, "id": "c1"}],
+        ),
+        AIMessage(content=f"The {current} season is not in the app's data. Player A: 41 goals."),
+    ]
+    res = await _agent(scripted, fake_repo(rows=[fake_player(goals=41)])).answer(
+        "top scorer this season?", session_id="sl1"
+    )
+    assert res.uncited == []
+    assert res.degraded is False
 
 
 @pytest.mark.asyncio

@@ -100,7 +100,8 @@ app/
     agent.py          # ChatAgent, build_agent() — create_agent loop, checkpointed per session
     providers.py      # ModelProvider strategy + PROVIDERS registry (gemini/openai/anthropic)
     llm.py            # build_chat_model(), build_fallback_model()
-    system_prompt.py  # SYSTEM_PROMPT
+    system_prompt.py  # build_system_prompt(today) — rebuilt per model call via dynamic_prompt
+    season.py         # calendar_season() / previous_season() — "this"/"last season" labels
     answer_check.py   # uncited_numbers() — flags figures not backed by a tool row
     checkpoints.py    # MongoDBSaver wiring; keep_latest_checkpoint() prunes old checkpoints
     constants.py      # MAX_TOOL_ITERATIONS, MAX_ROWS, error strings
@@ -121,7 +122,7 @@ app/
 
 **Read path**: `GET /v1/players` → `MongoRepository.get_players()` → paginates + filters by name/position/team/nationality/sleeper_flag. `name` and `team` match `norm_name`/`norm_team` by substring, so they are case- and accent-insensitive; passing both combines them with AND.
 
-**Chat path**: `POST /v1/chat` → `ChatAgent.answer()` → LangGraph `create_agent` loop calls metric-family tools (each wraps `MongoRepository.get_players()`) → `answer_check.uncited_numbers()` flags any figure in the reply not present in a tool row (sets `degraded=True`, does not block the reply). The response also carries `tool_calls` (tool names and row counts only, never arguments or rows) and the `uncited` figures, which the UI shows as a trace and a warning → session state checkpointed to MongoDB by `session_id` (thread id). Because the team filter matches by substring, a tool call whose `team` hits more than one club returns a disambiguation row instead of a merged ranking, and the model asks again with a full team name. If the agent could not be built at startup (e.g. no `GEMINI_API_KEY`), `get_agent()` returns `None` and `/v1/chat` responds with a degraded generic answer instead of failing.
+**Chat path**: `POST /v1/chat` → `ChatAgent.answer()` → LangGraph `create_agent` loop calls metric-family tools (each wraps `MongoRepository.get_players()`) → `answer_check.uncited_numbers()` flags any figure in the reply not present in a tool row (sets `degraded=True`, does not block the reply). The response also carries `tool_calls` (tool names and row counts only, never arguments or rows) and the `uncited` figures, which the UI shows as a trace and a warning → session state checkpointed to MongoDB by `session_id` (thread id). Because the team filter matches by substring, a tool call whose `team` hits more than one club returns a disambiguation row instead of a merged ranking, and the model asks again with a full team name. If the agent could not be built at startup (e.g. no `GEMINI_API_KEY`), `get_agent()` returns `None` and `/v1/chat` responds with a generic error message instead of failing. A failing primary model (e.g. Gemini 503) is retried on the fallback model (`gemini-3.5-flash-lite` by default). Errors are not `degraded`, so the UI shows no "not backed by data" warning for them.
 
 ### MongoDB collections
 
@@ -134,7 +135,8 @@ app/
 ### Key domain concepts
 
 - `position`: coarse (`GK|DF|MF|FW`); `position_exact`: raw string (`CB`, `RW`, etc.)
-- `s_final`: composite fantasy score, primary sort key. Formula: `raw_per90 × starter_bonus × confidence + playing_time_bonus` where `starter_bonus = 1 + 0.2 × min(1, matches_started / appearances)`, `confidence` is an appearance tier (`<5`→0.15, `5-14`→0.50, `15-19`→0.80, `20+`→1.00), and `playing_time_bonus` splits minutes at the 60th using `minutes / appearances` as a proxy, paying 0.001/min early and 0.0015/min late. A missing or non-positive appearance count is estimated as `ceil(minutes / 90)`. See `Mathematical_Specification.md` for full details.
+- `s_final`: composite fantasy score (UI: "Fantasy Score"), primary sort key, always in [0, 10] and computed from the player's own stats only. `raw = (points / max(minutes / 90, 1) × starter_bonus + playing_time_bonus) × confidence`, then `s_final = clamp(10 × raw / 8.0, 0, 10)` (`ELITE_RAW = 8.0`). `starter_bonus = 1 + 0.2 × min(1, matches_started / appearances)`, `confidence` is `min(tier(appearances), tier(minutes // 60))` with tiers `<5`→0.15, `5-14`→0.50, `15-19`→0.80, `20+`→1.00 (`score_confidence()`, also exposed as `aggregated_scores.confidence`), and `playing_time_bonus` (0-1) is 0.5 for the first 59 average minutes per appearance plus 0.5 for minutes 60-90. A missing or non-positive appearance count is estimated as `ceil(minutes / 90)`. After a formula change, run `scripts/DB/rescore_players.py` (it rescores each competition entry and the combined score, in every stored season). See `Mathematical_Specification.md`.
+- `offensive` / `defensive` / `tactical` (stored and shown): 0-10 pillar scores with the same per-90 floor, starter bonus and confidence as `s_final`, then fixed scales: `10 × p / 8.0`, `10 × p / 3.0`, and tactical `5 + 5 × p / 1.0` (5 = neutral discipline), all clamped to [0, 10]. `s_final` is built from the raw pillar points (`pillar_points()`), not from these.
 - `red_cards`: stored for display only; scoring uses `yellow_red_cards` (−2) and `direct_red_cards` (−4) separately.
 - `sleeper_flag` / `sleeper_ratio`: `HIGH_VALUE` or `OVERPERFORMING` from `SleeperDetector.classify()`; gated on `minutes > 450`
 - `low_sample_size`: true when `aggregated_stats.minutes < 90`

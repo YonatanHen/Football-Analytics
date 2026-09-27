@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getPlayers, getPlayerCompetitions, serializeFilters, type Player, type PlayerList, type CompetitionList, type SortOrder } from '../api/players'
+import { getPlayers, getPlayerCompetitions, serializeFilters, MAX_FANTASY_SCORE, type Player, type PlayerList, type CompetitionList, type SortOrder } from '../api/players'
 import { useApp } from '../context/AppContext'
 import FilterBar from '../components/FilterBar'
 import { EMPTY_FILTERS, clauseLabel, type Filters } from '../lib/filters'
@@ -105,13 +105,12 @@ export default function PlayerDetails() {
     if (last) update({ ...filters, [last.key]: '' })
   }
 
-  const maxScore = Math.max(...(data?.data.map((p) => p.aggregated_scores.s_final) ?? [0]), 0.01)
   const columns: Column[] = [
     COL.rank, { ...COL.player, className: 'min-w-[220px]' }, COL.pos, COL.team,
     {
       key: 'score', label: 'Fantasy Score', sortKey: 's_final',
       render: (p) => (
-        <ScoreBar label={p.aggregated_scores.s_final.toFixed(2)} fraction={p.aggregated_scores.s_final / (maxScore * 1.08)} />
+        <ScoreBar label={p.aggregated_scores.s_final.toFixed(2)} fraction={p.aggregated_scores.s_final / MAX_FANTASY_SCORE} />
       ),
     },
     COL.apps, COL.goals, COL.assists, COL.xg, COL.xa, COL.minutes, COL.rating, COL.signal,

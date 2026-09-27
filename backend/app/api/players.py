@@ -15,7 +15,7 @@ from app.api.modals.player_modals import (
 from app.config import settings
 from app.dependencies import get_repo
 from app.domain.metric_fields import FILTER_OPS, METRIC_FIELDS, SORT_FIELDS
-from app.domain.scoring_engine import confidence_tier, effective_appearances
+from app.domain.scoring_engine import score_confidence
 from app.infrastructure.mongo_repository import MongoRepository
 from app.infrastructure.sofascore_client import SofascoreClient
 
@@ -88,7 +88,7 @@ def _to_out(p: "PlayerDTO") -> PlayerOut:
         aggregated_stats=StatsOut(**p.aggregated_stats.__dict__),
         aggregated_scores=AggregatedScoresOut(
             **p.aggregated_scores.__dict__,
-            confidence=confidence_tier(effective_appearances(p.aggregated_stats)),
+            confidence=score_confidence(p.aggregated_stats),
         ),
         low_sample_size=p.low_sample_size,
         last_updated=p.last_updated,

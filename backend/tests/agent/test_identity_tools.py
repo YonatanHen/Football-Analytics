@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from app.agent.tools.identity import functions
-from app.domain.models import AggregatedScores, PlayerDTO, Stats
+from app.domain.models import AggregatedScores, CompetitionEntry, PlayerDTO, Score, Stats
 
 
 def _player(name):
@@ -42,6 +42,56 @@ def test_find_player_returns_a_profile():
     assert out[0]["name"] == "Player A"
     assert out[0]["position"] == "FW"
     assert out[0]["sleeper_flag"] == "HIGH_VALUE"
+
+
+def _two_league(name="Player A"):
+    p = _player(name)
+    p.competitions = [
+        CompetitionEntry(
+            "Germany Bundesliga",
+            Stats(goals=10, assists=3, minutes=900, appearances=11),
+            Score(0, 0, 0, 0),
+        ),
+        CompetitionEntry(
+            "UEFA Champions League",
+            Stats(goals=2, assists=1, minutes=300, appearances=4),
+            Score(0, 0, 0, 0),
+        ),
+    ]
+    return p
+
+
+def test_find_player_splits_the_core_stats_per_competition():
+    repo = MagicMock()
+    repo.get_players.return_value = ([_two_league()], 1)
+    out = _tools(repo)["find_player"].invoke({"name": "Player A"})[0]
+    assert out["season"] == "2025-2026"
+    assert out["competitions"] == ["Germany Bundesliga", "UEFA Champions League"]
+    assert out["goals"] == 12  # combined total
+    bl, cl = out["by_competition"]
+    assert bl["competition"] == "Germany Bundesliga"
+    assert (bl["appearances"], bl["minutes"], bl["goals"], bl["assists"]) == (11, 900, 10, 3)
+    assert cl["goals"] == 2
+    assert set(bl) == {"competition", "appearances", "minutes", "goals", "assists", "fantasy_score"}
+
+
+def test_find_player_reports_the_composite_as_fantasy_score():
+    repo = MagicMock()
+    repo.get_players.return_value = ([_player("Player A")], 1)
+    out = _tools(repo)["find_player"].invoke({"name": "Player A"})[0]
+    assert out["fantasy_score"] == 7.25
+    assert "s_final" not in out
+
+
+def test_find_player_in_one_competition_keeps_only_that_competition():
+    repo = MagicMock()
+    repo.get_players.return_value = ([_two_league()], 1)
+    out = _tools(repo)["find_player"].invoke(
+        {"name": "Player A", "competition": "Champions League"}
+    )[0]
+    assert repo.get_players.call_args.kwargs["stats_view"] == "Champions League"
+    assert out["competitions"] == ["UEFA Champions League"]
+    assert [c["competition"] for c in out["by_competition"]] == ["UEFA Champions League"]
 
 
 def test_find_player_reports_no_match_without_inventing_one():

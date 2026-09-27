@@ -8,9 +8,13 @@ from pydantic import BaseModel, Field, create_model
 
 from app.agent.constants import MAX_ROWS, TOOL_ERROR
 from app.config import settings
+from app.domain.competitions import canonical_competition
 from app.domain.metric_fields import METRIC_FIELDS, python_value
+from app.domain.scoring_engine import ScoringEngine
 
 logger = logging.getLogger(__name__)
+
+_SCORING = ScoringEngine()
 
 
 class MetricQuery(BaseModel):
@@ -28,17 +32,45 @@ class MetricQuery(BaseModel):
     limit: int = Field(10, ge=1, description="How many rows to return.")
 
 
-def _row(player, metric: str) -> dict:
-    return {
+def entries_in_scope(player, competition: str | None) -> list:
+    """The player's competition entries behind the row: one if filtered, else all."""
+    if not competition:
+        return list(player.competitions)
+    if competition in ("club", "national"):  # the repository's two group views
+        return [e for e in player.competitions if e.competition_type == competition]
+    target = canonical_competition(competition)
+    return [e for e in player.competitions if e.competition == target]
+
+
+def competition_value(entry, position: str, metric: str) -> float:
+    """A metric for one competition; scores are recomputed from that competition's stats."""
+    source, attr = METRIC_FIELDS[metric]
+    if source == "stats":
+        return getattr(entry.stats, attr)
+    return round(getattr(_SCORING.calculate(entry.stats, position), attr), 2)
+
+
+def _row(player, metric: str, q: MetricQuery) -> dict:
+    entries = entries_in_scope(player, q.competition)
+    row = {
         "name": player.name,
         "team": player.team,
         "position": player.position,
-        metric: python_value(player, metric),
-        "s_final": round(player.aggregated_scores.s_final, 2),
+        "season": player.season,
+        "competitions": [e.competition for e in entries],
+        "fantasy_score": round(player.aggregated_scores.s_final, 2),
         "minutes": player.aggregated_stats.minutes,
         "sleeper_flag": player.aggregated_scores.underpredicted_flag,
         "low_sample_size": player.low_sample_size,
     }
+    if metric != "s_final":  # already there as fantasy_score
+        row[metric] = python_value(player, metric)
+    # Only for a named player: a per-league split on every ranking row would bloat answers.
+    if q.player_name and not q.competition and len(entries) > 1:
+        row["by_competition"] = {
+            e.competition: competition_value(e, player.position, metric) for e in entries
+        }
+    return row
 
 
 def run_metric_query(repo, family: set[str], q: MetricQuery) -> list[dict]:
@@ -75,7 +107,7 @@ def run_metric_query(repo, family: set[str], q: MetricQuery) -> list[dict]:
         logger.exception("Tool query failed for metric %s", q.metric)
         return [{"error": TOOL_ERROR}]
 
-    return [_row(p, q.metric) for p in players]
+    return [_row(p, q.metric, q) for p in players]
 
 
 def build_metric_tool(repo, *, name: str, description: str, metrics: list[str]) -> BaseTool:
