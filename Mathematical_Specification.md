@@ -32,6 +32,8 @@ $$B_{time} = 0.5 \times \frac{\min(avg,\ 59)}{59} + 0.5 \times \frac{\max(0,\ \m
 
 ## 2. Pillar Calculations
 
+The formulas below give each pillar's raw season points ($Offensive$, $Defensive$, $Tactical$), which feed $R$ in section 1. The stored and displayed pillar scores are separate 0-10 values, see section 2.D.
+
 ### A. Offensive Score
 
 $$Offensive = (G \times w_G) + (A \times w_A) + xG + xA$$
@@ -70,6 +72,24 @@ $$Tactical = (PK_{won} \times 2) + \left(\frac{PK_{scored}}{PK_{taken}} \times 5
 | $F_c$ | Fouls Committed | −0.2 pts per foul |
 
 Note: `red_cards` (total reds) is stored for display only and is **not** used in scoring. Scoring uses the split `yellow_red_cards` and `direct_red_cards` fields.
+
+### D. Displayed Pillar Scores (0-10)
+
+Each pillar gets the same treatment as $S_{final}$ (per-90 floor, $B_{starter}$, $C$), then its own fixed scale:
+
+$$P_x = \frac{Points_x}{\max(Minutes/90,\ 1)} \times B_{starter} \times C$$
+
+$$Offensive_{0-10} = \text{clamp}\left(10 \times \frac{P_{off}}{8.0},\ 0,\ 10\right)$$
+
+$$Defensive_{0-10} = \text{clamp}\left(10 \times \frac{P_{def}}{3.0},\ 0,\ 10\right)$$
+
+$$Tactical_{0-10} = \text{clamp}\left(5 + 5 \times \frac{P_{tac}}{1.0},\ 0,\ 10\right)$$
+
+- The constants are fixed (`OFFENSIVE_ELITE`, `DEFENSIVE_ELITE`, `TACTICAL_RANGE`), never derived from the data. 8.0 and 3.0 sit just below the best real seasons (Kane offensive 8.11, Raya defensive 3.47).
+- Tactical is centered on 5 because most players have a small negative raw value from fouls: 5 is neutral discipline, penalties won raise it, cards and fouls lower it. Low confidence pulls it toward 5.
+- Midfielders and forwards have no defensive formula, so their defensive score is 0.
+- With $Minutes = 0$: offensive 0, defensive 0, tactical 5.
+- The display scaling does not change $S_{final}$, which is built from the raw points.
 
 ---
 

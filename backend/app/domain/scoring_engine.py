@@ -1,4 +1,5 @@
 import math
+from typing import NamedTuple
 
 from app.domain.models import Score, Stats
 
@@ -37,6 +38,10 @@ def score_confidence(stats: Stats) -> float:
 
 ELITE_RAW = 8.0  # raw score that maps to 10; fixed, never derived from the data
 MAX_SCORE = 10.0
+OFFENSIVE_ELITE = 8.0  # per-90 offensive raw that maps to 10
+DEFENSIVE_ELITE = 3.0  # per-90 defensive raw that maps to 10 (just below the best GK season)
+TACTICAL_NEUTRAL = 5.0  # clean discipline; penalties won raise it, cards and fouls lower it
+TACTICAL_RANGE = 1.0  # tactical raw of +/-1.0 per 90 reaches 10 / 0
 
 
 def playing_time_bonus(stats: Stats, apps: int) -> float:
@@ -47,54 +52,66 @@ def playing_time_bonus(stats: Stats, apps: int) -> float:
     return 0.5 * early + 0.5 * late
 
 
+def _clamp(value: float) -> float:
+    return min(MAX_SCORE, max(0.0, value))
+
+
 def to_fantasy_scale(raw: float) -> float:
-    return min(MAX_SCORE, max(0.0, MAX_SCORE * raw / ELITE_RAW))
+    return _clamp(MAX_SCORE * raw / ELITE_RAW)
+
+
+class PillarPoints(NamedTuple):
+    offensive: float
+    defensive: float
+    tactical: float
+
+
+def pillar_points(stats: Stats, position: str) -> PillarPoints:
+    """Raw season point totals per pillar; s_final is built from these."""
+    weights = _POSITION_WEIGHTS[position]
+    offensive = (
+        stats.goals * weights["goals"] + stats.assists * weights["assists"] + stats.xg + stats.xa
+    )
+
+    if position == "GK":
+        defensive = stats.clean_sheets * 5.0 + stats.pk_saved * 5.0 + stats.goals_prevented * 2.0
+    elif position == "DF":
+        defensive = stats.clean_sheets * 4.0
+    else:
+        defensive = 0.0
+
+    pk_ratio = (stats.pk_scored / stats.pk_taken * 5) if stats.pk_taken > 0 else 0.0
+    tactical = (
+        stats.pk_won * 2
+        + pk_ratio
+        - stats.yellow_cards
+        - stats.yellow_red_cards * 2
+        - stats.direct_red_cards * 4
+        - stats.fouls_committed * 0.2
+    )
+    return PillarPoints(offensive, defensive, tactical)
 
 
 class ScoringEngine:
     def calculate(self, stats: Stats, position: str) -> Score:
-        """Compute the three pillars and s_final, a 0-10 score from this player's stats only."""
-        weights = _POSITION_WEIGHTS[position]
-
-        offensive = (
-            stats.goals * weights["goals"]
-            + stats.assists * weights["assists"]
-            + stats.xg
-            + stats.xa
-        )
-
-        if position == "GK":
-            defensive = (
-                stats.clean_sheets * 5.0 + stats.pk_saved * 5.0 + stats.goals_prevented * 2.0
-            )
-        elif position == "DF":
-            defensive = stats.clean_sheets * 4.0
-        else:
-            defensive = 0.0
-
-        pk_ratio = (stats.pk_scored / stats.pk_taken * 5) if stats.pk_taken > 0 else 0.0
-        tactical = (
-            stats.pk_won * 2
-            + pk_ratio
-            - stats.yellow_cards
-            - stats.yellow_red_cards * 2
-            - stats.direct_red_cards * 4
-            - stats.fouls_committed * 0.2
-        )
-
+        """Compute s_final and the three pillar scores, all 0-10 from this player's stats only."""
+        points = pillar_points(stats, position)
         if stats.minutes <= 0:
-            return Score(offensive=offensive, defensive=defensive, tactical=tactical, s_final=0.0)
+            return Score(offensive=0.0, defensive=0.0, tactical=TACTICAL_NEUTRAL, s_final=0.0)
 
         apps = effective_appearances(stats)
         # Floor of one full match: a card in 1 minute must not become -90 per 90.
-        raw_per90 = (offensive + defensive + tactical) / max(stats.minutes / 90, 1.0)
+        per90_divisor = max(stats.minutes / 90, 1.0)
         starter_bonus = 1.0 + 0.2 * min(1.0, stats.matches_started / apps)
         confidence = score_confidence(stats)
+        raw_per90 = sum(points) / per90_divisor
         raw = (raw_per90 * starter_bonus + playing_time_bonus(stats, apps)) * confidence
 
+        # Each pillar gets the same per-90, starter and confidence treatment, then its own scale.
+        factor = starter_bonus * confidence / per90_divisor
         return Score(
-            offensive=offensive,
-            defensive=defensive,
-            tactical=tactical,
+            offensive=_clamp(MAX_SCORE * points.offensive * factor / OFFENSIVE_ELITE),
+            defensive=_clamp(MAX_SCORE * points.defensive * factor / DEFENSIVE_ELITE),
+            tactical=_clamp(TACTICAL_NEUTRAL + 5.0 * points.tactical * factor / TACTICAL_RANGE),
             s_final=to_fantasy_scale(raw),
         )

@@ -144,3 +144,15 @@ Measured effect: the top 20 has no player under 900 minutes (it had 3). Waldschm
 **Position balance (C): no change, by design.** Defenders and goalkeepers score mainly from clean sheets, plus goals and assists. Goalkeepers also score from penalties saved. Forwards being more common at the top is accepted.
 
 **Open:** defensive midfielders get no defensive credit (D). This needs its own design.
+
+## 9. Pillar scores on 0-10 (approved 2026-09-27)
+
+The user asked that the stored and shown `offensive`, `defensive` and `tactical` values use the same mechanism as the overall score. This replaces "the pillars are not limited to 0-10" in section 4.1.
+
+- Each pillar: `p = points / max(minutes / 90, 1) × starter_bonus × confidence`. No playing-time bonus, because that belongs to the overall score.
+- Offensive: `clamp(10 × p / 8.0, 0, 10)`. Kane is at 10, Olise at 8.2.
+- Defensive: `clamp(10 × p / 3.0, 0, 10)`. 3.0 is just below the best season (Raya 3.47), so only Raya and Donnarumma reach 10, and the best DF (Gabriel) gets 8.7. 2.5 gave 5 GK at 10. 3.5 gave nobody at 10 and a GK median of 2.0.
+- Tactical: `clamp(5 + 5 × p / 1.0, 0, 10)`. 84% of players have a negative raw value from fouls, so a 0-based scale would show 0 for most of them. 5 means neutral discipline.
+- `s_final` still comes from the raw points (`pillar_points()`), so the overall scores do not change.
+- 0 minutes: offensive 0, defensive 0, tactical 5.
+

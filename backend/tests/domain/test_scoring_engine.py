@@ -8,6 +8,7 @@ from app.domain.scoring_engine import (
     ScoringEngine,
     confidence_tier,
     effective_appearances,
+    pillar_points,
     playing_time_bonus,
     score_confidence,
     to_fantasy_scale,
@@ -21,55 +22,55 @@ def engine() -> ScoringEngine:
 
 def test_forward_offensive_score(engine: ScoringEngine) -> None:
     stats = Stats(goals=5, assists=3, xg=4.0, xa=2.5, minutes=900)
-    score = engine.calculate(stats, "FW")
+    score = pillar_points(stats, "FW")
     # 5*4 + 3*3 + 4.0 + 2.5 = 20 + 9 + 6.5 = 35.5
     assert score.offensive == pytest.approx(35.5)
 
 
 def test_midfielder_offensive_score(engine: ScoringEngine) -> None:
     stats = Stats(goals=3, assists=5, xg=2.5, xa=4.0, minutes=900)
-    score = engine.calculate(stats, "MF")
+    score = pillar_points(stats, "MF")
     # 3*5 + 5*3 + 2.5 + 4.0 = 15 + 15 + 6.5 = 36.5
     assert score.offensive == pytest.approx(36.5)
 
 
 def test_defender_offensive_score(engine: ScoringEngine) -> None:
     stats = Stats(goals=2, assists=1, xg=1.5, xa=0.5, minutes=900)
-    score = engine.calculate(stats, "DF")
+    score = pillar_points(stats, "DF")
     # 2*6 + 1*4 + 1.5 + 0.5 = 12 + 4 + 2 = 18.0
     assert score.offensive == pytest.approx(18.0)
 
 
 def test_goalkeeper_offensive_score(engine: ScoringEngine) -> None:
     stats = Stats(goals=0, assists=1, xg=0.1, xa=0.2, minutes=900)
-    score = engine.calculate(stats, "GK")
+    score = pillar_points(stats, "GK")
     # 0*10 + 1*5 + 0.1 + 0.2 = 5.3
     assert score.offensive == pytest.approx(5.3)
 
 
 def test_goalkeeper_defensive_score(engine: ScoringEngine) -> None:
     stats = Stats(clean_sheets=5, pk_saved=2, minutes=900)
-    score = engine.calculate(stats, "GK")
+    score = pillar_points(stats, "GK")
     # 5*5 + 2*5 = 25 + 10 = 35
     assert score.defensive == pytest.approx(35.0)
 
 
 def test_defender_defensive_score(engine: ScoringEngine) -> None:
     stats = Stats(clean_sheets=3, minutes=900)
-    score = engine.calculate(stats, "DF")
+    score = pillar_points(stats, "DF")
     # 3*4 = 12
     assert score.defensive == pytest.approx(12.0)
 
 
 def test_midfielder_zero_defensive_score(engine: ScoringEngine) -> None:
     stats = Stats(clean_sheets=5, pk_saved=3, minutes=900)
-    score = engine.calculate(stats, "MF")
+    score = pillar_points(stats, "MF")
     assert score.defensive == pytest.approx(0.0)
 
 
 def test_forward_zero_defensive_score(engine: ScoringEngine) -> None:
     stats = Stats(clean_sheets=5, pk_saved=3, minutes=900)
-    score = engine.calculate(stats, "FW")
+    score = pillar_points(stats, "FW")
     assert score.defensive == pytest.approx(0.0)
 
 
@@ -86,7 +87,7 @@ def test_tactical_full(engine: ScoringEngine) -> None:
         appearances=10,
         matches_started=10,
     )
-    score = engine.calculate(stats, "FW")
+    score = pillar_points(stats, "FW")
     # pk_ratio = 3/4 * 5 = 3.75
     # tactical = 2*2 + 3.75 - 2 - 1*2 - 1*4 - 10*0.2 = 4 + 3.75 - 2 - 2 - 4 - 2 = -2.25
     assert score.tactical == pytest.approx(-2.25)
@@ -94,7 +95,7 @@ def test_tactical_full(engine: ScoringEngine) -> None:
 
 def test_tactical_pk_ratio_zero_when_no_pk_taken(engine: ScoringEngine) -> None:
     stats = Stats(pk_scored=0, pk_taken=0, minutes=900)
-    score = engine.calculate(stats, "FW")
+    score = pillar_points(stats, "FW")
     assert score.tactical == pytest.approx(0.0)
 
 
@@ -191,25 +192,25 @@ def test_starter_bonus_zero_starters(engine: ScoringEngine) -> None:
 
 def test_yellow_red_card_penalty(engine: ScoringEngine) -> None:
     stats = Stats(yellow_red_cards=1, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "FW")
+    score = pillar_points(stats, "FW")
     assert score.tactical == pytest.approx(-2.0)
 
 
 def test_direct_red_card_penalty(engine: ScoringEngine) -> None:
     stats = Stats(direct_red_cards=1, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "FW")
+    score = pillar_points(stats, "FW")
     assert score.tactical == pytest.approx(-4.0)
 
 
 def test_gk_goals_prevented_bonus(engine: ScoringEngine) -> None:
     stats = Stats(goals_prevented=3.0, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "GK")
+    score = pillar_points(stats, "GK")
     assert score.defensive == pytest.approx(3.0 * 2)
 
 
 def test_gk_goals_prevented_negative(engine: ScoringEngine) -> None:
     stats = Stats(goals_prevented=-2.0, minutes=900, appearances=10, matches_started=10)
-    score = engine.calculate(stats, "GK")
+    score = pillar_points(stats, "GK")
     assert score.defensive == pytest.approx(-2.0 * 2)
 
 
@@ -346,3 +347,93 @@ def test_few_minutes_over_many_sub_appearances_are_damped(engine: ScoringEngine)
     starter = 1 + 0.2 * (2 / 24)
     expected = _scale(per90 * starter * 0.50 + 0.50 * _bonus(684 / 24))
     assert engine.calculate(stats, "FW").s_final == pytest.approx(expected, rel=1e-4)
+
+
+# --- pillar scores on 0-10 (same mechanism as s_final) ---
+
+
+def test_offensive_pillar_is_scaled_on_zero_to_ten(engine: ScoringEngine) -> None:
+    # 1 goal as FW over 1800 min, 20 sub apps: 4/20 per 90 x 1.0 x 1.0 -> 10 x 0.2 / 8.0
+    stats = Stats(goals=1, minutes=1800, appearances=20)
+    assert engine.calculate(stats, "FW").offensive == pytest.approx(0.25)
+
+
+def test_defensive_pillar_is_scaled_on_zero_to_ten(engine: ScoringEngine) -> None:
+    # 5 clean sheets as DF = 20 points over 20 full matches -> 1.0 per 90 -> 10 x 1.0 / 3.0
+    stats = Stats(clean_sheets=5, minutes=1800, appearances=20)
+    assert engine.calculate(stats, "DF").defensive == pytest.approx(10 / 3)
+
+
+def test_outfield_midfielder_has_no_defensive_score(engine: ScoringEngine) -> None:
+    stats = Stats(clean_sheets=5, minutes=1800, appearances=20)
+    assert engine.calculate(stats, "MF").defensive == 0.0
+
+
+def test_clean_discipline_is_a_neutral_tactical_five(engine: ScoringEngine) -> None:
+    stats = Stats(goals=3, minutes=1800, appearances=20)
+    assert engine.calculate(stats, "FW").tactical == 5.0
+
+
+def test_penalties_won_raise_tactical_above_five(engine: ScoringEngine) -> None:
+    # 5 pk_won = 10 points over 20 matches -> 0.5 per 90 -> 5 + 5 x 0.5
+    stats = Stats(pk_won=5, minutes=1800, appearances=20)
+    assert engine.calculate(stats, "FW").tactical == pytest.approx(7.5)
+
+
+def test_cards_lower_tactical_below_five_and_stop_at_zero(engine: ScoringEngine) -> None:
+    some = Stats(yellow_cards=4, minutes=1800, appearances=20)  # -0.2 per 90 -> 4.0
+    many = Stats(yellow_cards=40, minutes=1800, appearances=20)  # -2.0 per 90 -> clamp 0
+    assert engine.calculate(some, "MF").tactical == pytest.approx(4.0)
+    assert engine.calculate(many, "MF").tactical == 0.0
+
+
+def test_low_confidence_pulls_tactical_toward_neutral(engine: ScoringEngine) -> None:
+    # 1 yellow in 90 min: -1.0 per 90 x confidence 0.15 -> 5 - 0.75
+    stats = Stats(yellow_cards=1, minutes=90, appearances=1)
+    assert engine.calculate(stats, "MF").tactical == pytest.approx(4.25)
+
+
+def test_exceptional_attacker_offensive_pillar_is_capped_at_ten(engine: ScoringEngine) -> None:
+    stats = Stats(
+        goals=50, assists=7, xg=36.19, xa=6.75, minutes=3421, appearances=44, matches_started=37
+    )
+    assert engine.calculate(stats, "FW").offensive == 10.0
+
+
+def test_no_minutes_gives_zero_pillars_and_neutral_tactical(engine: ScoringEngine) -> None:
+    score = engine.calculate(Stats(goals=5, yellow_cards=3, minutes=0, appearances=3), "FW")
+    assert (score.offensive, score.defensive, score.tactical, score.s_final) == (0.0, 0.0, 5.0, 0.0)
+
+
+def test_overall_score_still_uses_raw_pillar_points(engine: ScoringEngine) -> None:
+    # Pillar display scaling must not change s_final: raw 4/20 per 90 + full bonus, conf 1.0.
+    stats = Stats(goals=1, minutes=1800, appearances=20)
+    assert engine.calculate(stats, "FW").s_final == pytest.approx(_scale(0.2 + _bonus(90)))
+
+
+def test_every_pillar_is_always_between_zero_and_ten(engine: ScoringEngine) -> None:
+    rng = random.Random(7)
+    for _ in range(3000):
+        stats = Stats(
+            goals=rng.randint(0, 60),
+            assists=rng.randint(0, 30),
+            xg=rng.uniform(0, 50),
+            xa=rng.uniform(0, 30),
+            clean_sheets=rng.randint(0, 30),
+            pk_saved=rng.randint(0, 5),
+            goals_prevented=rng.uniform(-40, 20),
+            pk_won=rng.randint(0, 6),
+            pk_scored=rng.randint(0, 10),
+            pk_taken=rng.randint(0, 12),
+            yellow_cards=rng.randint(0, 15),
+            yellow_red_cards=rng.randint(0, 3),
+            direct_red_cards=rng.randint(0, 3),
+            fouls_committed=rng.uniform(0, 90),
+            minutes=rng.choice([0, 1, 5, 45, 90, rng.randint(0, 5000)]),
+            appearances=rng.randint(-3, 50),
+            matches_started=rng.randint(0, 60),
+        )
+        for position in ("GK", "DF", "MF", "FW"):
+            score = engine.calculate(stats, position)
+            for value in (score.offensive, score.defensive, score.tactical):
+                assert 0.0 <= value <= 10.0, (position, stats, score)
