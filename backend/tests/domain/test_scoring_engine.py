@@ -9,6 +9,7 @@ from app.domain.scoring_engine import (
     confidence_tier,
     effective_appearances,
     playing_time_bonus,
+    score_confidence,
     to_fantasy_scale,
 )
 
@@ -109,14 +110,14 @@ def test_s_final_low_apps_confidence(engine: ScoringEngine) -> None:
     # 1 app → confidence=0.15; raw_per90=4.0, starter_bonus=1.2
     stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(_scale(4.0 * 1.2 * 0.15 + _bonus(90)), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(4.0 * 1.2 * 0.15 + 0.15 * _bonus(90)), rel=1e-4)
 
 
 def test_s_final_sub_low_apps(engine: ScoringEngine) -> None:
     # 45 minutes count as one full match (floor), so raw_per90 is 4.0, not 8.0
     stats = Stats(goals=1, minutes=45, appearances=1, matches_started=0)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(_scale(4.0 * 1.0 * 0.15 + _bonus(45)), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(4.0 * 1.0 * 0.15 + 0.15 * _bonus(45)), rel=1e-4)
 
 
 def test_s_final_zero_when_no_minutes(engine: ScoringEngine) -> None:
@@ -130,7 +131,7 @@ def test_missing_appearances_estimated_from_minutes(engine: ScoringEngine) -> No
     # Legacy record: 900 min, no appearance count -> apps estimated as 10, confidence 0.50
     stats = Stats(goals=5, minutes=900, appearances=0)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(_scale(2.0 * 1.0 * 0.50 + _bonus(90)), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(2.0 * 1.0 * 0.50 + 0.50 * _bonus(90)), rel=1e-4)
 
 
 def test_missing_appearances_estimate_is_at_least_one(engine: ScoringEngine) -> None:
@@ -146,7 +147,7 @@ def test_starter_bonus_clamped_when_starts_exceed_estimated_appearances(
     # matches_started can exceed an estimated apps count; the ratio must not exceed 1.
     stats = Stats(goals=1, minutes=90, appearances=0, matches_started=5)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(_scale(4.0 * 1.2 * 0.15 + _bonus(90)), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(4.0 * 1.2 * 0.15 + 0.15 * _bonus(90)), rel=1e-4)
 
 
 @pytest.mark.parametrize(("apps", "confidence"), [(2, 0.15), (5, 0.50), (15, 0.80), (20, 1.00)])
@@ -155,7 +156,7 @@ def test_confidence_tiers(engine: ScoringEngine, apps: int, confidence: float) -
     stats = Stats(goals=1, minutes=1800, appearances=apps)
     score = engine.calculate(stats, "FW")
     raw_per90 = 4.0 / 20  # FW: 1 goal x weight 4, over 1800 minutes
-    expected = _scale(raw_per90 * 1.0 * confidence + _bonus(1800 / apps))
+    expected = _scale(raw_per90 * 1.0 * confidence + confidence * _bonus(1800 / apps))
     assert score.s_final == pytest.approx(expected, rel=1e-4)
 
 
@@ -230,7 +231,7 @@ def test_one_card_in_one_minute_scores_zero(engine: ScoringEngine) -> None:
 
 def test_minutes_floor_is_one_full_match(engine: ScoringEngine) -> None:
     short = engine.calculate(Stats(goals=1, minutes=30, appearances=1), "FW")
-    assert short.s_final == pytest.approx(_scale(4.0 * 1.0 * 0.15 + _bonus(30)), rel=1e-4)
+    assert short.s_final == pytest.approx(_scale(4.0 * 1.0 * 0.15 + 0.15 * _bonus(30)), rel=1e-4)
 
 
 def test_bonus_is_half_at_59_and_full_at_90() -> None:
@@ -308,3 +309,40 @@ def test_effective_appearances_estimates_from_minutes() -> None:
     assert effective_appearances(Stats(minutes=900)) == 10
     assert effective_appearances(Stats(minutes=900, appearances=12)) == 12
     assert effective_appearances(Stats()) == 0
+
+
+# --- confidence counts minutes too (A) and scales the bonus (B) ---
+
+
+def test_short_sub_appearances_do_not_earn_full_confidence() -> None:
+    # 684 minutes over 24 appearances = 11 sixty-minute games -> the 0.50 tier, not 1.00.
+    assert score_confidence(Stats(minutes=684, appearances=24)) == 0.50
+
+
+def test_regular_sixty_minute_starters_keep_full_confidence() -> None:
+    assert score_confidence(Stats(minutes=1200, appearances=20)) == 1.00
+
+
+def test_confidence_is_the_lower_of_appearances_and_minutes() -> None:
+    assert score_confidence(Stats(minutes=69, appearances=8)) == 0.15  # minutes decide
+    assert score_confidence(Stats(minutes=3000, appearances=4)) == 0.15  # appearances decide
+
+
+def test_legacy_record_confidence_uses_estimated_appearances() -> None:
+    # apps estimated as ceil(900/90) = 10 -> 0.50; minutes give 15 games -> 0.80.
+    assert score_confidence(Stats(minutes=900, appearances=0)) == 0.50
+
+
+def test_bonus_is_scaled_by_confidence(engine: ScoringEngine) -> None:
+    # One quiet full match: 1.25 before, now 0.15 x 1.0 bonus.
+    stats = Stats(minutes=90, appearances=1, matches_started=1)
+    assert engine.calculate(stats, "MF").s_final == pytest.approx(_scale(0.15 * 1.0))
+
+
+def test_few_minutes_over_many_sub_appearances_are_damped(engine: ScoringEngine) -> None:
+    # Same production as a regular starter, but in 684 minutes of 24 short appearances.
+    stats = Stats(goals=8, assists=4, minutes=684, appearances=24, matches_started=2)
+    per90 = (8 * 4 + 4 * 3) / (684 / 90)
+    starter = 1 + 0.2 * (2 / 24)
+    expected = _scale(per90 * starter * 0.50 + 0.50 * _bonus(684 / 24))
+    assert engine.calculate(stats, "FW").s_final == pytest.approx(expected, rel=1e-4)

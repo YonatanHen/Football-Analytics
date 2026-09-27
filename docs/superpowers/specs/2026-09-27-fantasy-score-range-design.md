@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-27
 - **Branch:** `dev/fantasy-score-range` (stacked on `dev/chat-model-fallback`)
-- **Status:** approved in conversation; waiting for spec review
+- **Status:** approved; implemented, with the follow-up in section 8
 
 ## 1. Goal
 
@@ -87,7 +87,7 @@ Every score is computed by `ScoringEngine.calculate()`, so the range applies eve
 ### 4.4 Stored data
 
 - **New loads** (via `tools/fetch_cli`) store 0-10 scores directly.
-- **Existing data:** extend `backend/scripts/rescore_players.py` so it rescores **each competition entry** (`competitions[].scores`) and then the combined score. Run it once after the change:
+- **Existing data:** extend the rescore script (now `backend/scripts/DB/rescore_players.py`, covering every season) so it rescores **each competition entry** (`competitions[].scores`) and then the combined score. Run it once after the change:
   1. Take a DB snapshot (`scripts/DB/snapshot_dump.py`).
   2. Run the rescore, only after the user approves.
   3. Check: all stored `s_final` values are within [0, 10], and the stored values match the formula.
@@ -129,3 +129,18 @@ Validation: the data-analyst agent checks `ELITE_RAW = 8.0` and the two fixes ag
 - Changing the pillar weights (goals, assists, clean sheets, cards).
 - Changing the confidence tiers or the starter bonus.
 - Any frontend change.
+
+## 8. Follow-up after data validation (approved 2026-09-27)
+
+The data-analyst check found that few-minute players still reached the top, for example Waldschmidt at #5 with 684 minutes. The user approved two changes. They replace "confidence tiers unchanged" in section 4.1:
+
+- **A. Confidence counts minutes.** `confidence = min(tier(appearances), tier(minutes // 60))`, with the same tiers (`<5` → 0.15, `5-14` → 0.50, `15-19` → 0.80, `20+` → 1.00).
+  - Dividing by 60, not 90, keeps regular starters who are subbed off around the 60th minute at full confidence. With ÷ 90, their median would drop from 2.28 to 2.03.
+  - The API's `aggregated_scores.confidence` uses the same function (`score_confidence()`).
+- **B. The bonus is scaled by confidence.** `raw = (per90 × starter_bonus + bonus) × confidence`. One quiet full match now gives 0.19, not 1.25.
+
+Measured effect: the top 20 has no player under 900 minutes (it had 3). Waldschmidt goes from 7.50 to 3.75, and Pepi (154 minutes) from 6.51 to 1.95. Kane, Olise, Raya and Rice do not change.
+
+**Position balance (C): no change, by design.** Defenders and goalkeepers score mainly from clean sheets, plus goals and assists. Goalkeepers also score from penalties saved. Forwards being more common at the top is accepted.
+
+**Open:** defensive midfielders get no defensive credit (D). This needs its own design.

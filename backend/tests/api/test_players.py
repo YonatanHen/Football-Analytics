@@ -227,6 +227,21 @@ def test_player_exposes_confidence(client_with_player: TestClient) -> None:
     assert resp.json()["aggregated_scores"]["confidence"] == 0.5
 
 
+def test_confidence_counts_minutes_not_only_appearances() -> None:
+    # 24 short appearances but only 684 minutes (11 sixty-minute games) -> 0.50, not 1.00.
+    mc = mongomock.MongoClient()
+    repo = MongoRepository(mc)
+    player = _make_player("9", "2025-2026")
+    player.aggregated_stats = Stats(goals=8, minutes=684, appearances=24)
+    repo.upsert_player(player)
+    app.dependency_overrides[get_repo] = lambda: repo
+    app.router.lifespan_context = _noop_lifespan
+    with TestClient(app) as c:
+        resp = c.get("/v1/players/9")
+    app.dependency_overrides.clear()
+    assert resp.json()["aggregated_scores"]["confidence"] == 0.5
+
+
 def test_sort_by_xratio(client: TestClient) -> None:
     repo = app.dependency_overrides[get_repo]()
     for pid, ratio in (("1", 1.3), ("2", 1.8), ("3", None)):

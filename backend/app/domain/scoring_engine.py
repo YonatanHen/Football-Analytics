@@ -27,6 +27,14 @@ def confidence_tier(apps: int) -> float:
     return 1.00
 
 
+def score_confidence(stats: Stats) -> float:
+    """Lower of the appearance tier and the tier of 60-minute games played."""
+    # Minutes stop many short sub appearances from earning full confidence.
+    return min(
+        confidence_tier(effective_appearances(stats)), confidence_tier(int(stats.minutes // 60))
+    )
+
+
 ELITE_RAW = 8.0  # raw score that maps to 10; fixed, never derived from the data
 MAX_SCORE = 10.0
 
@@ -81,7 +89,8 @@ class ScoringEngine:
         # Floor of one full match: a card in 1 minute must not become -90 per 90.
         raw_per90 = (offensive + defensive + tactical) / max(stats.minutes / 90, 1.0)
         starter_bonus = 1.0 + 0.2 * min(1.0, stats.matches_started / apps)
-        raw = raw_per90 * starter_bonus * confidence_tier(apps) + playing_time_bonus(stats, apps)
+        confidence = score_confidence(stats)
+        raw = (raw_per90 * starter_bonus + playing_time_bonus(stats, apps)) * confidence
 
         return Score(
             offensive=offensive,
