@@ -6,7 +6,9 @@ This document defines the logic for the AI selection engine. Use these formulas 
 
 ## 1. The Master Equation
 
-$$S_{final} = \frac{Offensive + Defensive + Tactical}{Minutes / 90} \times B_{starter} \times C_{apps} + B_{time}$$
+$$S_{final} = \min\!\left(10,\ \max\!\left(0,\ 10 \times \frac{R}{E}\right)\right), \qquad E = 8.0$$
+
+$$R = \frac{Offensive + Defensive + Tactical}{\max(Minutes / 90,\ 1)} \times B_{starter} \times C_{apps} + B_{time}$$
 
 Where:
 
@@ -14,18 +16,15 @@ $$B_{starter} = 1 + 0.2 \times \min\!\left(1,\ \frac{MatchesStarted}{Appearances
 
 $$C_{apps} = \begin{cases} 0.15 & \text{if } Appearances < 5 \\ 0.50 & \text{if } 5 \leq Appearances < 15 \\ 0.80 & \text{if } 15 \leq Appearances < 20 \\ 1.00 & \text{if } Appearances \geq 20 \end{cases}$$
 
-$$B_{time} = M_{early} \times 0.001 + M_{late} \times 0.0015$$
-
-$$M_{early} = \min\!\left(\frac{Minutes}{Appearances},\ 59\right) \times Appearances$$
-
-$$M_{late} = \max\!\left(0,\ \min\!\left(\frac{Minutes}{Appearances},\ 90\right) - 59\right) \times Appearances$$
+$$B_{time} = 0.5 \times \frac{\min(avg,\ 59)}{59} + 0.5 \times \frac{\max(0,\ \min(avg,\ 90) - 59)}{31}, \qquad avg = \frac{Minutes}{Appearances}$$
 
 - $C_{apps}$: appearance-based confidence multiplier. Dampens inflated per-90 rates for low-game-count players; reaches full weight at 20+ appearances. Team-specific match tracking is a planned improvement. Exposed via the API as `aggregated_scores.confidence`, computed at request time by `confidence_tier()`/`effective_appearances()` in `scoring_engine.py` — it is not stored in MongoDB.
-- $M_{early}$ / $M_{late}$: estimated playing minutes split at the 60th minute, using average minutes per appearance as a proxy (per-match breakdowns unavailable). Extra time not counted.
-- $B_{time}$ rewards playing time: minutes 60–90 earn 50% more per minute than early minutes.
+- $S_{final}$ is always in $[0, 10]$ and depends only on the player's own stats. $E$ (`ELITE_RAW`) is a fixed constant: a raw score of 8 maps to 10. It is never derived from the data.
+- The per-90 denominator has a floor of one full match, $\max(Minutes/90, 1)$. So a single card in a few minutes cannot produce an extreme negative rate.
+- $B_{time}$ is in $[0, 1]$. It uses average minutes per appearance: 0.5 for the first 59 minutes, 0.5 for minutes 60-90. It does not grow with total minutes, so loading another competition does not raise it.
 - If $Minutes = 0$, $S_{final} = 0$. The three pillars are still computed.
 - If $Appearances \leq 0$ but $Minutes > 0$ (legacy, corrupt, or partially scraped records), $Appearances$ is estimated as $\lceil Minutes / 90 \rceil$ so the record still ranks instead of silently scoring 0. Ceiling, not rounding: rounding can imply more than 90 minutes per appearance (1300 minutes rounds to 14, i.e. 92.9 min each), which the $\min(avg,90)$ split would then silently truncate. The $\min$ in $B_{starter}$ bounds it to $[1.0, 1.2]$ even when $MatchesStarted$ exceeds the estimate.
-- An estimated count assumes full 90-minute appearances, so it yields the largest $B_{time}$ reachable for those minutes. A record with missing appearance data can therefore out-score an otherwise identical record that shows real rotation.
+- An estimated count assumes full 90-minute appearances, so it yields the maximum $B_{time}$ (1.0). A record with missing appearance data can therefore out-score an otherwise identical record that shows real rotation.
 
 ---
 
