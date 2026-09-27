@@ -5,7 +5,8 @@ DESCRIPTION = (
 
 DESCRIPTION_FIND = (
     "Look up one player by name: team, position, nationality, minutes, appearances, "
-    "goals, assists, s_final and sleeper flag. The metric tools already accept "
+    "goals, assists, Fantasy Score and sleeper flag, as a combined total plus one line per "
+    "competition. Pass competition to limit it to one. The metric tools already accept "
     "player_name, so do NOT call this just to resolve a name — call it only when a name "
     "is ambiguous, you need a full profile, or the user asks who someone is. An empty "
     "result means no player matched; never invent one."

@@ -100,7 +100,8 @@ app/
     agent.py          # ChatAgent, build_agent() — create_agent loop, checkpointed per session
     providers.py      # ModelProvider strategy + PROVIDERS registry (gemini/openai/anthropic)
     llm.py            # build_chat_model(), build_fallback_model()
-    system_prompt.py  # SYSTEM_PROMPT
+    system_prompt.py  # build_system_prompt(today) — rebuilt per model call via dynamic_prompt
+    season.py         # calendar_season() / previous_season() — "this"/"last season" labels
     answer_check.py   # uncited_numbers() — flags figures not backed by a tool row
     checkpoints.py    # MongoDBSaver wiring; keep_latest_checkpoint() prunes old checkpoints
     constants.py      # MAX_TOOL_ITERATIONS, MAX_ROWS, error strings

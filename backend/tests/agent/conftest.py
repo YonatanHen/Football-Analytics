@@ -15,6 +15,7 @@ class FakeToolCallingModel(BaseChatModel):
 
     responses: list[AIMessage] = []
     index: int = 0
+    last_messages: list[BaseMessage] = []
 
     @property
     def _llm_type(self) -> str:
@@ -30,6 +31,7 @@ class FakeToolCallingModel(BaseChatModel):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
+        self.last_messages = messages
         message = self.responses[min(self.index, len(self.responses) - 1)]
         self.index += 1
         return ChatResult(generations=[ChatGeneration(message=message)])

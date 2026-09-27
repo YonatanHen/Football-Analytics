@@ -23,7 +23,7 @@ sequenceDiagram
     API->>Agent: answer(message, session_id)
     Agent->>DB: Load session thread<br/>(MongoDBSaver, chat_checkpoints)
     loop Until final answer or AGENT_MAX_TOOL_ITERATIONS
-        Agent->>LLM: SYSTEM_PROMPT + history + tool schemas
+        Agent->>LLM: System prompt (built per call with today's date)<br/>+ history + tool schemas
         Note over LLM: On failure, ModelFallbackMiddleware<br/>retries with the fallback model
         LLM-->>Agent: Tool call (e.g. attacking, find_player)
         Agent->>Tools: Tool args (MetricQuery for metric tools)
@@ -38,6 +38,14 @@ sequenceDiagram
     API-->>UI: ChatResponse JSON
     UI-->>User: Answer + tool trace (name, row count)<br/>+ warning if uncited figures
 ```
+
+## Seasons and competitions
+
+- The system prompt is rebuilt on every model call (`dynamic_prompt` middleware) with today's date. "This season" and "last season" follow the calendar (`season.py`; a new season starts in July). The tools read only `settings.season`. For any other season, the model still calls the tools and says that season is not loaded yet.
+- Every tool row carries `season` and `competitions` (the competitions its numbers cover). More than one competition means a combined total.
+- `find_player` returns a combined profile plus `by_competition` (appearances, minutes, goals, assists, Fantasy Score per competition), and takes an optional `competition`. A metric tool called with `player_name` and no `competition` adds a `by_competition` map for that metric. Rankings do not get the split.
+- A per-competition Fantasy Score is recomputed from that competition's stats alone. Rows use the key `fantasy_score`, and answers say "Fantasy Score", never `s_final`.
+- The prompt's season labels count as cited, so naming them does not trigger the `uncited` warning.
 
 ## Configuration
 
