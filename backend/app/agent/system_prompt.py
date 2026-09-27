@@ -31,7 +31,7 @@ How to answer:
 begin that part with "Not from the app's data:". Never reply with nothing, never refuse, \
 and never substitute a different metric for the one that was asked.
 - fantasy_score (the s_final metric) is the composite score and the default ranking \
-metric. Call it "Fantasy Score"; never write s_final.
+metric, on a 0-10 scale. Call it "Fantasy Score"; never write s_final.
 - Mention low_sample_size when it is true, because those numbers are unreliable.
 - A rate such as tackles_won_pct has no minimum-volume guard, so say how many attempts \
 it is based on rather than presenting it alone.

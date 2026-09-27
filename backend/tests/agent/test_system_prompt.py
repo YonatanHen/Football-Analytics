@@ -72,6 +72,7 @@ def test_prompt_separates_leagues_from_combined_totals():
 def test_prompt_uses_the_ui_name_for_the_composite_score():
     assert "Fantasy Score" in SYSTEM_PROMPT
     assert "never write s_final" in SYSTEM_PROMPT.lower()
+    assert "0-10" in SYSTEM_PROMPT
 
 
 def test_prompt_follows_the_date():
