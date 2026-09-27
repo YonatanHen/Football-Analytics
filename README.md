@@ -6,13 +6,13 @@ A football analytics platform for observing and analyzing player statistics acro
 
 The GIFs below show the dark-theme UI running against real 2025-26 season data.
 
-**Player Details** — Ranked table with live filters and sorting.
+**Player Details** — Ranked by the 0-10 Fantasy Score, with live filters and sorting.
 
-![Player details — ranked table with live filters and sorting](screenshots/01-player-details.gif)
+![Player details — ranked by the 0-10 Fantasy Score, with live filters and sorting](screenshots/01-player-details.gif)
 
-**Player Modal** — Scores, per-competition breakdown, goal and shot bars.
+**Player Modal** — Fantasy Score and 0-10 pillars (offensive, defensive, tactical), per-competition breakdown, goal and shot bars.
 
-![Player modal — scores, per-competition breakdown, goal and shot bars](screenshots/02-player-modal.gif)
+![Player modal — Fantasy Score and 0-10 pillars, per-competition breakdown, goal and shot bars](screenshots/02-player-modal.gif)
 
 **Compare** — Head-to-head with mirrored bars and a Δ column.
 
