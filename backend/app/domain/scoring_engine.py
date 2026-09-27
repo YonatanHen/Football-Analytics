@@ -27,16 +27,25 @@ def confidence_tier(apps: int) -> float:
     return 1.00
 
 
+ELITE_RAW = 8.0  # raw score that maps to 10; fixed, never derived from the data
+MAX_SCORE = 10.0
+
+
+def playing_time_bonus(stats: Stats, apps: int) -> float:
+    """0-1 bonus from average minutes per appearance: 0.5 for the first 59, 0.5 for 60-90."""
+    avg = stats.minutes / apps
+    early = min(avg, 59.0) / 59.0
+    late = max(0.0, min(avg, 90.0) - 59.0) / 31.0
+    return 0.5 * early + 0.5 * late
+
+
+def to_fantasy_scale(raw: float) -> float:
+    return min(MAX_SCORE, max(0.0, MAX_SCORE * raw / ELITE_RAW))
+
+
 class ScoringEngine:
     def calculate(self, stats: Stats, position: str) -> Score:
-        """Compute offensive/defensive/tactical scores and s_final.
-
-        s_final = raw_per90 * starter_bonus * confidence + playing_time_bonus
-        playing_time_bonus splits minutes at the 60th using minutes/appearances as a
-        proxy, paying 0.001/min early and 0.0015/min late. Only s_final is zeroed when
-        minutes is 0; the three pillars are still computed. A missing or non-positive
-        appearance count is estimated as ceil(minutes/90) so legacy records still rank.
-        """
+        """Compute the three pillars and s_final, a 0-10 score from this player's stats only."""
         weights = _POSITION_WEIGHTS[position]
 
         offensive = (
@@ -65,21 +74,18 @@ class ScoringEngine:
             - stats.fouls_committed * 0.2
         )
 
-        minutes_per_90 = stats.minutes / 90
-        if minutes_per_90 <= 0:
+        if stats.minutes <= 0:
             return Score(offensive=offensive, defensive=defensive, tactical=tactical, s_final=0.0)
 
-        raw_per90 = (offensive + defensive + tactical) / minutes_per_90
-
         apps = effective_appearances(stats)
-
+        # Floor of one full match: a card in 1 minute must not become -90 per 90.
+        raw_per90 = (offensive + defensive + tactical) / max(stats.minutes / 90, 1.0)
         starter_bonus = 1.0 + 0.2 * min(1.0, stats.matches_started / apps)
+        raw = raw_per90 * starter_bonus * confidence_tier(apps) + playing_time_bonus(stats, apps)
 
-        avg_mins = stats.minutes / apps
-        early_mins = min(avg_mins, 59.0) * apps
-        late_mins = max(0.0, min(avg_mins, 90.0) - 59.0) * apps
-        playing_time_bonus = early_mins * 0.001 + late_mins * 0.0015
-
-        s_final = raw_per90 * starter_bonus * confidence_tier(apps) + playing_time_bonus
-
-        return Score(offensive=offensive, defensive=defensive, tactical=tactical, s_final=s_final)
+        return Score(
+            offensive=offensive,
+            defensive=defensive,
+            tactical=tactical,
+            s_final=to_fantasy_scale(raw),
+        )

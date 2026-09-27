@@ -1,7 +1,16 @@
+import random
+
 import pytest
 
 from app.domain.models import Stats
-from app.domain.scoring_engine import ScoringEngine, confidence_tier, effective_appearances
+from app.domain.scoring_engine import (
+    ELITE_RAW,
+    ScoringEngine,
+    confidence_tier,
+    effective_appearances,
+    playing_time_bonus,
+    to_fantasy_scale,
+)
 
 
 @pytest.fixture
@@ -88,24 +97,26 @@ def test_tactical_pk_ratio_zero_when_no_pk_taken(engine: ScoringEngine) -> None:
     assert score.tactical == pytest.approx(0.0)
 
 
-def _bonus(apps: int, avg_mins: float) -> float:
-    early = min(avg_mins, 59.0) * apps
-    late = max(0.0, min(avg_mins, 90.0) - 59.0) * apps
-    return early * 0.001 + late * 0.0015
+def _bonus(avg_mins: float) -> float:
+    return 0.5 * min(avg_mins, 59.0) / 59.0 + 0.5 * max(0.0, min(avg_mins, 90.0) - 59.0) / 31.0
+
+
+def _scale(raw: float) -> float:
+    return min(10.0, max(0.0, 10.0 * raw / ELITE_RAW))
 
 
 def test_s_final_low_apps_confidence(engine: ScoringEngine) -> None:
     # 1 app → confidence=0.15; raw_per90=4.0, starter_bonus=1.2
     stats = Stats(goals=1, minutes=90, appearances=1, matches_started=1)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(4.0 * 1.2 * 0.15 + _bonus(1, 90), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(4.0 * 1.2 * 0.15 + _bonus(90)), rel=1e-4)
 
 
 def test_s_final_sub_low_apps(engine: ScoringEngine) -> None:
-    # 1 sub app (45 min) → confidence=0.15; raw_per90=8.0, starter_bonus=1.0
+    # 45 minutes count as one full match (floor), so raw_per90 is 4.0, not 8.0
     stats = Stats(goals=1, minutes=45, appearances=1, matches_started=0)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(8.0 * 1.0 * 0.15 + _bonus(1, 45), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(4.0 * 1.0 * 0.15 + _bonus(45)), rel=1e-4)
 
 
 def test_s_final_zero_when_no_minutes(engine: ScoringEngine) -> None:
@@ -119,7 +130,7 @@ def test_missing_appearances_estimated_from_minutes(engine: ScoringEngine) -> No
     # Legacy record: 900 min, no appearance count -> apps estimated as 10, confidence 0.50
     stats = Stats(goals=5, minutes=900, appearances=0)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(2.0 * 1.0 * 0.50 + _bonus(10, 90), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(2.0 * 1.0 * 0.50 + _bonus(90)), rel=1e-4)
 
 
 def test_missing_appearances_estimate_is_at_least_one(engine: ScoringEngine) -> None:
@@ -135,17 +146,16 @@ def test_starter_bonus_clamped_when_starts_exceed_estimated_appearances(
     # matches_started can exceed an estimated apps count; the ratio must not exceed 1.
     stats = Stats(goals=1, minutes=90, appearances=0, matches_started=5)
     score = engine.calculate(stats, "FW")
-    assert score.s_final == pytest.approx(4.0 * 1.2 * 0.15 + _bonus(1, 90), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(4.0 * 1.2 * 0.15 + _bonus(90)), rel=1e-4)
 
 
 @pytest.mark.parametrize(("apps", "confidence"), [(2, 0.15), (5, 0.50), (15, 0.80), (20, 1.00)])
 def test_confidence_tiers(engine: ScoringEngine, apps: int, confidence: float) -> None:
-    # Minutes held constant so only the tier varies; the expected value pins the constant.
-    # (Scaling minutes with apps lets playing_time_bonus carry the assertion instead.)
+    # Minutes held constant so only the tier varies.
     stats = Stats(goals=1, minutes=1800, appearances=apps)
     score = engine.calculate(stats, "FW")
     raw_per90 = 4.0 / 20  # FW: 1 goal x weight 4, over 1800 minutes
-    expected = raw_per90 * 1.0 * confidence + _bonus(apps, 1800 / apps)
+    expected = _scale(raw_per90 * 1.0 * confidence + _bonus(1800 / apps))
     assert score.s_final == pytest.approx(expected, rel=1e-4)
 
 
@@ -153,32 +163,29 @@ def test_confidence_capped_at_one_past_twenty_apps(engine: ScoringEngine) -> Non
     at_20 = engine.calculate(Stats(goals=1, minutes=1800, appearances=20), "FW")
     at_30 = engine.calculate(Stats(goals=1, minutes=1800, appearances=30), "FW")
     raw_per90 = 4.0 / 20
-    assert at_20.s_final == pytest.approx(raw_per90 + _bonus(20, 90.0), rel=1e-4)
-    assert at_30.s_final == pytest.approx(raw_per90 + _bonus(30, 60.0), rel=1e-4)
+    assert at_20.s_final == pytest.approx(_scale(raw_per90 + _bonus(90.0)), rel=1e-4)
+    assert at_30.s_final == pytest.approx(_scale(raw_per90 + _bonus(60.0)), rel=1e-4)
 
 
 def test_s_final_late_minutes_bonus_higher(engine: ScoringEngine) -> None:
-    # With 0 goals, raw_per90=0, so s_final == playing_time_bonus only.
-    # Full games (90 min avg) earn late-minute bonus; short stints (59 min avg) do not.
+    # With 0 goals, raw_per90=0, so s_final comes from the bonus only.
     full = Stats(goals=0, minutes=1800, appearances=20, matches_started=20)  # avg=90
     short = Stats(goals=0, minutes=1180, appearances=20, matches_started=20)  # avg=59
     assert engine.calculate(full, "FW").s_final > engine.calculate(short, "FW").s_final
 
 
 def test_starter_bonus_full_starter(engine: ScoringEngine) -> None:
-    # 20 full-game starts → confidence=1.0, starter_bonus=1.2
     stats = Stats(goals=1, minutes=1800, appearances=20, matches_started=20)
     score = engine.calculate(stats, "FW")
     raw_per90 = 4.0 / (1800 / 90)
-    assert score.s_final == pytest.approx(raw_per90 * 1.2 * 1.0 + _bonus(20, 90), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(raw_per90 * 1.2 + _bonus(90)), rel=1e-4)
 
 
 def test_starter_bonus_zero_starters(engine: ScoringEngine) -> None:
-    # 20 sub appearances → confidence=1.0, starter_bonus=1.0
     stats = Stats(goals=1, minutes=1800, appearances=20, matches_started=0)
     score = engine.calculate(stats, "FW")
     raw_per90 = 4.0 / (1800 / 90)
-    assert score.s_final == pytest.approx(raw_per90 * 1.0 * 1.0 + _bonus(20, 90), rel=1e-4)
+    assert score.s_final == pytest.approx(_scale(raw_per90 + _bonus(90)), rel=1e-4)
 
 
 def test_yellow_red_card_penalty(engine: ScoringEngine) -> None:
@@ -206,11 +213,88 @@ def test_gk_goals_prevented_negative(engine: ScoringEngine) -> None:
 
 
 def test_negative_appearances_treated_as_missing(engine: ScoringEngine) -> None:
-    # A negative count must not reach the arithmetic: it would make avg_mins negative and
-    # min(-300, 59) * -3 a positive bonus, i.e. a silently wrong score.
+    # A negative count must not reach the arithmetic; it is treated like a missing one.
     corrupt = engine.calculate(Stats(goals=5, minutes=900, appearances=-3), "FW")
     missing = engine.calculate(Stats(goals=5, minutes=900, appearances=0), "FW")
     assert corrupt.s_final == pytest.approx(missing.s_final, rel=1e-9)
+
+
+# --- 0-10 range ---
+
+
+def test_one_card_in_one_minute_scores_zero(engine: ScoringEngine) -> None:
+    # Before the floor this was -13.5: -1 point divided by 1/90 of a match.
+    stats = Stats(yellow_cards=1, minutes=1, appearances=1)
+    assert engine.calculate(stats, "MF").s_final == 0.0
+
+
+def test_minutes_floor_is_one_full_match(engine: ScoringEngine) -> None:
+    short = engine.calculate(Stats(goals=1, minutes=30, appearances=1), "FW")
+    assert short.s_final == pytest.approx(_scale(4.0 * 1.0 * 0.15 + _bonus(30)), rel=1e-4)
+
+
+def test_bonus_is_half_at_59_and_full_at_90() -> None:
+    assert playing_time_bonus(Stats(minutes=1180), 20) == pytest.approx(0.5)
+    assert playing_time_bonus(Stats(minutes=1800), 20) == pytest.approx(1.0)
+
+
+def test_bonus_is_capped_when_average_exceeds_90() -> None:
+    # A bad appearance count can give 300 minutes per game; the bonus must not pass 1.0.
+    assert playing_time_bonus(Stats(minutes=300), 1) == pytest.approx(1.0)
+
+
+def test_bonus_does_not_grow_with_total_minutes() -> None:
+    # A second competition adds minutes but not a larger bonus.
+    one_league = playing_time_bonus(Stats(minutes=900), 10)
+    two_leagues = playing_time_bonus(Stats(minutes=3600), 40)
+    assert one_league == pytest.approx(two_leagues)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"), [(-3.0, 0.0), (0.0, 0.0), (4.0, 5.0), (8.0, 10.0), (20.0, 10.0)]
+)
+def test_to_fantasy_scale_is_linear_and_clamped(raw: float, expected: float) -> None:
+    assert to_fantasy_scale(raw) == pytest.approx(expected)
+
+
+def test_exceptional_season_is_capped_at_ten(engine: ScoringEngine) -> None:
+    # Harry Kane 2025-26 combined: 12.09 under the old formula.
+    stats = Stats(
+        goals=50, assists=7, xg=36.19, xa=6.75, minutes=3421, appearances=44, matches_started=37
+    )
+    assert engine.calculate(stats, "FW").s_final == 10.0
+
+
+def test_very_negative_goalkeeper_scores_zero(engine: ScoringEngine) -> None:
+    stats = Stats(goals_prevented=-40.0, minutes=2700, appearances=30, matches_started=30)
+    assert engine.calculate(stats, "GK").s_final == 0.0
+
+
+def test_score_is_always_between_zero_and_ten(engine: ScoringEngine) -> None:
+    rng = random.Random(42)
+    for _ in range(3000):
+        stats = Stats(
+            goals=rng.randint(0, 60),
+            assists=rng.randint(0, 30),
+            xg=rng.uniform(0, 50),
+            xa=rng.uniform(0, 30),
+            clean_sheets=rng.randint(0, 30),
+            pk_saved=rng.randint(0, 5),
+            goals_prevented=rng.uniform(-40, 20),
+            pk_won=rng.randint(0, 6),
+            pk_scored=rng.randint(0, 10),
+            pk_taken=rng.randint(0, 12),
+            yellow_cards=rng.randint(0, 15),
+            yellow_red_cards=rng.randint(0, 3),
+            direct_red_cards=rng.randint(0, 3),
+            fouls_committed=rng.uniform(0, 90),
+            minutes=rng.choice([0, 1, 5, 45, 90, rng.randint(0, 5000)]),
+            appearances=rng.randint(-3, 50),
+            matches_started=rng.randint(0, 60),
+        )
+        for position in ("GK", "DF", "MF", "FW"):
+            s = engine.calculate(stats, position).s_final
+            assert 0.0 <= s <= 10.0, (position, stats, s)
 
 
 @pytest.mark.parametrize(
