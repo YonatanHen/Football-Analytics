@@ -177,7 +177,7 @@ CORS_ORIGINS=["http://localhost:5173"]
 GEMINI_API_KEY=your-key-here
 ```
 
-`GEMINI_API_KEY` powers the chat agent (default provider, free tier). Without it the rest of the API still starts — the agent is just disabled and `/v1/chat` returns a degraded response. See [backend/app/agent/README.md](backend/app/agent/README.md) for other providers.
+`GEMINI_API_KEY` powers the chat agent (default provider, free tier). Without it the rest of the API still starts — the agent is just disabled and `/v1/chat` returns a generic error message. See [backend/app/agent/README.md](backend/app/agent/README.md) for other providers.
 
 ### Full stack
 

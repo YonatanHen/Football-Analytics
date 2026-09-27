@@ -102,9 +102,23 @@ def test_a_gemini_key_is_never_sent_to_another_provider():
     assert module.ChatOpenAI.call_args.kwargs["api_key"] is None
 
 
-def test_there_is_no_fallback_model_unless_one_is_configured():
+def test_gemini_falls_back_to_flash_lite_by_default():
+    # A 503 on the primary model must not fail the chat; flash-lite has its own capacity.
     assert settings.llm_fallback_model == ""
-    assert build_fallback_model() is None
+    with patch("app.agent.providers.ChatGoogleGenerativeAI") as ctor:
+        model = build_fallback_model()
+    assert model is ctor.return_value
+    assert ctor.call_args.kwargs["model"] == "gemini-3.5-flash-lite"
+
+
+def test_there_is_no_fallback_when_the_provider_has_no_default():
+    with patch.object(settings, "llm_provider", "openai"):
+        assert build_fallback_model() is None
+
+
+def test_no_fallback_when_it_is_the_same_as_the_primary_model():
+    with patch.object(settings, "llm_fallback_model", "gemini-3.5-flash"):
+        assert build_fallback_model() is None
 
 
 def test_a_configured_fallback_model_is_built_with_the_same_provider():

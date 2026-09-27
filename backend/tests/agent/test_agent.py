@@ -81,7 +81,18 @@ async def test_model_failure_returns_the_generic_message():
     agent = ChatAgent(model=model, repo=fake_repo(), checkpointer=InMemorySaver())
     res = await agent.answer("anything", session_id="s6")
     assert res.answer == GENERIC_ERROR
-    assert res.degraded is True
+    assert res.degraded is False  # an outage is not an answer, so no "not backed" warning
+
+
+@pytest.mark.asyncio
+async def test_a_failing_primary_model_falls_back_to_the_next_one():
+    primary = FakeToolCallingModel(responses=[])  # raises, like a 503
+    fallback = FakeToolCallingModel(responses=[AIMessage(content="Hello from the fallback.")])
+    agent = ChatAgent(
+        model=primary, repo=fake_repo(), checkpointer=InMemorySaver(), fallback_models=[fallback]
+    )
+    res = await agent.answer("anything", session_id="s6b")
+    assert res.answer == "Hello from the fallback."
 
 
 @pytest.mark.asyncio

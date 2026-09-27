@@ -15,8 +15,11 @@ def build_chat_model(model: str | None = None) -> BaseChatModel:
 
 
 def build_fallback_model() -> BaseChatModel | None:
-    """The model used when the primary one fails. None unless LLM_FALLBACK_MODEL is set."""
-    return build_chat_model(settings.llm_fallback_model) if settings.llm_fallback_model else None
+    """The model used when the primary one fails, or None if there is no distinct one."""
+    provider = get_provider(settings.llm_provider)
+    name = settings.llm_fallback_model or provider.default_fallback_model
+    primary = settings.llm_model or provider.default_model
+    return build_chat_model(name) if name and name != primary else None
 
 
 def _api_key(provider: ModelProvider) -> str | None:

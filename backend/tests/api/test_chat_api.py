@@ -54,7 +54,7 @@ def test_chat_hides_internal_failures_behind_a_generic_message(client, agent):
     r = client.post("/v1/chat", json={"session_id": "s2", "message": "hi"})
     assert r.status_code == 200
     assert r.json()["answer"] == GENERIC_ERROR
-    assert r.json()["degraded"] is True
+    assert r.json()["degraded"] is False
     assert "mongo" not in r.text.lower()
 
 
@@ -100,7 +100,7 @@ def test_chat_without_an_agent_returns_the_generic_message(client_without_agent)
     r = client_without_agent.post("/v1/chat", json={"session_id": "s1", "message": "hi"})
     assert r.status_code == 200
     assert r.json()["answer"] == GENERIC_ERROR
-    assert r.json()["degraded"] is True
+    assert r.json()["degraded"] is False
     assert r.json()["tool_calls"] == []
 
 

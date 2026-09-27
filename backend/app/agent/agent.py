@@ -71,7 +71,8 @@ class ChatAgent:
             )
         except Exception:
             logger.exception("Agent failed for session %s", session_id)
-            return ChatResult(answer=GENERIC_ERROR, used_tools=False, degraded=True)
+            # Not degraded: the error text is not an answer, so the "not backed" warning is wrong.
+            return ChatResult(answer=GENERIC_ERROR, used_tools=False)
         await self._prune_session(session_id)
 
         messages = _current_turn(state["messages"])
